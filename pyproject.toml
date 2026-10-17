@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fixoflow"
+version = "0.2.0"
+description = "Ultra-lightweight, 100% local, zero-loss voice dictation engine for macOS"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Fixoflow Team" }
+]
+dependencies = [
+  "sounddevice>=0.5.0",
+  "numpy>=1.26.0",
+  "scipy>=1.12.0",
+  "mlx-whisper>=0.4.0",
+  "pynput>=1.7.6",
+  "pyobjc-framework-Cocoa>=10.0",
+  "pyobjc-framework-ApplicationServices>=10.0",
+  "pyobjc-framework-WebKit>=10.0",
+  "pyobjc-framework-AVFoundation>=10.0",
+  "pyobjc-framework-UserNotifications>=10.0"
+]
+
+[project.scripts]
+fixoflow = "fixoflow.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fixoflow*"]
+
+[project.optional-dependencies]
+packaging = ["pyinstaller==6.20.0"]
+dev = ["pytest>=8,<10"]
+
+[tool.setuptools.package-data]
+"fixoflow.ui" = ["*.html"]
