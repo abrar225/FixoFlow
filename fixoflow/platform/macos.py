@@ -201,14 +201,16 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05) -> InsertionOutcom
 
     The clipboard write always happens first: even if Accessibility is not
     granted or event posting fails, the user can paste manually with Cmd+V.
-    When permission is missing the system prompt is raised so the user can fix
-    it in one step.
+    System prompts are never raised here; the hub raises them only when the
+    user explicitly asks.
     """
     if not copy_to_clipboard(text):
         return InsertionOutcome(False, False, "clipboard-failed")
 
     if not accessibility_trusted():
-        accessibility_trusted(prompt=True)
+        # Never raise the system prompt from an insertion attempt. Prompting is
+        # an explicit user action (hub "Request permissions"); repeated dialogs
+        # on every paste are what make the app feel like it is asking forever.
         logger.warning("Accessibility permission is required to paste automatically")
         return InsertionOutcome(False, True, "permission")
 

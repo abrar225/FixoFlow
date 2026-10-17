@@ -83,9 +83,11 @@ The personal dictionary conditions the recognizer prompt and rewrites final text
 | :-- | :-- | :-- |
 | Microphone | Capture speech | System Settings → Privacy & Security → Microphone |
 | Accessibility | Paste ⌘V at the cursor | … → Accessibility |
-| Input Monitoring | Global shortcut while other apps are focused | … → Input Monitoring (restart after changing) |
+| Input Monitoring | Global shortcut while other apps are focused | … → Input Monitoring |
 
-The Settings tab shows live status for all three and a **Request permissions** button that raises the system prompts. Without Accessibility, dictation still works — text lands on the clipboard with a notification instead of pasting.
+The Settings tab shows live status for all three and a **Request permissions** button that raises the system prompts. macOS applies new grants only to a freshly started app, so after allowing Input Monitoring click **Restart Fixoflow** in Settings (or the menu-bar item) — the shortcut then activates by itself within a second; **Retry shortcut** forces an immediate re-check. Without Accessibility, dictation still works — text lands on the clipboard with a notification instead of pasting, and the app never re-raises the system dialog on its own.
+
+You only need to grant permissions once: builds are signed with a stable local signing identity (see below), so grants survive updates instead of resetting on every rebuild.
 
 ## Install
 
@@ -93,11 +95,12 @@ Build a self-contained `Fixoflow.app` (bundles Python, MLX, PortAudio and the `m
 
 ```sh
 uv pip install --python .venv/bin/python -e '.[packaging]'
+bash scripts/create_signing_cert.sh   # one time: stable local signing identity
 bash scripts/build_app.sh
 bash scripts/build_dmg.sh
 ```
 
-Then copy `dist/Fixoflow.app` to `/Applications` and launch it. Builds are ad-hoc signed; they are not Developer ID signed or notarized. See [packaging notes](docs/packaging.md).
+Then copy `dist/Fixoflow.app` to `/Applications` and launch it. `create_signing_cert.sh` creates a self-signed "Fixoflow Local Signing" certificate in your login keychain; signing with it anchors macOS permission grants to the certificate instead of the binary hash, so Accessibility / Input Monitoring / Microphone grants survive rebuilds. Without it, builds fall back to ad-hoc signing and every update resets permissions. Builds are not Developer ID signed or notarized. See [packaging notes](docs/packaging.md).
 
 ## CLI
 

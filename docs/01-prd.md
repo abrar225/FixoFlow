@@ -63,7 +63,7 @@ A user speaks a continuous thought of any length in any macOS application. On st
 ### Feature 6: Clipboard-First Insertion with Honest Reporting
 - **User need:** Text should appear where the cursor is, and never be lost silently.
 - **What it does:** Copies the transcript to the clipboard, then posts a synthetic ⌘V to the app that started the session (refocusing it first if the user focused another window mid-dictation).
-- **Outcomes:** `inserted` · `permission` (clipboard kept, Accessibility prompt raised) · `event-failed` (clipboard kept) · `clipboard-failed` (History only). Failures raise a desktop notification and are shown in the hub and CLI.
+- **Outcomes:** `inserted` · `permission` (clipboard kept; the hub explains the fix and only the explicit Request permissions button raises system prompts) · `event-failed` (clipboard kept) · `clipboard-failed` (History only). Failures raise a desktop notification and are shown in the hub and CLI.
 - **Acceptance criteria:** No keystroke is posted before the clipboard write succeeds; an unidentified target app is never guessed at.
 - **Error states:** Posting a keystroke does not prove the receiving app accepted it; History remains the recovery path.
 

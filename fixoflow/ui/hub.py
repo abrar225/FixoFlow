@@ -50,6 +50,7 @@ class HubManager:
         self.on_enable_shortcut = None
         self.on_show_overlay = None
         self.on_control_status = None
+        self.on_restart = None
         self._init_window()
 
     @classmethod
@@ -148,6 +149,12 @@ class HubManager:
                 self._eval_js(f"onSettingsResult(false, {json.dumps(str(e))});")
             self._publish_permissions()
             self.handle_action("getControlStatus", {})
+        elif action == "restartApp":
+            if self.on_restart is None:
+                self._eval_js("onSettingsResult(false, 'Open the full Fixoflow application to restart it.');")
+            else:
+                self._eval_js("onSettingsResult(true, 'Restarting Fixoflow…');")
+                self.on_restart()
         elif action == "openPermissionSettings":
             section = payload.get("section", "")
             allowed = {"microphone": "Privacy_Microphone", "accessibility": "Privacy_Accessibility", "input": "Privacy_ListenEvent"}

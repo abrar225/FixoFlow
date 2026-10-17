@@ -11,8 +11,9 @@
 - **Local application:** no accounts, passwords, or cloud logins.
 - **macOS permission gates (one-time, user-granted):**
   1. *Microphone* — required for capture. Status shown in the hub; request button available.
-  2. *Accessibility* — required for synthetic ⌘V insertion. Without it, transcripts still copy to the clipboard and a notification explains the fix.
-  3. *Input Monitoring* — required for the global shortcut listener; restart after changing. Without it, the floating control still works.
+  2. *Accessibility* — required for synthetic ⌘V insertion. Without it, transcripts still copy to the clipboard and a notification explains the fix; the system prompt is raised only on explicit request, never from a failed paste.
+  3. *Input Monitoring* — required for the global shortcut listener. macOS applies grants only to a newly started process, so the hub offers **Restart Fixoflow**; on relaunch the listener activates by itself once both grants are live (the hub also re-checks each second).
+- **Stable grant identity:** the bundle is signed with the local "Fixoflow Local Signing" certificate, so the designated requirement is certificate-anchored and grants survive rebuilds (ad-hoc signing would pin them to the binary hash).
 
 ---
 
@@ -79,9 +80,10 @@ flowchart TD
 
 ### Permission setup
 - Settings shows Accessibility / Input Monitoring / Microphone status. **Request permissions** raises all system prompts; per-permission buttons deep-link into System Settings.
+- **Restart Fixoflow** (Settings or menu bar) spawns a fresh instance after a short delay, then exits the old process — the only way a grant can reach a running app under macOS TCC. The hub also probes permissions once per second while the shortcut is inactive, so the listener starts by itself as soon as the grants are live. **Retry shortcut** forces the same check immediately.
 
 ### Configuration changes
-- Saving settings validates the hotkey, persists atomically with a backup, rebuilds the recorder/STT/polisher on the live app, and restarts the shortcut listener when permitted.
+- Saving settings validates the hotkey (recorded via the shortcut button or presets; at least one modifier or a function key), persists atomically with a backup, rebuilds the recorder/STT/polisher on the live app, and restarts the shortcut listener when permitted.
 
 ---
 
@@ -102,7 +104,7 @@ flowchart TD
 
 1. **Empty audio / no speech:** pipeline aborts with a clear overlay message; nothing is pasted, History stays clean.
 2. **Microphone failure or disconnect:** `RecordingError` surfaces; state returns to IDLE; already-flushed audio remains on disk.
-3. **Accessibility missing:** clipboard-first insertion reports `permission`, raises the prompt, and notifies; the user pastes manually.
+3. **Accessibility missing:** clipboard-first insertion reports `permission` and notifies; the text stays on the clipboard until the user pastes manually. The system prompt is never raised from an insertion attempt — the hub's **Request permissions** button is the one place prompts appear.
 4. **Paste keystroke rejected:** `event-failed`; clipboard keeps the text; notification says to paste manually.
 5. **No silence for slicing:** hard cut at 24 s with a cross-fade; sample count is preserved.
 6. **Chunk decode failure:** partial text saved beside the audio as `.transcript.json`; the session is marked incomplete and never pasted as complete.

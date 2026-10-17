@@ -36,13 +36,13 @@
 - Overview: runtime status dot (Ready / Listening / Transcribing), shortcut state, words dictated, time saved (estimated at 40 WPM), speaking pace, session count, and per-app breakdown.
 - History: searchable list with Copy and Delete; Clear history rebuilds analytics so the dashboard can never disagree with what is visible.
 - Dictionary: phrase → replacement entries with review and remove; Add word form with category.
-- Settings: control toggles, shortcut field with presets, dictation mode cards, local model selector, permission panel with live status and a Request permissions button.
+- Settings: control toggles, shortcut recorder (click the button, press the combination; Escape cancels, Backspace clears, presets included), dictation mode cards, local model selector, permission panel with live status, a Request permissions button, and Restart Fixoflow after granting Input Monitoring.
 
 ### CLI
 - Plain sentences, no emoji. `record` ends with an explicit delivery line: pasted at cursor, clipboard untouched (`--no-paste`), or the exact failure reason.
 
 ### Menu bar
-- Status item with Start/Stop (shows the shortcut), mode selection (Coding / Writing / Automatic), Open Hub, Quit. Title reflects processing state.
+- Status item with Start/Stop (shows the shortcut), mode selection (Coding / Writing / Automatic), Open Hub, Restart Fixoflow, Quit. Title reflects processing state.
 
 ---
 

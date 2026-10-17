@@ -29,7 +29,7 @@ Must-have features (implemented):
 Nice-to-have features (implemented or partial):
 - Menu bar status icon with start/stop control and mode selection.
 - Desktop notifications for insertion failures (UserNotifications, legacy fallback).
-- Live permission panel (Accessibility, Input Monitoring, Microphone) with a one-click request button.
+- Live permission panel (Accessibility, Input Monitoring, Microphone) with a one-click request button and a Restart Fixoflow action (macOS applies grants only to a freshly started app; the shortcut then activates by itself).
 - `fixoflow transcribe` for existing audio files (resamples to 16 kHz, applies formatting and polish).
 
 Platform:

@@ -32,10 +32,20 @@ files through mlx-whisper's own filename API would require ffmpeg and is not a
 supported packaged workflow.
 
 Build products are in `dist/`. Existing app/DMG products are retained in `dist/.previous-builds/` before
-replacement; app backups use a non-app extension to avoid extra launchable copies. The scripts never overwrite `/Applications/Fixoflow.app`. Local
-builds use an **ad-hoc code signature**. They are **not Developer ID signed or
-notarized**, and no claim of Gatekeeper approval is made. Entitlements and a
-Developer ID/notarization pipeline are future distribution work.
+replacement; app backups use a non-app extension to avoid extra launchable copies. The scripts never overwrite `/Applications/Fixoflow.app`. DMG staging
+copies are unregistered from Launch Services and removed after the image is
+created, so only one bundle with `com.fixoflow.app` stays visible to the system.
+
+Run `scripts/create_signing_cert.sh` once to install a self-signed **"Fixoflow
+Local Signing"** code-signing identity in the login keychain; `build_app.sh`
+then signs with it automatically (`FIXOFLOW_SIGN_IDENTITY` overrides). This
+keeps the designated requirement certificate-anchored
+(`certificate root = H"…"` instead of `cdhash H"…"`), so macOS permission
+grants survive rebuilds. Without the identity, builds fall back to ad-hoc
+signing and every update resets Accessibility / Input Monitoring / Microphone
+grants. Builds are **not Developer ID signed or notarized**, and no claim of
+Gatekeeper approval is made. Entitlements and a Developer ID/notarization
+pipeline are future distribution work.
 
 Validate the actual final bundle before copying it to Applications:
 

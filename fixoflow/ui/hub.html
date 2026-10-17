@@ -74,7 +74,10 @@
     .button-row { display:flex; flex-wrap:wrap; gap:7px; }
     input:not([type=checkbox]),select { min-height:34px; border:1px solid #d9d9d2; border-radius:6px; background:white; color:var(--text); padding:7px 9px; min-width:0; }
     input:not([type=checkbox]) { width:100%; }
-    .shortcut-input { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .shortcut-recorder { width:100%; min-height:34px; border:1px solid #d9d9d2; border-radius:6px; background:white; color:var(--text); padding:7px 9px; text-align:left; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+    .shortcut-recorder:hover { background:#f0f0ed; }
+    .shortcut-recorder.recording { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:#f7f7f3; color:var(--muted); }
+    .shortcut-recorder:focus-visible { outline:3px solid #587798; outline-offset:2px; }
     .shortcut-preset { font-size:11px; min-height:27px; padding:4px 9px; }
     .warning { color:#806132; font-size:11px; margin:9px 0 0; line-height:1.5; }
     .mode-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
@@ -153,7 +156,7 @@
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show floating bar at all times</label><span class="setting-desc">Keep the start / stop button visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgSounds">Recording sounds</label><span class="setting-desc">Play a sound when a recording starts and stops.</span></div><label class="switch"><input id="cfgSounds" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgInteraction">Shortcut behavior</label><span class="setting-desc">The floating bar always works as a click-to-toggle control.</span></div><select id="cfgInteraction"><option value="both">Tap to toggle, hold to talk</option><option value="toggle">Tap to toggle</option><option value="hold">Hold to talk</option></select></div>
-        <div class="setting-row"><div class="setting-copy field-stack"><label class="setting-title" for="cfgHotkey">Keyboard shortcut</label><input id="cfgHotkey" class="shortcut-input" value="&lt;ctrl&gt;+&lt;space&gt;" spellcheck="false" autocapitalize="off"><div class="button-row"><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;ctrl&gt;+&lt;space&gt;')">⌃ Space</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;cmd&gt;+&lt;shift&gt;+d')">⌘ ⇧ D</button></div><p class="warning">Control + Space can conflict with the macOS input-source shortcut. Try Command + Shift + D, then save preferences.</p></div></div>
+        <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="shortcutTitle">Keyboard shortcut</span><button type="button" id="shortcutRecorder" class="shortcut-recorder" aria-labelledby="shortcutTitle shortcutRecorderLabel" aria-describedby="shortcutHelp" onclick="toggleShortcutRecording()"><span id="shortcutRecorderLabel">⌃ Space</span></button><div class="button-row"><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;cmd&gt;+&lt;shift&gt;+d')">⌘ ⇧ D</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;ctrl&gt;+&lt;space&gt;')">⌃ Space</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;alt&gt;+&lt;space&gt;')">⌥ Space</button></div><p id="shortcutHelp" class="warning">Click the button, then press the combination you want. Include a modifier (⌘ ⌃ ⌥ ⇧) or use a function key. Escape cancels; Backspace clears. Control + Space can conflict with the macOS input-source shortcut.</p></div></div>
       </div></div>
       <div class="card-section"><div class="section-header">Dictation mode</div><p class="section-description">Choose how local formatting handles your transcript.</p><div class="mode-grid">
         <button id="modeAuto" class="mode-option" aria-pressed="false" onclick="selectMode('auto')"><span class="mode-name">Automatic</span><span class="mode-desc">Choose coding or writing rules from the active application.</span></button>
@@ -162,7 +165,7 @@
         <button id="modeRaw" class="mode-option" aria-pressed="false" onclick="selectMode('raw')"><span class="mode-name">Raw transcript</span><span class="mode-desc">Use the speech engine’s transcript without additional polishing.</span></button>
       </div></div>
       <div class="card-section"><div class="section-header">Speech model</div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
-      <div class="card-section"><div class="section-header">macOS permissions</div><p id="permissionStatus" role="status">Checking permissions…</p><p class="permission-list">Accessibility lets Fixoflow paste your transcript into the app you were using. Input Monitoring lets the keyboard shortcut work while other apps are focused. Microphone is required to record. After enabling Input Monitoring, quit and reopen Fixoflow, then retry the shortcut.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'accessibility'})">Accessibility</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'input'})">Input Monitoring</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Microphone</button><button class="action-btn" onclick="post('enableShortcut')">Retry shortcut</button></div></div>
+      <div class="card-section"><div class="section-header">macOS permissions</div><p id="permissionStatus" role="status">Checking permissions…</p><p class="permission-list">Accessibility lets Fixoflow paste your transcript into the app you were using. Input Monitoring lets the keyboard shortcut work while other apps are focused. Microphone is required to record. macOS applies new grants only to a freshly started app, so after allowing Input Monitoring click Restart Fixoflow. The shortcut then turns on by itself within a second.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'accessibility'})">Accessibility</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'input'})">Input Monitoring</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Microphone</button><button class="action-btn" onclick="post('enableShortcut')">Retry shortcut</button><button class="action-btn" onclick="post('restartApp')">Restart Fixoflow</button></div></div>
       <div class="save-row"><p id="settingsResult" role="status" aria-live="polite">Changes apply when you save.</p><button id="savePreferences" class="primary-btn" onclick="saveSettings()">Save preferences</button></div>
     </section>
   </main>
@@ -180,6 +183,7 @@
     function switchTab(tab) {
       const names = {dashboard:'Dashboard',history:'History',dictionary:'Dictionary',settings:'Settings'};
       if (!names[tab]) return;
+      if (shortcutRecording) stopShortcutRecording();
       activeTab = tab;
       for (const [key, suffix] of Object.entries(names)) {
         const button = document.getElementById('nav' + suffix);
@@ -273,7 +277,7 @@
     function onConfigData(cfg) {
       currentConfig = {...cfg};
       configLoaded = true;
-      document.getElementById('cfgHotkey').value = cfg.hotkey || '<ctrl>+<space>';
+      renderShortcutRecorder();
       const model = document.getElementById('cfgModel');
       const modelName = cfg.model_name || 'mlx-community/whisper-base.en-mlx';
       if (![...model.options].some(option => option.value === modelName)) {
@@ -303,7 +307,61 @@
       currentConfig.mode = mode;
       if (changed) markUnsaved();
     }
-    function setShortcut(value) { document.getElementById('cfgHotkey').value = value; markUnsaved(); }
+    const SHORTCUT_GLYPHS = {'<cmd>':'⌘','<ctrl>':'⌃','<alt>':'⌥','<shift>':'⇧','<space>':'Space','<enter>':'↩','<tab>':'⇥','<backspace>':'⌫','<delete>':'⌦','<up>':'↑','<down>':'↓','<left>':'←','<right>':'→','<home>':'Home','<end>':'End','<page_up>':'PgUp','<page_down>':'PgDn'};
+    const SHORTCUT_KEYS = {' ':'<space>','Enter':'<enter>','Tab':'<tab>','Backspace':'<backspace>','Delete':'<delete>','ArrowUp':'<up>','ArrowDown':'<down>','ArrowLeft':'<left>','ArrowRight':'<right>','Home':'<home>','End':'<end>','PageUp':'<page_up>','PageDown':'<page_down>'};
+    let shortcutRecording = false;
+    function formatShortcut(shortcut) {
+      if (!shortcut) return 'Not set — click to record';
+      return shortcut.split('+').map(part => {
+        const key = part.trim().toLowerCase();
+        if (SHORTCUT_GLYPHS[key]) return SHORTCUT_GLYPHS[key];
+        const inner = key.replace(/[<>]/g, '');
+        return inner.length === 1 ? inner.toUpperCase() : inner.charAt(0).toUpperCase() + inner.slice(1);
+      }).join(' ');
+    }
+    function renderShortcutRecorder() {
+      document.getElementById('shortcutRecorderLabel').textContent = formatShortcut(currentConfig.hotkey);
+    }
+    function shortcutKeyName(event) {
+      const key = event.key;
+      if (/^[a-z]$/i.test(key)) return key.toLowerCase();
+      if (/^[0-9]$/.test(key)) return key;
+      if (/^F([1-9]|1[0-9]|20)$/.test(key)) return '<' + key.toLowerCase() + '>';
+      return SHORTCUT_KEYS[key] || null;
+    }
+    function toggleShortcutRecording() { shortcutRecording ? stopShortcutRecording() : startShortcutRecording(); }
+    function startShortcutRecording() {
+      shortcutRecording = true;
+      document.getElementById('shortcutRecorder').classList.add('recording');
+      document.getElementById('shortcutRecorderLabel').textContent = 'Press your combination… (Esc cancels)';
+      window.addEventListener('keydown', captureShortcut, true);
+    }
+    function stopShortcutRecording() {
+      shortcutRecording = false;
+      window.removeEventListener('keydown', captureShortcut, true);
+      document.getElementById('shortcutRecorder').classList.remove('recording');
+      renderShortcutRecorder();
+    }
+    function captureShortcut(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === 'Escape') { stopShortcutRecording(); return; }
+      const parts = [];
+      if (event.metaKey) parts.push('<cmd>');
+      if (event.ctrlKey) parts.push('<ctrl>');
+      if (event.altKey) parts.push('<alt>');
+      if (event.shiftKey) parts.push('<shift>');
+      const key = shortcutKeyName(event);
+      if (!key) return;
+      if (key === '<backspace>' && parts.length === 0) { setShortcut(''); stopShortcutRecording(); return; }
+      if (parts.length === 0 && !/^<f([1-9]|1[0-9]|20)>$/.test(key)) {
+        document.getElementById('shortcutRecorderLabel').textContent = 'Add a modifier (⌘ ⌃ ⌥ ⇧) or use a function key';
+        return;
+      }
+      setShortcut([...parts, key].join('+'));
+      stopShortcutRecording();
+    }
+    function setShortcut(value) { currentConfig.hotkey = value; if (!shortcutRecording) renderShortcutRecorder(); markUnsaved(); }
     function toggleAddWordModal() {
       const form = document.getElementById('addWordForm');
       form.classList.toggle('hidden');
@@ -327,8 +385,9 @@
     function copyText(text) { post('copyText', {text}); }
     function saveSettings() {
       if (!configLoaded) { onSettingsResult(false, 'Settings are still loading. Reopen Settings and try again.'); return; }
+      if (!currentConfig.hotkey) { onSettingsResult(false, 'Record a keyboard shortcut before saving.'); return; }
       const interaction = document.getElementById('cfgInteraction').value;
-      const candidate = {...currentConfig,hotkey:document.getElementById('cfgHotkey').value.trim(),model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,dual_mode_hotkey:interaction === 'both',hold_to_talk:interaction === 'hold'};
+      const candidate = {...currentConfig,hotkey:currentConfig.hotkey,model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,dual_mode_hotkey:interaction === 'both',hold_to_talk:interaction === 'hold'};
       const sent = post('saveConfig', {config:candidate});
       if (sent) {
         document.getElementById('settingsResult').textContent = 'Applying preferences…';

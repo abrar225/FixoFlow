@@ -10,7 +10,23 @@ def manager():
     ui.config = FixoflowConfig(initial_prompt='Keep the selected prompt')
     ui._eval_js = Mock()
     ui.on_control_status = lambda: {'state':'IDLE','shortcut_active':False}
+    ui.on_restart = None
     return ui
+
+
+def test_restart_action_replaces_the_process():
+    ui = manager()
+    restarts = []
+    ui.on_restart = lambda: restarts.append(True)
+    ui.handle_action('restartApp', {})
+    assert restarts == [True]
+    assert 'Restarting' in ui._eval_js.call_args.args[0]
+
+
+def test_restart_without_app_is_reported_not_silently_ignored():
+    ui = manager()
+    ui.handle_action('restartApp', {})
+    assert 'onSettingsResult(false' in ui._eval_js.call_args.args[0]
 
 
 def test_new_preferences_preserve_unexposed_settings():

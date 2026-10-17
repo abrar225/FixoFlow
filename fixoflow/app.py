@@ -6,9 +6,13 @@ the floating glassmorphic pill overlay, and the global hotkey daemon.
 from __future__ import annotations
 
 import logging
+import os
+import shlex
 import signal
+import subprocess
 import sys
 import threading
+import time
 import argparse
 import fcntl
 import json
@@ -29,6 +33,19 @@ from fixoflow.ui.hub import HubManager
 from fixoflow.controls import shortcut_label
 
 logger = logging.getLogger("fixoflow.app")
+
+
+def relaunch_command(bundle_path: Optional[str] = None) -> list:
+    """Detached command that opens a fresh instance after this one exits.
+
+    macOS applies permission grants (Input Monitoring always, Accessibility
+    usually) only to a newly started process. The single-instance lock would
+    otherwise route every reopen to the process that predates the grant.
+    """
+    if getattr(sys, "frozen", False) or bundle_path:
+        path = bundle_path or AppKit.NSBundle.mainBundle().bundlePath()
+        return ["/bin/sh", "-c", f"sleep 1.2; exec /usr/bin/open -n {shlex.quote(path)}"]
+    return ["/bin/sh", "-c", f"sleep 1.2; exec {shlex.quote(sys.executable)} -m fixoflow.app"]
 
 
 def check_floating_control(overlay):
@@ -101,6 +118,10 @@ class MenuDelegate(NSObject):
         if self.app_instance:
             self.app_instance.daemon.controls.toggle()
 
+    def restartApp_(self, sender):
+        if self.app_instance:
+            self.app_instance.restart()
+
     def quitApp_(self, sender):
         if self.app_instance:
             self.app_instance.stop()
@@ -127,9 +148,11 @@ class FixoflowApp:
         self.hub.on_enable_shortcut = self.enable_shortcut
         self.hub.on_show_overlay = self.show_overlay
         self.hub.on_control_status = self.control_status
+        self.hub.on_restart = self.restart
         self.daemon.controls.on_change = lambda: NSOperationQueue.mainQueue().addOperationWithBlock_(self.refresh_status)
         self._status_cache = None
-        self._shortcut_error = "Shortcut permissions needed. You can use the floating button."
+        self._shortcut_error = "Shortcut needs Accessibility and Input Monitoring. Grant them, then restart Fixoflow if the status stays red."
+        self._last_permission_probe = 0.0
         self._running = False
         request_notification_authorization()
 
@@ -158,6 +181,24 @@ class FixoflowApp:
             self._toggle_menu_item.setTitle_("Stop dictation" if status["state"] == "RECORDING" else
                 "Transcribing…" if status["state"] == "PROCESSING" else f"Start dictation ({status['shortcut']})")
             self._toggle_menu_item.setEnabled_(status["state"] != "PROCESSING")
+        self._activate_shortcut_when_permitted(status)
+
+    def _activate_shortcut_when_permitted(self, status):
+        """Start the listener as soon as macOS reports the grants are live.
+
+        The permission check is cheap but not free; probe at most once a
+        second while the shortcut is inactive with a known blocker.
+        """
+        if status["shortcut_active"] or not self._shortcut_error:
+            return
+        now = time.monotonic()
+        if now - self._last_permission_probe < 1.0:
+            return
+        self._last_permission_probe = now
+        if not accessibility_trusted(prompt=False) or not input_monitoring_trusted(prompt=False):
+            return
+        if self.enable_shortcut() is None:
+            logger.info("Shortcut listener started after permissions became available")
 
     def enable_shortcut(self):
         """Start the global shortcut listener.
@@ -256,6 +297,12 @@ class FixoflowApp:
 
         menu.addItem_(AppKit.NSMenuItem.separatorItem())
 
+        restart_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Restart Fixoflow", "restartApp:", ""
+        )
+        restart_item.setTarget_(self._delegate)
+        menu.addItem_(restart_item)
+
         quit_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             "Quit Fixoflow", "quitApp:", "q"
         )
@@ -320,6 +367,19 @@ class FixoflowApp:
             self.daemon.stop()
         if self.hub:
             self.hub.hide()
+
+    def restart(self):
+        """Replace this process with a fresh instance.
+
+        Required after permission changes: macOS applies grants only to newly
+        started processes, and the single-instance lock routes plain reopens
+        back to this (pre-grant) process.
+        """
+        command = relaunch_command()
+        subprocess.Popen(command, start_new_session=True)
+        logger.info("Restarting Fixoflow with a fresh process")
+        self.stop()
+        os._exit(0)
 
 
 def main(argv=None):

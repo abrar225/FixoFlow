@@ -2,7 +2,7 @@ from unittest.mock import Mock
 from fixoflow.platform import macos
 
 
-def test_missing_accessibility_still_copies_and_reports_permission(monkeypatch):
+def test_missing_accessibility_still_copies_without_raising_prompt(monkeypatch):
     # Actual PyObjC framework export must exist; Quartz does not own this API.
     assert callable(macos.ApplicationServices.AXIsProcessTrusted)
     prompts = []
@@ -16,7 +16,9 @@ def test_missing_accessibility_still_copies_and_reports_permission(monkeypatch):
     clipboard.assert_called_once_with('keep this text')
     event.assert_not_called()
     assert outcome == macos.InsertionOutcome(False, True, 'permission')
-    assert prompts == [False, True]
+    # A failed insertion must never raise the system dialog; prompting is an
+    # explicit hub action. Repeated dialogs on every paste are the bug.
+    assert prompts == [False]
 
 
 def test_failed_clipboard_prevents_event_injection(monkeypatch):
