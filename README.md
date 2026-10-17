@@ -42,7 +42,10 @@ Every transcript is stored in local SQLite history, so text is recoverable even 
 | Tap the shortcut | Recording starts and stays on until you tap again |
 | Hold the shortcut past 0.45 s | Push-to-talk: release to stop and transcribe |
 | Escape | Cancels capture; the audio file is kept |
-| Click the floating bar | Same toggle control, no keyboard needed |
+| Click the floating pill | Same toggle control, no keyboard needed |
+| Drag the floating pill | Drops into the nearest of three slots — top center, bottom center, bottom right — and remembers it |
+
+The floating pill is a 92 × 30 pt glass capsule over a real macOS backdrop blur (`NSVisualEffectView`), so it stays out of the way; it expands only while you hover, record, or when a result needs to be shown. Idle it sits at 82% opacity, wakes to full opacity on hover, and its width, corner radius, and position all animate between states.
 
 Text delivery is **clipboard-first**: the transcript is copied before any keystroke is posted. If the target app moved to the background, Fixoflow tries to refocus it; if Accessibility is missing or the paste keystroke is rejected, the text is already on your clipboard and a notification explains what happened.
 

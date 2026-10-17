@@ -4,41 +4,177 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fixoflow floating control</title>
 <style>
-*{box-sizing:border-box}body{margin:0;width:100vw;height:100vh;display:grid;place-items:center;background:transparent;overflow:hidden;color:#f9f9f7;font:12px -apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;user-select:none;-webkit-user-select:none}
-.bar{height:44px;max-width:306px;display:flex;align-items:center;padding:4px;gap:1px;border-radius:25px;background:rgba(23,23,25,.96);border:1px solid rgba(255,255,255,.18);box-shadow:0 6px 16px #0003,inset 0 1px #ffffff0d}
-button{font:inherit;color:inherit;border:0;background:transparent;cursor:pointer;border-radius:20px;height:34px;display:flex;align-items:center;justify-content:center}button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #c9b9f2;outline-offset:1px}button:disabled{cursor:wait;opacity:.75}
-.main{gap:9px;padding:0 12px 0 10px;min-width:166px;justify-content:flex-start}.icon{width:20px;height:20px;display:grid;place-items:center;flex-shrink:0}.icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}.label{white-space:nowrap;max-width:154px;overflow:hidden;text-overflow:ellipsis;font-weight:500}.key{font-size:10px;color:#b7b7bb;padding-left:5px;white-space:nowrap}.utility{width:33px;flex-shrink:0}.utility svg{width:15px;height:15px;stroke:#b7b7bb;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.divider{height:16px;width:1px;background:#ffffff18;margin:0 2px}
-.wave{height:19px;width:20px;gap:2px;align-items:center;display:none;--level:0}.wave i{width:2px;height:5px;border-radius:2px;background:#fff;transform:scaleY(calc(1 + var(--level)*3));transition:transform .08s}.wave i:nth-child(2),.wave i:nth-child(4){height:9px}.wave i:nth-child(3){height:13px}
-[data-state=listening] .main{background:#ffffff0c}[data-state=listening] .mic{display:none}[data-state=listening] .wave{display:flex}[data-state=listening] .key{color:#e6b0aa}.spinner{display:none;width:15px;height:15px;border:1.5px solid #ffffff40;border-top-color:#fff;border-radius:50%;animation:spin .85s linear infinite}[data-state=processing] .mic{display:none}[data-state=processing] .spinner{display:block}[data-state=success] .mic{color:#adceae}[data-state=error] .mic{color:#edb08f}.cancel{display:none}[data-state=listening] .cancel{display:flex}
-@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:root{
+  --ease:cubic-bezier(.34,.8,.3,1);
+  --tint:rgba(30,30,34,.40);
+  --tint-live:rgba(36,32,42,.58);
+  --line:rgba(255,255,255,.16);
+  --ink:#fafafc;
+  --dim:rgba(250,250,252,.58);
+  --ok:#9fd8a8;
+  --err:#f2a29a;
+}
+*{box-sizing:border-box;outline:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+body{display:grid;place-items:center;font:12px -apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none}
+
+/* ---- the pill ---------------------------------------------------------- */
+.pill{position:relative;display:flex;align-items:center;gap:2px;height:30px;width:92px;padding:0 4px;border-radius:999px;background:var(--tint);cursor:grab;overflow:hidden;
+  transition:width .18s var(--ease),height .18s var(--ease),background .2s var(--ease)}
+.pill.dragging{cursor:grabbing;background:var(--tint-live)}
+
+button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer;border-radius:999px;height:24px;min-width:24px;padding:0 5px;display:flex;align-items:center;justify-content:center;
+  transition:background .12s ease,opacity .12s ease}
+button:hover{background:rgba(255,255,255,.10)}
+button:active{background:rgba(255,255,255,.18)}
+button:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+button:disabled{cursor:wait;opacity:.8}
+.main{flex:1;min-width:0;justify-content:flex-start;gap:6px}
+.utility{flex:none;width:24px;padding:0}
+
+/* ---- status glyph: mic · wave · spinner · check · warn ----------------- */
+.glyph{position:relative;width:18px;height:18px;flex:none}
+.glyph>*{position:absolute;inset:0;margin:auto;transition:opacity .14s ease,transform .22s var(--ease)}
+svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+.g-mic{opacity:1}
+.g-wave{width:18px;height:16px;display:flex;align-items:center;justify-content:center;gap:1.5px;opacity:0;transform:scale(.5)}
+.g-wave i{width:2.5px;height:5px;border-radius:2px;background:currentColor;transform-origin:center}
+.g-wave i:nth-child(2),.g-wave i:nth-child(4){height:8px}
+.g-wave i:nth-child(3){height:11px}
+.g-spin{width:14px;height:14px;border:1.6px solid rgba(255,255,255,.28);border-top-color:#fff;border-radius:50%;opacity:0;transform:scale(.5);animation:spin .8s linear infinite}
+.g-check{opacity:0;transform:scale(.4);stroke:var(--ok)}
+.g-warn{opacity:0;transform:scale(.5);stroke:var(--err)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+[data-state=listening] .g-mic,[data-state=processing] .g-mic,[data-state=success] .g-mic,[data-state=error] .g-mic{opacity:0;transform:scale(.5)}
+[data-state=listening] .g-wave{opacity:1;transform:none}
+[data-state=processing] .g-spin{opacity:1;transform:none}
+[data-state=success] .g-check{opacity:1;transform:scale(1)}
+[data-state=error] .g-warn{opacity:1;transform:none}
+
+/* ---- text ---------------------------------------------------------------- */
+.label{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.keys{flex:none;font-size:10px;line-height:1;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:2px 5px;white-space:nowrap}
+.timer{display:none;flex:none;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+
+[data-state=listening] .label{color:var(--ink)}
+[data-state=success] .label{color:var(--ok)}
+[data-state=error] .label{color:var(--err)}
+[data-state=listening] .timer{display:inline}
+
+/* ---- per-state controls -------------------------------------------------- */
+.cancel,.hub{display:none}
+[data-state=idle]:not(.hover) .label{display:none}
+[data-state=idle] .hub{display:flex}
+[data-state=listening] .keys,[data-state=processing] .keys,[data-state=success] .keys,[data-state=error] .keys{display:none}
+[data-state=listening] .cancel{display:flex}
+[data-state=error] .hub{display:flex}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s!important;transition-duration:.001s!important}
+}
 </style>
 </head>
 <body>
-<div class="bar" id="bar" data-state="idle" role="group" aria-label="Fixoflow dictation controls">
-<button id="toggle" class="main" aria-label="Start dictation" title="Click to start. Click again to stop and transcribe." onclick="post('toggle')">
-<span class="icon"><svg class="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span class="wave" id="wave"><i></i><i></i><i></i><i></i><i></i></span><span class="spinner"></span></span>
-<span id="label" class="label" aria-live="polite">Click to dictate</span><span id="key" class="key">⌃ Space</span>
+<div class="pill" id="bar" data-state="idle" role="group" aria-label="Fixoflow dictation controls">
+<button id="toggle" class="main" aria-label="Start dictation" title="Click to dictate · drag to move" onclick="mainAction()">
+<span class="glyph">
+<svg class="g-mic" viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 10.5v1.5a6.5 6.5 0 0 0 13 0v-1.5M12 18.5V21m-3.5 0h7"/></svg>
+<span class="g-wave" id="wave"><i></i><i></i><i></i><i></i><i></i></span>
+<span class="g-spin"></span>
+<svg class="g-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+<svg class="g-warn" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>
+</span>
+<span class="label" id="label" aria-live="polite">Click to dictate</span>
+<span class="keys" id="key">⌃Space</span>
+<span class="timer" id="timer">0:00</span>
 </button>
-<button class="utility cancel" aria-label="Cancel recording" title="Cancel recording · audio is kept" onclick="post('cancel')"><svg viewBox="0 0 20 20"><path d="m6 6 8 8m0-8-8 8"/></svg></button>
-<span class="divider"></span><button class="utility" aria-label="Open Fixoflow settings" title="Open Fixoflow" onclick="post('openHub')"><svg viewBox="0 0 20 20"><path d="M4 5h12M4 10h12M4 15h12"/><circle cx="7" cy="5" r="1.7" fill="#171719"/><circle cx="13" cy="10" r="1.7" fill="#171719"/><circle cx="8" cy="15" r="1.7" fill="#171719"/></svg></button>
+<button class="utility cancel" aria-label="Cancel recording" title="Cancel recording — audio stays in History" onclick="post('cancel')"><svg viewBox="0 0 20 20"><path d="m6.5 6.5 7 7m0-7-7 7"/></svg></button>
+<button class="utility hub" aria-label="Open Fixoflow settings" title="Open Fixoflow settings" onclick="post('openHub')"><svg viewBox="0 0 20 20"><path d="M3.5 6h13M3.5 10h13M3.5 14h13"/><circle cx="7.5" cy="6" r="1.8" fill="#17171a"/><circle cx="12.5" cy="10" r="1.8" fill="#17171a"/><circle cx="8.5" cy="14" r="1.8" fill="#17171a"/></svg></button>
 </div>
 <script>
-let current='idle', started=0, clock=null;
-function post(action){window.webkit?.messageHandlers?.fixoflow?.postMessage({action});}
-function tick(){const elapsed=Math.max(0,Math.floor((Date.now()-started)/1000));document.getElementById('key').textContent=Math.floor(elapsed/60)+':'+String(elapsed%60).padStart(2,'0');}
-function updateControl(data){
- const bar=document.getElementById('bar'),button=document.getElementById('toggle');
- bar.dataset.state=data.state;
- document.getElementById('label').textContent=data.state==='listening'?'Listening':data.message;
- button.disabled=data.state==='processing';
- button.setAttribute('aria-label',data.state==='listening'?'Stop dictation':data.state==='processing'?'Transcribing':'Start dictation');
- button.setAttribute('aria-pressed',String(data.state==='listening'));
- if(data.state==='listening'){
-  if(current!=='listening'){started=Date.now()-(data.elapsed||0)*1000;clock=setInterval(tick,1000);}tick();
- }else{clearInterval(clock);clock=null;document.getElementById('key').textContent=data.state==='idle'?data.shortcut:'';setAudioLevel(0);}
- current=data.state;
+const SIZES={idle:[92,30],hover:[192,30],listening:[208,36],processing:[156,34],success:[140,34],error:[252,36]};
+const BAR_LEVEL_VARIANCE=[.55,.85,1.2,.85,.55];
+let current='idle',hovering=false,dragging=false,drag=null,started=0,clock=null,smoothed=0;
+
+function post(action,extra){window.webkit?.messageHandlers?.fixoflow?.postMessage({action,...extra});}
+function mainAction(){post(current==='error'?'openHub':'toggle');}
+
+function sizeFor(){return current==='idle'?(hovering?SIZES.hover:SIZES.idle):(SIZES[current]||SIZES.idle);}
+function applySize(){
+  if(dragging)return;
+  const [width,height]=sizeFor();
+  const bar=document.getElementById('bar');
+  bar.style.width=width+'px';bar.style.height=height+'px';
+  post('resize',{width,height});
 }
-function setAudioLevel(level){document.getElementById('wave').style.setProperty('--level',Math.min(1,Math.max(0,level)));}
+
+function tick(){
+  const seconds=Math.max(0,Math.floor((Date.now()-started)/1000));
+  document.getElementById('timer').textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
+}
+function setBars(level){
+  const bars=document.getElementById('wave').children;
+  for(let i=0;i<bars.length;i++){
+    bars[i].style.transform='scaleY('+(1+Math.min(1,level*BAR_LEVEL_VARIANCE[i])*2.1).toFixed(2)+')';
+  }
+}
+function setAudioLevel(level){
+  smoothed=smoothed*0.6+Math.max(0,Math.min(1,level))*0.4;
+  setBars(smoothed);
+}
+
+function updateControl(data){
+  const state=data.state||'idle';
+  const previous=current;
+  current=state;
+  const bar=document.getElementById('bar');
+  bar.dataset.state=state;
+  document.getElementById('label').textContent=state==='listening'?'Listening…':(data.message||'');
+  const toggle=document.getElementById('toggle');
+  toggle.disabled=state==='processing';
+  toggle.setAttribute('aria-label',state==='listening'?'Stop dictation':state==='processing'?'Transcribing':state==='error'?'Open Fixoflow settings':'Start dictation');
+  toggle.setAttribute('aria-pressed',String(state==='listening'));
+  if(state==='listening'){
+    if(previous!=='listening'){started=Date.now()-(data.elapsed||0)*1000;clock=setInterval(tick,1000);}
+    tick();
+  }else{
+    clearInterval(clock);clock=null;
+    if(state==='idle')document.getElementById('key').textContent=data.shortcut||'';
+    smoothed=0;setBars(0);
+  }
+  applySize();
+}
+
+/* hover expands the idle pill and wakes it to full opacity */
+const bar=document.getElementById('bar');
+bar.addEventListener('mouseenter',()=>{hovering=true;bar.classList.add('hover');post('hover',{hovered:true});applySize();});
+bar.addEventListener('mouseleave',()=>{hovering=false;bar.classList.remove('hover');post('hover',{hovered:false});applySize();});
+
+/* drag to place: press anywhere that is not a button, then move */
+bar.addEventListener('pointerdown',event=>{
+  if(event.button!==0||event.target.closest('button'))return;
+  drag={sx:event.screenX,sy:event.screenY,moved:false};
+});
+window.addEventListener('pointermove',event=>{
+  if(!drag)return;
+  const dx=event.screenX-drag.sx,dy=event.screenY-drag.sy;
+  if(!drag.moved&&Math.hypot(dx,dy)>5){
+    drag.moved=true;dragging=true;bar.classList.add('dragging');
+    post('dragStart',{x:drag.sx,y:drag.sy});
+  }
+  if(drag.moved){event.preventDefault();post('dragMove',{x:event.screenX,y:event.screenY});}
+});
+window.addEventListener('pointerup',event=>{
+  if(!drag)return;
+  const moved=drag.moved;drag=null;
+  if(moved){
+    dragging=false;bar.classList.remove('dragging');
+    post('dragEnd',{x:event.screenX,y:event.screenY});
+    applySize();
+  }
+});
+
 window.addEventListener('DOMContentLoaded',()=>post('ready'));
 </script>
 </body>

@@ -55,3 +55,12 @@ def test_atomic_config_save_keeps_previous_backup(tmp_path, monkeypatch):
 def test_cloud_engine_is_rejected():
     with pytest.raises(ValueError, match='offline'):
         FixoflowConfig(polishing_engine='gemini').validate()
+
+
+def test_overlay_position_defaults_to_bottom_center_and_rejects_unknown_zones():
+    from fixoflow.config import OVERLAY_POSITIONS
+    assert FixoflowConfig().overlay_position == 'bottom-center'
+    for zone in OVERLAY_POSITIONS:
+        FixoflowConfig(overlay_position=zone).validate()
+    with pytest.raises(ValueError, match='Floating pill position'):
+        FixoflowConfig(overlay_position='middle-left').validate()

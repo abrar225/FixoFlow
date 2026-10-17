@@ -218,7 +218,7 @@ class HubManager:
             if cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "hotkey", "model_name", "always_show_overlay", "sound_enabled", "dual_mode_hotkey", "hold_to_talk"}
+                    allowed = {"mode", "hotkey", "model_name", "always_show_overlay", "sound_enabled", "dual_mode_hotkey", "hold_to_talk", "overlay_position"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)

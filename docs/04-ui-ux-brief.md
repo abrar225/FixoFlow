@@ -25,11 +25,14 @@
 ## 4. Component Language
 
 ### Floating control (always-on pill, or summoned)
-- Collapsed: a small glass pill with a microphone button and the shortcut label.
-- Recording: red mic button, "Listening", live elapsed time; a cancel control appears.
-- Processing: "Transcribing", start disabled so clicks cannot queue another session.
-- Error: short label such as "Copied · enable Accessibility" or "Saved · open History".
-- A settings button opens the hub.
+- Shape: 92 × 30 pt capsule at rest — glass over a real `NSVisualEffectView` backdrop blur, 82% opacity while idle, full opacity on hover; the panel window is exactly the pill, so it never steals clicks from surrounding content.
+- Idle: microphone glyph plus a shortcut key chip; hovering expands the capsule (~192 pt) to reveal "Click to dictate" and the settings button, then contracts on exit.
+- Recording: expands to ~208 × 36 pt with an audio-reactive five-bar waveform, "Listening…", live elapsed timer, a stop button, and a cancel control.
+- Processing: "Transcribing…" with a spinner; start is disabled so clicks cannot queue another session.
+- Success: green check pops in with "Pasted" / "Transcribed!" / "Recording saved" for 2.5 s.
+- Error: warm warning glyph with the reason (e.g. "Copied · enable Accessibility"); clicking the pill opens the hub for the fix.
+- Placement: drag anywhere and the pill falls into the nearest of three snap slots — top center, bottom center, bottom right — with ghost-outline guides shown during the drag; the slot is saved to preferences. Dragging is anchored from every non-button area of the pill.
+- Motion: width/height/resize, snap, and opacity all animate on a shared 0.18–0.26 s ease curve; `prefers-reduced-motion` and the macOS reduce-motion setting disable animation.
 
 ### Hub window (Cocoa + WebKit)
 - Sidebar: Overview, History, Dictionary, Settings; footer states "On your Mac — Local audio & transcription".

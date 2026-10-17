@@ -42,7 +42,8 @@
 | `dual_mode_hotkey` | bool | `true` | Enable tap-and-hold gestures. |
 | `hold_threshold_sec` | float | `0.45` | Tap vs. hold boundary (0.1–2.0 s). |
 | `hold_to_talk` | bool | `false` | Force hold-only behavior. |
-| `always_show_overlay` | bool | `true` | Keep the floating control visible. |
+| `always_show_overlay` | bool | `true` | Keep the floating pill visible. |
+| `overlay_position` | string | `"bottom-center"` | Pill snap slot: `top-center` \| `bottom-center` \| `bottom-right`; written by dragging the pill or from Settings. |
 | `sound_enabled` | bool | `true` | Play state sounds. |
 | `log_level` | string | `"INFO"` | Logging level. |
 

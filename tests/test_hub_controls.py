@@ -29,6 +29,22 @@ def test_restart_without_app_is_reported_not_silently_ignored():
     assert 'onSettingsResult(false' in ui._eval_js.call_args.args[0]
 
 
+def test_pill_position_passes_into_saved_preferences():
+    ui = manager()
+    changes = []
+    ui.on_config_change = lambda candidate: changes.append(candidate)
+    ui.handle_action('saveConfig', {'config': {'overlay_position': 'top-center'}})
+    assert len(changes) == 1 and changes[0].overlay_position == 'top-center'
+
+
+def test_invalid_pill_position_is_rejected_without_applying():
+    ui = manager()
+    ui.on_config_change = Mock()
+    ui.handle_action('saveConfig', {'config': {'overlay_position': 'middle-left'}})
+    ui.on_config_change.assert_not_called()
+    assert 'onSettingsResult(false' in ui._eval_js.call_args.args[0]
+
+
 def test_new_preferences_preserve_unexposed_settings():
     ui = manager()
     changes = []

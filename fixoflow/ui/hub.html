@@ -79,6 +79,7 @@
     .shortcut-recorder.recording { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:#f7f7f3; color:var(--muted); }
     .shortcut-recorder:focus-visible { outline:3px solid #587798; outline-offset:2px; }
     .shortcut-preset { font-size:11px; min-height:27px; padding:4px 9px; }
+    .position-option.selected { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:#f7f7f3; }
     .warning { color:#806132; font-size:11px; margin:9px 0 0; line-height:1.5; }
     .mode-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
     .mode-option { text-align:left; display:flex; flex-direction:column; gap:6px; padding:15px; border-radius:9px; border:1px solid var(--line); background:white; color:var(--text); }
@@ -153,9 +154,10 @@
     <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
       <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
       <div class="card-section"><div class="section-header">Controls</div><div class="setting-group">
-        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show floating bar at all times</label><span class="setting-desc">Keep the start / stop button visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
+        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show the floating pill at all times</label><span class="setting-desc">Keep the compact dictation pill visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgSounds">Recording sounds</label><span class="setting-desc">Play a sound when a recording starts and stops.</span></div><label class="switch"><input id="cfgSounds" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgInteraction">Shortcut behavior</label><span class="setting-desc">The floating bar always works as a click-to-toggle control.</span></div><select id="cfgInteraction"><option value="both">Tap to toggle, hold to talk</option><option value="toggle">Tap to toggle</option><option value="hold">Hold to talk</option></select></div>
+        <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="pillPositionTitle">Floating pill position</span><div class="button-row" role="radiogroup" aria-labelledby="pillPositionTitle"><button id="posTopCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('top-center')">Top center</button><button id="posBottomCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-center')">Bottom center</button><button id="posBottomRight" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-right')">Bottom right</button></div><p class="warning">Drag the pill anywhere and it snaps into the nearest slot — top center, bottom center, or bottom right. You can also choose the slot here.</p></div></div>
         <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="shortcutTitle">Keyboard shortcut</span><button type="button" id="shortcutRecorder" class="shortcut-recorder" aria-labelledby="shortcutTitle shortcutRecorderLabel" aria-describedby="shortcutHelp" onclick="toggleShortcutRecording()"><span id="shortcutRecorderLabel">⌃ Space</span></button><div class="button-row"><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;cmd&gt;+&lt;shift&gt;+d')">⌘ ⇧ D</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;ctrl&gt;+&lt;space&gt;')">⌃ Space</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;alt&gt;+&lt;space&gt;')">⌥ Space</button></div><p id="shortcutHelp" class="warning">Click the button, then press the combination you want. Include a modifier (⌘ ⌃ ⌥ ⇧) or use a function key. Escape cancels; Backspace clears. Control + Space can conflict with the macOS input-source shortcut.</p></div></div>
       </div></div>
       <div class="card-section"><div class="section-header">Dictation mode</div><p class="section-description">Choose how local formatting handles your transcript.</p><div class="mode-grid">
@@ -289,6 +291,7 @@
       document.getElementById('cfgAlwaysShow').checked = cfg.always_show_overlay !== false;
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
       document.getElementById('cfgInteraction').value = cfg.dual_mode_hotkey !== false ? 'both' : cfg.hold_to_talk ? 'hold' : 'toggle';
+      renderPillPosition();
       selectMode(cfg.mode || 'auto', false);
     }
     function markUnsaved() {
@@ -362,6 +365,17 @@
       stopShortcutRecording();
     }
     function setShortcut(value) { currentConfig.hotkey = value; if (!shortcutRecording) renderShortcutRecorder(); markUnsaved(); }
+    const PILL_POSITIONS = {'top-center':'posTopCenter','bottom-center':'posBottomCenter','bottom-right':'posBottomRight'};
+    function renderPillPosition() {
+      const selected = currentConfig.overlay_position in PILL_POSITIONS ? currentConfig.overlay_position : 'bottom-center';
+      for (const [zone,id] of Object.entries(PILL_POSITIONS)) {
+        const button = document.getElementById(id);
+        const active = zone === selected;
+        button.classList.toggle('selected', active);
+        button.setAttribute('aria-checked', String(active));
+      }
+    }
+    function selectPillPosition(zone) { currentConfig.overlay_position = zone; renderPillPosition(); markUnsaved(); }
     function toggleAddWordModal() {
       const form = document.getElementById('addWordForm');
       form.classList.toggle('hidden');

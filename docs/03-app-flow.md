@@ -21,7 +21,7 @@
 
 | State | Mode | Purpose | Entry | Primary action | Failure | Success |
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| **IDLE** | Background | Menu bar + floating control wait | Launched, permissions checked | Shortcut or click | Shortcut listener blocked → explicit detail in hub/menu | → RECORDING |
+| **IDLE** | Background | Menu bar + compact glass pill wait (92 × 30 pt; hover expands; drag re-slots among three zones) | Launched, permissions checked | Shortcut or click | Shortcut listener blocked → explicit detail in hub/menu | → RECORDING |
 | **RECORDING** | Capture | 16 kHz blocks persisted to WAV | Shortcut tap/hold, floating control | Speak; Escape cancels | Mic unplugged → `RecordingError`, state rolls back | → PROCESSING |
 | **PROCESSING** | Inference | Filter, slice, transcribe, format | Stop gesture | Wait (new starts disabled) | Chunk failure → partial `.transcript.json`, never a fake success | → insertion |
 | **DELIVERY** | Insertion | Clipboard write, focus restore, ⌘V | Transcript ready | Automatic | `permission` / `event-failed` / `clipboard-failed` → notification + hub detail | → IDLE |
@@ -84,6 +84,7 @@ flowchart TD
 
 ### Configuration changes
 - Saving settings validates the hotkey (recorded via the shortcut button or presets; at least one modifier or a function key), persists atomically with a backup, rebuilds the recorder/STT/polisher on the live app, and restarts the shortcut listener when permitted.
+- Dragging the pill is a lightweight save: only `overlay_position` changes and the hub refreshes; no engines are rebuilt.
 
 ---
 
@@ -91,6 +92,7 @@ flowchart TD
 
 | User action | Condition | Result | Destination |
 | :-- | :-- | :-- | :-- |
+| Drag the pill | Any state | Snap guide shows the three slots; release drops into the nearest zone and saves the choice | same state |
 | Press shortcut | IDLE | Recording starts; `Tink` | RECORDING |
 | Release before threshold | Recording (hold gesture) | Latch stays recording | RECORDING |
 | Release after threshold | Recording (hold gesture) | Stop and process | PROCESSING |

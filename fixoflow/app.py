@@ -22,7 +22,7 @@ from typing import Optional
 import AppKit
 from Foundation import NSObject, NSDistributedNotificationCenter, NSOperationQueue
 
-from fixoflow.config import FixoflowConfig
+from fixoflow.config import FixoflowConfig, OVERLAY_POSITIONS
 from fixoflow.daemon import FixoflowDaemon
 from fixoflow.platform.macos import (
     accessibility_trusted,
@@ -72,13 +72,19 @@ def check_floating_control(overlay):
         document.getElementById('toggle').click();
         updateControl({state:'idle',message:'Click to dictate',shortcut:'⌃ Space'});
         document.querySelector('[aria-label="Open Fixoflow settings"]').click();
-        return JSON.stringify({disabled, label:document.getElementById('toggle').getAttribute('aria-label')});
+        const bar = document.getElementById('bar');
+        return JSON.stringify({disabled, label:document.getElementById('toggle').getAttribute('aria-label'),
+            width:bar.style.width, height:bar.style.height});
     })()"""
     overlay._webview.evaluateJavaScript_completionHandler_(script, lambda value, error: result.append((value, error)))
     while (not result or len(events) < 3) and time.monotonic() < deadline:
         loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.05))
     assert result and result[0][1] is None, f'Floating control script failed: {result}'
-    assert json.loads(result[0][0]) == {'disabled': True, 'label': 'Start dictation'}
+    payload = json.loads(result[0][0])
+    assert payload['disabled'] is True and payload['label'] == 'Start dictation', payload
+    # The idle pill must stay small and unobtrusive; it may never approach the
+    # old full-width bar.
+    assert float(payload['width'].rstrip('px')) <= 200 and float(payload['height'].rstrip('px')) <= 44, payload
     assert events == ['toggle', 'cancel', 'settings'], f'Unexpected floating control actions: {events}'
 
 
@@ -158,7 +164,8 @@ class FixoflowApp:
 
         self._setup_menu_bar()
         self.daemon.coordinator.overlay.configure(self.config, on_toggle=self.daemon.controls.toggle,
-            on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show)
+            on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show,
+            on_position_change=self.set_overlay_position)
 
     def show_overlay(self):
         overlay = self.daemon.coordinator.overlay
@@ -316,6 +323,19 @@ class FixoflowApp:
         self.mode_coding_item.setState_(1 if mode == "coding" else 0)
         self.mode_writing_item.setState_(1 if mode == "writing" else 0)
         self.mode_auto_item.setState_(1 if mode == "auto" else 0)
+
+    def set_overlay_position(self, zone: str):
+        """Persist a pill snap zone chosen by dragging (no engine rebuild)."""
+        if zone not in OVERLAY_POSITIONS:
+            logger.warning("Ignoring unknown floating pill position: %s", zone)
+            return
+        if zone == self.config.overlay_position:
+            return
+        self.config.overlay_position = zone
+        self.config.save()
+        self.hub.config = self.config
+        self.hub.handle_action("getConfig", {})
+        logger.info("Floating pill placed at: %s", zone)
 
     def set_mode(self, mode: str):
         from dataclasses import replace

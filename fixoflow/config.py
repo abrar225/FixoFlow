@@ -21,6 +21,10 @@ LEGACY_FIELD_MAP = {
     "dual_mode_threshold_sec": "hold_threshold_sec",
 }
 
+# Floating pill snap zones. Shared with the overlay geometry so the hub,
+# validation, and positioning cannot drift apart.
+OVERLAY_POSITIONS = ("top-center", "bottom-center", "bottom-right")
+
 
 @dataclass
 class FixoflowConfig:
@@ -49,6 +53,8 @@ class FixoflowConfig:
     hold_threshold_sec: float = 0.45
     hold_to_talk: bool = False
     always_show_overlay: bool = True
+    # Floating pill snap zone: "top-center", "bottom-center" or "bottom-right".
+    overlay_position: str = "bottom-center"
     sound_enabled: bool = True
 
     # Logging
@@ -103,6 +109,8 @@ class FixoflowConfig:
                 raise ValueError(f"{name} must be a boolean")
         if self.mode not in {"auto", "coding", "writing", "raw"}:
             raise ValueError("Unsupported dictation mode")
+        if self.overlay_position not in OVERLAY_POSITIONS:
+            raise ValueError("Floating pill position must be one of: " + ", ".join(OVERLAY_POSITIONS))
         if self.polishing_engine not in {"rules", "none"}:
             raise ValueError("Only offline polishing engines are supported")
         if self.sample_rate != 16000 or self.channels != 1:
