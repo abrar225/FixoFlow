@@ -23,7 +23,11 @@ LEGACY_FIELD_MAP = {
 
 # Floating pill snap zones. Shared with the overlay geometry so the hub,
 # validation, and positioning cannot drift apart.
-OVERLAY_POSITIONS = ("top-center", "bottom-center", "bottom-right")
+OVERLAY_POSITIONS = ("top-center", "bottom-left", "bottom-center", "bottom-right")
+
+# Output styles applied by the local polisher in writing mode. "verbatim"
+# keeps the recognizer's wording untouched apart from trimming.
+OUTPUT_STYLES = ("natural", "concise", "professional", "verbatim")
 
 
 @dataclass
@@ -46,6 +50,8 @@ class FixoflowConfig:
 
     # Local-only polishing. Cloud behavior was removed; legacy keys are ignored.
     polishing_engine: str = "rules"
+    # Writing-mode output style: "natural", "concise", "professional", "verbatim".
+    output_style: str = "natural"
 
     # Hotkey (pynput format): tap toggles, holding past the threshold talks.
     hotkey: str = "<ctrl>+<space>"
@@ -53,7 +59,8 @@ class FixoflowConfig:
     hold_threshold_sec: float = 0.45
     hold_to_talk: bool = False
     always_show_overlay: bool = True
-    # Floating pill snap zone: "top-center", "bottom-center" or "bottom-right".
+    # Floating pill snap zone: "top-center", "bottom-left", "bottom-center"
+    # or "bottom-right".
     overlay_position: str = "bottom-center"
     sound_enabled: bool = True
 
@@ -109,6 +116,8 @@ class FixoflowConfig:
                 raise ValueError(f"{name} must be a boolean")
         if self.mode not in {"auto", "coding", "writing", "raw"}:
             raise ValueError("Unsupported dictation mode")
+        if self.output_style not in OUTPUT_STYLES:
+            raise ValueError("Output style must be one of: " + ", ".join(OUTPUT_STYLES))
         if self.overlay_position not in OVERLAY_POSITIONS:
             raise ValueError("Floating pill position must be one of: " + ", ".join(OVERLAY_POSITIONS))
         if self.polishing_engine not in {"rules", "none"}:

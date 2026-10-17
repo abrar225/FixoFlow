@@ -72,6 +72,13 @@ class FixoflowDB:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_app ON history (app_name)")
 
+            # Additive migration for databases created before fix tracking.
+            history_columns = {row[1] for row in cursor.execute("PRAGMA table_info(history)")}
+            if "fixes_polish" not in history_columns:
+                cursor.execute("ALTER TABLE history ADD COLUMN fixes_polish INTEGER NOT NULL DEFAULT 0")
+            if "fixes_vocab" not in history_columns:
+                cursor.execute("ALTER TABLE history ADD COLUMN fixes_vocab INTEGER NOT NULL DEFAULT 0")
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS dictionary (
                     phrase TEXT PRIMARY KEY,
@@ -131,6 +138,8 @@ class FixoflowDB:
         latency_ms: float,
         mode: str = "auto",
         audio_path: str = "",
+        fixes_polish: int = 0,
+        fixes_vocab: int = 0,
     ) -> str:
         """Record a completed dictation session and update derived analytics."""
         session_id = str(uuid.uuid4())
@@ -140,10 +149,11 @@ class FixoflowDB:
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO history (id, timestamp, app_name, asr_text, final_text, duration_sec, word_count, latency_ms, mode, audio_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO history (id, timestamp, app_name, asr_text, final_text, duration_sec, word_count, latency_ms, mode, audio_path, fixes_polish, fixes_vocab)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (session_id, now.isoformat(), app_name, asr_text, final_text, duration_sec, word_count, latency_ms, mode, audio_path),
+                (session_id, now.isoformat(), app_name, asr_text, final_text, duration_sec, word_count, latency_ms, mode, audio_path,
+                 max(0, int(fixes_polish)), max(0, int(fixes_vocab))),
             )
             date_str = now.strftime("%Y-%m-%d")
             conn.execute(
@@ -332,3 +342,104 @@ class FixoflowDB:
                 """
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Insights (streaks, today, weekly rhythm, learning fixes)
+    # ------------------------------------------------------------------
+
+    def _active_days(self, conn: sqlite3.Connection) -> List[datetime.date]:
+        rows = conn.execute(
+            "SELECT DISTINCT substr(timestamp, 1, 10) AS day FROM history ORDER BY day"
+        ).fetchall()
+        days = []
+        for row in rows:
+            try:
+                days.append(datetime.date.fromisoformat(row["day"]))
+            except (TypeError, ValueError):
+                continue
+        return days
+
+    def get_streak(self) -> Dict[str, Any]:
+        """Current and best consecutive-day dictation streaks."""
+        with self._connect() as conn:
+            days = self._active_days(conn)
+
+        if not days:
+            return {"current": 0, "best": 0, "last_date": None, "active_days": 0}
+
+        best = current_run = 1
+        for previous, day in zip(days, days[1:]):
+            current_run = current_run + 1 if (day - previous).days == 1 else 1
+            best = max(best, current_run)
+
+        today = datetime.date.today()
+        last = days[-1]
+        current = 0
+        if last in (today, today - datetime.timedelta(days=1)):
+            current = 1
+            for previous, day in zip(reversed(days[:-1]), reversed(days)):
+                if (day - previous).days == 1:
+                    current += 1
+                else:
+                    break
+        return {
+            "current": current,
+            "best": best,
+            "last_date": last.isoformat(),
+            "active_days": len(days),
+        }
+
+    def get_today_stats(self) -> Dict[str, Any]:
+        today = datetime.date.today().strftime("%Y-%m-%d")
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT total_words, total_seconds, sessions_count, avg_wpm FROM analytics_daily WHERE date = ?",
+                (today,),
+            ).fetchone()
+        if row is None:
+            return {"date": today, "total_words": 0, "total_seconds": 0.0,
+                    "sessions_count": 0, "avg_wpm": 0.0}
+        return {"date": today, "total_words": row["total_words"], "total_seconds": row["total_seconds"],
+                "sessions_count": row["sessions_count"], "avg_wpm": row["avg_wpm"]}
+
+    def get_week_activity(self, days: int = 7) -> List[Dict[str, Any]]:
+        """Per-day activity for the trailing window, oldest first, gaps filled."""
+        today = datetime.date.today()
+        start = today - datetime.timedelta(days=days - 1)
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT date, total_words, sessions_count, avg_wpm FROM analytics_daily WHERE date >= ?",
+                (start.isoformat(),),
+            ).fetchall()
+        by_date = {row["date"]: row for row in rows}
+        week = []
+        for offset in range(days):
+            day = start + datetime.timedelta(days=offset)
+            key = day.isoformat()
+            row = by_date.get(key)
+            week.append({
+                "date": key,
+                "label": day.strftime("%a")[0],
+                "words": row["total_words"] if row else 0,
+                "sessions": row["sessions_count"] if row else 0,
+                "avg_wpm": row["avg_wpm"] if row else 0.0,
+                "active": bool(row and row["sessions_count"] > 0),
+                "is_today": day == today,
+            })
+        return week
+
+    def get_fix_stats(self) -> Dict[str, Any]:
+        """Learning totals: polish fixes, vocabulary fixes, and dictionary size."""
+        with self._connect() as conn:
+            history_row = conn.execute(
+                "SELECT COALESCE(SUM(fixes_polish), 0) AS polish, COALESCE(SUM(fixes_vocab), 0) AS vocab FROM history"
+            ).fetchone()
+            dictionary_row = conn.execute(
+                "SELECT COUNT(*) AS total, COALESCE(SUM(frequency), 0) AS uses FROM dictionary"
+            ).fetchone()
+        return {
+            "polish_fixes": history_row["polish"],
+            "vocab_fixes": history_row["vocab"],
+            "dictionary_total": dictionary_row["total"],
+            "dictionary_uses": dictionary_row["uses"],
+        }

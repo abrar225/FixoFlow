@@ -43,7 +43,8 @@
 | `hold_threshold_sec` | float | `0.45` | Tap vs. hold boundary (0.1–2.0 s). |
 | `hold_to_talk` | bool | `false` | Force hold-only behavior. |
 | `always_show_overlay` | bool | `true` | Keep the floating pill visible. |
-| `overlay_position` | string | `"bottom-center"` | Pill snap slot: `top-center` \| `bottom-center` \| `bottom-right`; written by dragging the pill or from Settings. |
+| `overlay_position` | string | `"bottom-center"` | Pill snap slot: `top-center` \| `bottom-left` \| `bottom-center` \| `bottom-right`; written by dragging the pill or from Settings. |
+| `output_style` | string | `"natural"` | Writing-mode polish style: `natural` \| `concise` \| `professional` \| `verbatim`. Ignored by coding/raw modes. |
 | `sound_enabled` | bool | `true` | Play state sounds. |
 | `log_level` | string | `"INFO"` | Logging level. |
 
@@ -70,6 +71,10 @@ Loading behavior:
 | `latency_ms` | REAL | Stop-to-text processing time. |
 | `mode` | TEXT | Mode active for the session. |
 | `audio_path` | TEXT | Recovery WAV path. |
+| `fixes_polish` | INTEGER | Count of real polish replacements (fillers, spacing, punctuation, capitalization, contractions) during that session. |
+| `fixes_vocab` | INTEGER | Count of real dictionary and spoken-code substitutions during that session. |
+
+Older databases are migrated in place on startup: missing `fixes_polish` / `fixes_vocab` columns are added with default 0, so pre-existing history stays intact.
 
 ### `dictionary` — personal vocabulary
 
@@ -120,6 +125,8 @@ erDiagram
         real latency_ms
         text mode
         text audio_path
+        int fixes_polish
+        int fixes_vocab
     }
     DICTIONARY {
         text phrase PK

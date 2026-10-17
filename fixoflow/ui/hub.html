@@ -14,10 +14,11 @@
     button:disabled { cursor:wait; opacity:.6; }
     .sidebar { width:190px; flex-shrink:0; padding:27px 12px 17px; background:var(--sidebar); display:flex; flex-direction:column; border-right:1px solid var(--line); }
     .app-brand { display:flex; align-items:center; gap:9px; padding:0 13px 30px; font-size:19px; font-weight:650; letter-spacing:-.6px; }
-    .brand-icon { width:26px; height:26px; display:flex; align-items:center; justify-content:center; gap:2px; }
-    .brand-icon i { width:3px; border-radius:3px; height:14px; background:var(--text); }
-    .brand-icon i:nth-child(2),.brand-icon i:nth-child(4) { height:22px; }
-    .brand-icon i:nth-child(3) { height:28px; }
+    .brand-icon { width:26px; height:26px; display:flex; align-items:center; gap:3px; }
+    .brand-icon i { width:4px; border-radius:3px; background:var(--text); }
+    .brand-icon i:first-child { height:13px; }
+    .brand-icon i:nth-child(2) { height:21px; }
+    .brand-icon b { width:8px; height:8px; border-radius:50%; background:#3f7d52; }
     .nav-btn { width:100%; display:flex; align-items:center; gap:11px; padding:11px 13px; margin-bottom:4px; border:0; border-radius:7px; background:transparent; color:var(--muted); text-align:left; font-weight:500; }
     .nav-btn:hover { background:#eae9e4; color:var(--text); }
     .nav-btn.active { background:#e5e4dd; color:var(--text); }
@@ -108,15 +109,77 @@
     .save-row { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:15px; padding-top:18px; border-top:1px solid var(--line); }
     .save-row .primary-btn { margin-left:auto; }
     .hidden { display:none !important; }
-    @media (max-width:800px) { .sidebar { width:166px; } .content-area { padding:22px 23px 35px; } .setting-row { gap:12px; } .setting-row select { max-width:165px; } }
-    @media (max-width:620px) { .sidebar { width:130px; padding-inline:7px; } .app-brand { padding-inline:8px; font-size:16px; } .brand-icon { display:none; } .nav-btn { padding-inline:9px; gap:7px; } .content-area { padding:18px; } .topbar,.setting-row { align-items:flex-start; } .setting-row { flex-wrap:wrap; } .setting-row select { max-width:100%; } .mode-grid,.word-fields { grid-template-columns:1fr; } .view-title { font-size:29px; } }
-    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } }
+
+    /* ---- Insights --------------------------------------------------------- */
+    :root { --green:#3f7d52; --green-deep:#2f6540; --green-soft:#e9f2ea; --green-line:#d4e4d7; }
+    .insight-hero { display:grid; grid-template-columns:236px minmax(0,1fr); gap:13px; margin:22px 0 26px; }
+    .streak-card { position:relative; border:1px solid var(--green-line); border-radius:14px; background:linear-gradient(155deg,#f4faf4,#e4efe6); padding:20px; overflow:hidden; }
+    .streak-card::after { content:""; position:absolute; right:-30px; top:-36px; width:116px; height:116px; border-radius:50%; background:radial-gradient(circle,#cfe6d4,transparent 70%); }
+    .streak-flame { width:24px; height:24px; color:var(--green); margin-bottom:12px; }
+    .streak-flame svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+    .streak-number { font-size:44px; line-height:1; font-weight:600; letter-spacing:-1.6px; font-variant-numeric:tabular-nums; }
+    .streak-label { margin-top:6px; font-size:12px; font-weight:650; color:var(--green-deep); }
+    .streak-meta { margin-top:15px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--muted); }
+    .today-card { border:1px solid var(--line); border-radius:14px; background:var(--surface); padding:20px; display:flex; flex-direction:column; justify-content:center; gap:6px; }
+    .today-kicker { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+    .today-words { font-size:30px; font-weight:600; letter-spacing:-1px; font-variant-numeric:tabular-nums; }
+    .today-words small { font-size:14px; font-weight:500; color:var(--muted); letter-spacing:0; }
+    .today-sub { font-size:12px; color:var(--muted); }
+    .week-strip { display:flex; gap:7px; margin-top:15px; }
+    .day-cell { flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; padding:9px 0 8px; border-radius:10px; background:#f7f7f4; border:1px solid var(--line); }
+    .day-cell.today { border-color:#bcd3c1; background:#f1f7f2; }
+    .day-letter { font-size:10px; font-weight:600; color:var(--muted); }
+    .day-cell.today .day-letter { color:var(--green-deep); }
+    .day-dot { width:9px; height:9px; border-radius:50%; background:#dcdcd5; }
+    .day-cell.active .day-dot { background:var(--green); box-shadow:0 0 0 3px rgba(63,125,82,.14); }
+    .insight-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 26px; }
+    .insight-card { border:1px solid var(--line); border-radius:12px; padding:16px 16px 14px; background:linear-gradient(180deg,#fff,#fbfbf8); }
+    .insight-label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:9px; }
+    .insight-value { font-size:26px; font-weight:600; letter-spacing:-.9px; font-variant-numeric:tabular-nums; }
+    .insight-value small { font-size:13px; font-weight:500; color:var(--muted); letter-spacing:0; margin-left:3px; }
+    .insight-sub { margin-top:6px; font-size:11px; color:var(--muted); }
+    .fix-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .fix-card { border:1px solid var(--green-line); border-radius:12px; padding:16px; background:linear-gradient(180deg,#fbfdfb,#eef6ef); }
+    .fix-value { font-size:30px; font-weight:600; color:var(--green-deep); letter-spacing:-1px; font-variant-numeric:tabular-nums; }
+    .fix-label { margin-top:5px; font-size:12px; font-weight:600; }
+    .fix-desc { margin-top:5px; font-size:11px; color:var(--muted); line-height:1.5; }
+    .week-chart { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:9px; padding:16px 14px 12px; border:1px solid var(--line); border-radius:12px; background:linear-gradient(180deg,#fff,#fafaf7); }
+    .day-col { display:flex; flex-direction:column; align-items:center; gap:7px; height:118px; justify-content:flex-end; }
+    .day-bar { width:100%; max-width:34px; border-radius:7px 7px 4px 4px; background:#e7e7e0; transform-origin:bottom; transform:scaleY(.04); transition:transform .55s cubic-bezier(.34,.8,.3,1); }
+    .day-bar.active { background:linear-gradient(180deg,#69a87c,#3f7d52); }
+    .day-bar.grown { transform:scaleY(1); }
+    .day-col-label { font-size:10px; font-weight:600; color:var(--muted); }
+    .day-col-words { font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .app-bar-row { border:1px solid var(--line); border-radius:10px; padding:13px 15px; background:var(--surface); }
+    .app-bar-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:9px; }
+    .app-bar-track { height:7px; border-radius:99px; background:#efefe9; overflow:hidden; }
+    .app-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,#69a87c,#3f7d52); width:0; transition:width .6s cubic-bezier(.34,.8,.3,1); }
+
+    /* ---- Style ------------------------------------------------------------ */
+    .style-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:22px 0 18px; }
+    .style-option { text-align:left; display:flex; flex-direction:column; gap:7px; padding:16px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; }
+    .style-option:hover { background:var(--row); }
+    .style-option.selected { border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green); background:#f7fbf7; }
+    .style-name { font-size:13px; font-weight:650; display:flex; align-items:center; gap:8px; }
+    .style-check { width:14px; height:14px; border-radius:50%; border:1.5px solid #c9c9c2; flex:none; }
+    .style-option.selected .style-check { border-color:var(--green); background:radial-gradient(circle,#3f7d52 0 4.5px,transparent 5.5px); }
+    .style-desc { font-size:11px; line-height:1.55; color:var(--muted); }
+    .style-sample { font:italic 12px/1.55 Georgia,"Times New Roman",serif; color:#57574f; border-left:2px solid var(--green-line); padding-left:10px; }
+    .style-preview { border:1px solid var(--line); border-radius:12px; background:linear-gradient(180deg,#fff,#fafaf7); padding:18px 20px; }
+    .style-preview-label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:10px; }
+    .style-preview p { margin:0; font:15px/1.65 Georgia,"Times New Roman",serif; }
+
+    @media (max-width:800px) { .sidebar { width:166px; } .content-area { padding:22px 23px 35px; } .setting-row { gap:12px; } .setting-row select { max-width:165px; } .insight-hero { grid-template-columns:1fr; } .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .style-grid,.fix-grid { grid-template-columns:1fr; } }
+    @media (max-width:620px) { .sidebar { width:130px; padding-inline:7px; } .app-brand { padding-inline:8px; font-size:16px; } .brand-icon { display:none; } .nav-btn { padding-inline:9px; gap:7px; } .content-area { padding:18px; } .topbar,.setting-row { align-items:flex-start; } .setting-row { flex-wrap:wrap; } .setting-row select { max-width:100%; } .mode-grid,.word-fields { grid-template-columns:1fr; } .view-title { font-size:29px; } .insight-grid { grid-template-columns:1fr; } .week-chart { gap:5px; padding-inline:8px; } }
+    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .day-bar { transform:scaleY(1) !important; transition:none !important; } .app-bar-fill { transition:none !important; } }
   </style>
 </head>
 <body>
   <aside class="sidebar" aria-label="Navigation">
-    <div class="app-brand"><span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Fixoflow</div>
+    <div class="app-brand"><span class="brand-icon" aria-hidden="true"><i></i><i></i><b></b></span>Fixoflow</div>
     <button id="navDashboard" class="nav-btn active" onclick="switchTab('dashboard')" aria-current="page"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9 10 3l7 6v8h-5v-5H8v5H3Z"/></svg>Overview</button>
+    <button id="navInsights" class="nav-btn" onclick="switchTab('insights')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17V9m5 8V4m5 13v-5m4 5H2"/></svg>Insights</button>
+    <button id="navStyle" class="nav-btn" onclick="switchTab('style')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 14h14"/><circle cx="8" cy="6" r="2.2" fill="var(--sidebar)"/><circle cx="12.5" cy="14" r="2.2" fill="var(--sidebar)"/></svg>Style</button>
     <button id="navHistory" class="nav-btn" onclick="switchTab('history')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9a7 7 0 1 1 2 6M3 4v5h5m2-3v5l3 2"/></svg>History</button>
     <button id="navDictionary" class="nav-btn" onclick="switchTab('dictionary')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 5c-3-2-5-2-8-1v12c3-1 5-1 8 1 3-2 5-2 8-1V4c-3-1-5-1-8 1Zm0 0v12"/></svg>Dictionary</button>
     <button id="navSettings" class="nav-btn" onclick="switchTab('settings')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/><circle cx="7" cy="5" r="2" fill="var(--sidebar)"/><circle cx="13" cy="10" r="2" fill="var(--sidebar)"/><circle cx="8" cy="15" r="2" fill="var(--sidebar)"/></svg>Settings</button>
@@ -139,6 +202,47 @@
       </div>
       <div class="card-section"><div class="section-header">Where you dictate</div><div id="topAppsList" class="item-list"><div class="empty-state">Loading activity…</div></div></div>
     </section>
+    <section id="viewInsights" class="view-panel hidden" aria-labelledby="insightsTitle">
+      <h1 id="insightsTitle" class="view-title">Your flow, in numbers.</h1>
+      <p class="subtitle" id="insightsGreeting">A private look at how you dictate — everything stays on this Mac.</p>
+      <div class="insight-hero">
+        <div class="streak-card">
+          <div class="streak-flame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c1.6 3.2-3.2 4.8-3.2 8.2a3.2 3.2 0 0 0 6.4.2c0-1.2-.5-2.2-1.1-3.1 2.2 1.2 3.9 3.3 3.9 5.7a6 6 0 0 1-12 0C6 9.4 9.8 7.2 12 3Z"/></svg></div>
+          <div class="streak-number" id="streakCurrent">0</div>
+          <div class="streak-label">day streak</div>
+          <div class="streak-meta"><span id="streakBest">Best streak: 0 days</span><span id="streakActiveDays">0 active days</span></div>
+        </div>
+        <div class="today-card">
+          <div class="today-kicker">Today</div>
+          <div class="today-words"><span id="todayWords">0</span> <small>words</small></div>
+          <div class="today-sub" id="todaySub">No dictation yet today — your streak is waiting.</div>
+          <div class="week-strip" id="weekStrip" aria-label="Current week activity"></div>
+        </div>
+      </div>
+      <div class="insight-grid">
+        <div class="insight-card"><div class="insight-label">Words dictated</div><div class="insight-value"><span id="insightWords">0</span></div><div class="insight-sub">Across every session</div></div>
+        <div class="insight-card"><div class="insight-label">Dictations</div><div class="insight-value"><span id="insightSessions">0</span></div><div class="insight-sub">Times Fixoflow wrote for you</div></div>
+        <div class="insight-card"><div class="insight-label">Avg pace</div><div class="insight-value"><span id="insightWpm">0</span><small>WPM</small></div><div class="insight-sub">Your speaking speed</div></div>
+        <div class="insight-card"><div class="insight-label">Time saved</div><div class="insight-value"><span id="insightTime">0</span><small id="insightTimeUnit">min</small></div><div class="insight-sub">Against typing at 40 WPM</div></div>
+        <div class="insight-card"><div class="insight-label">Apps used</div><div class="insight-value"><span id="insightApps">0</span></div><div class="insight-sub">Places you dictated into</div></div>
+        <div class="insight-card"><div class="insight-label">Dictionary terms</div><div class="insight-value"><span id="insightDict">0</span></div><div class="insight-sub">Names and phrases it honors</div></div>
+      </div>
+      <div class="card-section"><div class="section-header">Fixes you didn't have to make</div>
+        <div class="fix-grid">
+          <div class="fix-card"><div class="fix-value"><span id="fixPolish">0</span></div><div class="fix-label">Polish fixes</div><div class="fix-desc">Filler, spacing, and punctuation cleanup applied automatically — your transcript arrives ready to send.</div></div>
+          <div class="fix-card"><div class="fix-value"><span id="fixVocab">0</span></div><div class="fix-label">Fixes made by Fixoflow</div><div class="fix-desc">Times your learned terms, names, and code phrases replaced what the recognizer heard.</div></div>
+        </div>
+      </div>
+      <div class="card-section"><div class="section-header">Your week in words</div><div class="week-chart" id="weekChart" aria-label="Words dictated per day this week"></div></div>
+      <div class="card-section"><div class="section-header">Where you dictate</div><div id="insightAppsList" class="item-list"><div class="empty-state">Your app activity appears after your first dictation.</div></div></div>
+    </section>
+    <section id="viewStyle" class="view-panel hidden" aria-labelledby="styleTitle">
+      <h1 id="styleTitle" class="view-title">Your voice, your rules.</h1>
+      <p class="subtitle">Pick how Fixoflow shapes the transcript before it lands. Styles apply in writing mode — coding and raw modes always stay untouched.</p>
+      <div class="style-grid" id="styleGrid" role="radiogroup" aria-label="Output style"></div>
+      <div class="card-section"><div class="section-header">Preview</div><div class="style-preview"><div class="style-preview-label">What “<span id="stylePreviewName">Natural</span>” does to your dictation</div><p id="stylePreview" role="status">Send the deck Tuesday and I will leave notes in the margin.</p></div></div>
+      <div class="save-row"><p id="styleResult" data-settings-result role="status" aria-live="polite">Changes apply when you save.</p><button id="saveStyle" class="primary-btn save-button" data-default-label="Save style" onclick="saveStyle()">Save style</button></div>
+    </section>
     <section id="viewHistory" class="view-panel hidden" aria-labelledby="historyTitle">
       <div class="heading-row"><h1 id="historyTitle" class="view-title">Your words, kept here.</h1><button class="action-btn delete" onclick="clearHistory()">Clear history</button></div>
       <p class="subtitle">Find, copy, and manage your recent transcripts.</p>
@@ -157,7 +261,7 @@
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show the floating pill at all times</label><span class="setting-desc">Keep the compact dictation pill visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgSounds">Recording sounds</label><span class="setting-desc">Play a sound when a recording starts and stops.</span></div><label class="switch"><input id="cfgSounds" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgInteraction">Shortcut behavior</label><span class="setting-desc">The floating bar always works as a click-to-toggle control.</span></div><select id="cfgInteraction"><option value="both">Tap to toggle, hold to talk</option><option value="toggle">Tap to toggle</option><option value="hold">Hold to talk</option></select></div>
-        <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="pillPositionTitle">Floating pill position</span><div class="button-row" role="radiogroup" aria-labelledby="pillPositionTitle"><button id="posTopCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('top-center')">Top center</button><button id="posBottomCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-center')">Bottom center</button><button id="posBottomRight" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-right')">Bottom right</button></div><p class="warning">Drag the pill anywhere and it snaps into the nearest slot — top center, bottom center, or bottom right. You can also choose the slot here.</p></div></div>
+        <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="pillPositionTitle">Floating pill position</span><div class="button-row" role="radiogroup" aria-labelledby="pillPositionTitle"><button id="posTopCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('top-center')">Top center</button><button id="posBottomLeft" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-left')">Bottom left</button><button id="posBottomCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-center')">Bottom center</button><button id="posBottomRight" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-right')">Bottom right</button></div><p class="warning">Drag the pill anywhere and it snaps into the nearest of four slots — top center, bottom left, bottom center, or bottom right. You can also choose the slot here.</p></div></div>
         <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="shortcutTitle">Keyboard shortcut</span><button type="button" id="shortcutRecorder" class="shortcut-recorder" aria-labelledby="shortcutTitle shortcutRecorderLabel" aria-describedby="shortcutHelp" onclick="toggleShortcutRecording()"><span id="shortcutRecorderLabel">⌃ Space</span></button><div class="button-row"><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;cmd&gt;+&lt;shift&gt;+d')">⌘ ⇧ D</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;ctrl&gt;+&lt;space&gt;')">⌃ Space</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;alt&gt;+&lt;space&gt;')">⌥ Space</button></div><p id="shortcutHelp" class="warning">Click the button, then press the combination you want. Include a modifier (⌘ ⌃ ⌥ ⇧) or use a function key. Escape cancels; Backspace clears. Control + Space can conflict with the macOS input-source shortcut.</p></div></div>
       </div></div>
       <div class="card-section"><div class="section-header">Dictation mode</div><p class="section-description">Choose how local formatting handles your transcript.</p><div class="mode-grid">
@@ -168,7 +272,7 @@
       </div></div>
       <div class="card-section"><div class="section-header">Speech model</div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
       <div class="card-section"><div class="section-header">macOS permissions</div><p id="permissionStatus" role="status">Checking permissions…</p><p class="permission-list">Accessibility lets Fixoflow paste your transcript into the app you were using. Input Monitoring lets the keyboard shortcut work while other apps are focused. Microphone is required to record. macOS applies new grants only to a freshly started app, so after allowing Input Monitoring click Restart Fixoflow. The shortcut then turns on by itself within a second.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'accessibility'})">Accessibility</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'input'})">Input Monitoring</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Microphone</button><button class="action-btn" onclick="post('enableShortcut')">Retry shortcut</button><button class="action-btn" onclick="post('restartApp')">Restart Fixoflow</button></div></div>
-      <div class="save-row"><p id="settingsResult" role="status" aria-live="polite">Changes apply when you save.</p><button id="savePreferences" class="primary-btn" onclick="saveSettings()">Save preferences</button></div>
+      <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes apply when you save.</p><button id="savePreferences" class="primary-btn save-button" data-default-label="Save preferences" onclick="saveSettings()">Save preferences</button></div>
     </section>
   </main>
   <script>
@@ -183,7 +287,7 @@
       return false;
     }
     function switchTab(tab) {
-      const names = {dashboard:'Dashboard',history:'History',dictionary:'Dictionary',settings:'Settings'};
+      const names = {dashboard:'Dashboard',insights:'Insights',style:'Style',history:'History',dictionary:'Dictionary',settings:'Settings'};
       if (!names[tab]) return;
       if (shortcutRecording) stopShortcutRecording();
       activeTab = tab;
@@ -196,6 +300,8 @@
         document.getElementById('view' + suffix).classList.toggle('hidden', !selected);
       }
       if (tab === 'dashboard') post('getDashboard');
+      else if (tab === 'insights') post('getInsights');
+      else if (tab === 'style') { if (!configLoaded) post('getConfig'); else renderStyleOptions(); }
       else if (tab === 'history') filterHistory();
       else if (tab === 'dictionary') post('getDictionary');
       else if (!configLoaded) post('getConfig');
@@ -255,11 +361,14 @@
       if (!list.childElementCount) empty(list, 'Add your first name or technical term. For example, replace “claude code” with “Claude Code”.');
     }
     function onSettingsResult(ok, message) {
-      const result = document.getElementById('settingsResult');
-      result.textContent = message;
-      result.dataset.result = ok ? 'success' : 'error';
-      document.getElementById('savePreferences').disabled = false;
-      document.getElementById('savePreferences').textContent = 'Save preferences';
+      for (const result of document.querySelectorAll('[data-settings-result]')) {
+        result.textContent = message;
+        result.dataset.result = ok ? 'success' : 'error';
+      }
+      for (const button of document.querySelectorAll('.save-button')) {
+        button.disabled = false;
+        button.textContent = button.dataset.defaultLabel || button.textContent;
+      }
     }
     function onPermissionData(status) {
       const permission = value => value === true ? 'allowed' : value === false ? 'needed' : 'unknown';
@@ -292,12 +401,16 @@
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
       document.getElementById('cfgInteraction').value = cfg.dual_mode_hotkey !== false ? 'both' : cfg.hold_to_talk ? 'hold' : 'toggle';
       renderPillPosition();
+      styleSelection = OUTPUT_STYLE_CARDS.some(card => card.id === cfg.output_style) ? cfg.output_style : 'natural';
+      currentConfig.output_style = styleSelection;
+      renderStyleOptions();
       selectMode(cfg.mode || 'auto', false);
     }
     function markUnsaved() {
-      const result = document.getElementById('settingsResult');
-      result.textContent = 'Changes apply when you save.';
-      delete result.dataset.result;
+      for (const result of document.querySelectorAll('[data-settings-result]')) {
+        result.textContent = 'Changes apply when you save.';
+        delete result.dataset.result;
+      }
     }
     function selectMode(mode, changed = true) {
       const names = {auto:'Auto',coding:'Coding',writing:'Writing',raw:'Raw'};
@@ -365,7 +478,7 @@
       stopShortcutRecording();
     }
     function setShortcut(value) { currentConfig.hotkey = value; if (!shortcutRecording) renderShortcutRecorder(); markUnsaved(); }
-    const PILL_POSITIONS = {'top-center':'posTopCenter','bottom-center':'posBottomCenter','bottom-right':'posBottomRight'};
+    const PILL_POSITIONS = {'top-center':'posTopCenter','bottom-left':'posBottomLeft','bottom-center':'posBottomCenter','bottom-right':'posBottomRight'};
     function renderPillPosition() {
       const selected = currentConfig.overlay_position in PILL_POSITIONS ? currentConfig.overlay_position : 'bottom-center';
       for (const [zone,id] of Object.entries(PILL_POSITIONS)) {
@@ -376,6 +489,131 @@
       }
     }
     function selectPillPosition(zone) { currentConfig.overlay_position = zone; renderPillPosition(); markUnsaved(); }
+
+    /* ---- output style ------------------------------------------------------ */
+    const OUTPUT_STYLE_CARDS = [
+      {id:'natural',name:'Natural',desc:'Clean punctuation and capitalization with filler words removed — the everyday default.',sample:'Send the deck Tuesday and I will leave notes in the margin.'},
+      {id:'concise',name:'Concise',desc:'Natural, and hedges like “basically” or “you know” are trimmed out of the sentence.',sample:'Send the deck Tuesday. Notes go in the margin.'},
+      {id:'professional',name:'Professional',desc:'Natural, with contractions expanded for a formal read — “don’t” becomes “do not”.',sample:'Send the deck on Tuesday, and I will leave my notes in the margin.'},
+      {id:'verbatim',name:'Verbatim',desc:'Exactly what the recognizer heard, trimmed but otherwise untouched.',sample:'Um, send the deck Tuesday, and I will, you know, leave notes in the margin.'},
+    ];
+    let styleSelection = 'natural';
+    function renderStyleOptions() {
+      const grid = document.getElementById('styleGrid');
+      if (!grid) return;
+      grid.replaceChildren();
+      for (const style of OUTPUT_STYLE_CARDS) {
+        const card = element('button', 'style-option' + (style.id === styleSelection ? ' selected' : ''));
+        card.type = 'button';
+        card.setAttribute('role', 'radio');
+        card.setAttribute('aria-checked', String(style.id === styleSelection));
+        const name = element('span', 'style-name');
+        name.append(element('span', 'style-check'), style.name);
+        card.append(name, element('span', 'style-desc', style.desc), element('span', 'style-sample', style.sample));
+        card.onclick = () => selectOutputStyle(style.id);
+        grid.append(card);
+      }
+      const selected = OUTPUT_STYLE_CARDS.find(style => style.id === styleSelection) || OUTPUT_STYLE_CARDS[0];
+      document.getElementById('stylePreviewName').textContent = selected.name;
+      document.getElementById('stylePreview').textContent = selected.sample;
+    }
+    function selectOutputStyle(style) {
+      if (!OUTPUT_STYLE_CARDS.some(card => card.id === style)) return;
+      styleSelection = style;
+      currentConfig.output_style = style;
+      renderStyleOptions();
+      markUnsaved();
+    }
+    function saveStyle() {
+      if (!configLoaded) { post('getConfig'); return; }
+      const button = document.getElementById('saveStyle');
+      const sent = post('saveConfig', {config:{output_style:currentConfig.output_style}});
+      if (sent) {
+        button.disabled = true;
+        button.textContent = 'Applying…';
+      } else onSettingsResult(false, 'Open Fixoflow to apply this style.');
+    }
+
+    /* ---- insights ------------------------------------------------------------ */
+    function reducedMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    function countUp(node, target, decimals = 0, duration = 700) {
+      if (!node) return;
+      const format = value => decimals ? value.toFixed(decimals) : Math.round(value).toLocaleString();
+      if (reducedMotion() || !target) { node.textContent = format(target); return; }
+      const startTime = performance.now();
+      const step = now => {
+        const progress = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        node.textContent = format(target * eased);
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+    function onInsightsData(data) {
+      const total = data.total || {}, streak = data.streak || {}, today = data.today || {}, fixes = data.fixes || {};
+      const firstName = (data.user || '').trim().split(/\s+/)[0];
+      document.getElementById('insightsGreeting').textContent = (firstName ? 'Hey ' + firstName + ' — ' : '') + 'a private look at how you dictate. Everything stays on this Mac.';
+      countUp(document.getElementById('streakCurrent'), streak.current || 0);
+      document.getElementById('streakBest').textContent = 'Best streak: ' + (streak.best || 0) + ' day' + ((streak.best || 0) === 1 ? '' : 's');
+      document.getElementById('streakActiveDays').textContent = (streak.active_days || 0) + ' active day' + ((streak.active_days || 0) === 1 ? '' : 's');
+      countUp(document.getElementById('todayWords'), today.total_words || 0);
+      document.getElementById('todaySub').textContent = today.sessions_count
+        ? today.sessions_count + ' dictation' + (today.sessions_count === 1 ? '' : 's') + ' · ' + today.avg_wpm + ' WPM today'
+        : 'No dictation yet today — your streak is waiting.';
+      const strip = document.getElementById('weekStrip');
+      strip.replaceChildren();
+      for (const day of data.week || []) {
+        const cell = element('div', 'day-cell' + (day.active ? ' active' : '') + (day.is_today ? ' today' : ''));
+        cell.title = day.date + (day.active ? ' · ' + day.words + ' words' : ' · no dictation');
+        cell.append(element('span', 'day-letter', day.label), element('span', 'day-dot'));
+        strip.append(cell);
+      }
+      countUp(document.getElementById('insightWords'), total.total_words || 0);
+      countUp(document.getElementById('insightSessions'), total.total_sessions || 0);
+      countUp(document.getElementById('insightWpm'), total.avg_wpm || 0);
+      const minutes = total.time_saved_minutes || 0;
+      if (minutes >= 120) {
+        countUp(document.getElementById('insightTime'), minutes / 60, 1);
+        document.getElementById('insightTimeUnit').textContent = 'hrs';
+      } else {
+        countUp(document.getElementById('insightTime'), minutes, minutes % 1 ? 1 : 0);
+        document.getElementById('insightTimeUnit').textContent = 'min';
+      }
+      countUp(document.getElementById('insightApps'), (data.apps || []).length);
+      countUp(document.getElementById('insightDict'), fixes.dictionary_total || 0);
+      countUp(document.getElementById('fixPolish'), fixes.polish_fixes || 0);
+      countUp(document.getElementById('fixVocab'), fixes.vocab_fixes || 0);
+      const chart = document.getElementById('weekChart');
+      chart.replaceChildren();
+      const week = data.week || [];
+      const maxWords = Math.max(1, ...week.map(day => day.words));
+      const bars = [];
+      for (const day of week) {
+        const col = element('div', 'day-col');
+        col.title = day.date + (day.active ? ' · ' + day.words + ' words · ' + day.avg_wpm + ' WPM' : ' · no dictation');
+        const bar = element('div', 'day-bar' + (day.active ? ' active' : ''));
+        bar.style.height = (day.words ? 14 + Math.round((day.words / maxWords) * 96) : 4) + 'px';
+        bars.push(bar);
+        col.append(bar, element('span', 'day-col-words', day.words ? day.words.toLocaleString() : '–'), element('span', 'day-col-label', day.label));
+        chart.append(col);
+      }
+      requestAnimationFrame(() => bars.forEach((bar, index) => { bar.style.transitionDelay = (index * 40) + 'ms'; bar.classList.add('grown'); }));
+      const appsList = document.getElementById('insightAppsList');
+      appsList.replaceChildren();
+      const topWords = Math.max(1, ...(data.apps || []).map(app => app.total_words || 0));
+      for (const app of data.apps || []) {
+        const row = element('div', 'app-bar-row');
+        const head = element('div', 'app-bar-head');
+        head.append(element('span', 'item-app-badge', app.app_name || 'Unknown app'), element('span', 'item-top', (app.total_words || 0).toLocaleString() + ' words · ' + app.count + ' sessions'));
+        const track = element('div', 'app-bar-track');
+        const fill = element('div', 'app-bar-fill');
+        track.append(fill);
+        row.append(head, track);
+        appsList.append(row);
+        requestAnimationFrame(() => { fill.style.width = Math.round(((app.total_words || 0) / topWords) * 100) + '%'; });
+      }
+      if (!appsList.childElementCount) empty(appsList, 'Your app activity appears after your first dictation.');
+    }
     function toggleAddWordModal() {
       const form = document.getElementById('addWordForm');
       form.classList.toggle('hidden');

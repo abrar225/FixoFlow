@@ -130,15 +130,18 @@ class FixoflowCoordinator:
             self._persist_transcript(session_path, raw_text, "transcribed")
 
             # 3. Apply mode formatting, dictionary replacements and polishing
+            fixes_vocab = fixes_polish = 0
             try:
-                formatted_text = self.learner.format_for_mode(raw_text, mode=self.config.mode, app_name=target_app)
+                formatted_text, fixes_vocab = self.learner.format_for_mode_counted(raw_text, mode=self.config.mode, app_name=target_app)
                 effective_mode = self.learner.effective_mode(self.config.mode, target_app)
-                final_text = self.polisher.polish(formatted_text, app_context=target_app, mode=effective_mode)
+                final_text, fixes_polish = self.polisher.polish_counted(formatted_text, app_context=target_app, mode=effective_mode)
                 if not final_text.strip():
                     final_text = raw_text
+                    fixes_polish = fixes_vocab = 0
             except Exception:
                 logger.exception("Formatting failed; retaining raw transcription")
                 final_text = raw_text
+                fixes_polish = fixes_vocab = 0
 
             latency_ms = (time.perf_counter() - t0) * 1000.0
             self._persist_transcript(session_path, final_text, "formatted", raw_text=raw_text)
@@ -155,6 +158,8 @@ class FixoflowCoordinator:
                     latency_ms=latency_ms,
                     mode=self.config.mode,
                     audio_path=str(session_path),
+                    fixes_polish=fixes_polish,
+                    fixes_vocab=fixes_vocab,
                 )
             except Exception as dbe:
                 logger.error("Failed to record session in database: %s", dbe)

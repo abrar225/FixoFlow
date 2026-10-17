@@ -7,30 +7,34 @@
 :root{
   --ease:cubic-bezier(.34,.8,.3,1);
   --tint:rgba(30,30,34,.40);
-  --tint-live:rgba(36,32,42,.58);
+  --tint-live:rgba(36,32,42,.60);
   --line:rgba(255,255,255,.16);
   --ink:#fafafc;
   --dim:rgba(250,250,252,.58);
   --ok:#9fd8a8;
   --err:#f2a29a;
 }
-*{box-sizing:border-box;outline:none}
+*{box-sizing:border-box;outline:none;-webkit-user-drag:none;touch-action:none}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
-body{display:grid;place-items:center;font:12px -apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none}
+body{display:grid;place-items:center;font:12px -apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;cursor:default}
 
 /* ---- the pill ---------------------------------------------------------- */
-.pill{position:relative;display:flex;align-items:center;gap:2px;height:30px;width:92px;padding:0 4px;border-radius:999px;background:var(--tint);cursor:grab;overflow:hidden;
-  transition:width .18s var(--ease),height .18s var(--ease),background .2s var(--ease)}
+.pill{position:relative;display:flex;align-items:center;height:30px;width:116px;padding:0 4px;border-radius:999px;background:var(--tint);cursor:grab;overflow:hidden;
+  transition:width .18s var(--ease),height .18s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease)}
+.pill::before{content:"";position:absolute;inset:0 0 50% 0;background:linear-gradient(rgba(255,255,255,.10),rgba(255,255,255,0));pointer-events:none}
 .pill.dragging{cursor:grabbing;background:var(--tint-live)}
+.pill[data-state=listening]{box-shadow:inset 0 0 0 1px rgba(255,255,255,.26)}
+.pill[data-state=success]{box-shadow:inset 0 0 0 1px rgba(159,216,168,.38)}
+.pill[data-state=error]{box-shadow:inset 0 0 0 1px rgba(242,162,154,.38)}
 
-button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer;border-radius:999px;height:24px;min-width:24px;padding:0 5px;display:flex;align-items:center;justify-content:center;
+button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer;border-radius:999px;height:24px;min-width:24px;padding:0 5px;display:flex;align-items:center;justify-content:center;flex:none;
   transition:background .12s ease,opacity .12s ease}
 button:hover{background:rgba(255,255,255,.10)}
 button:active{background:rgba(255,255,255,.18)}
 button:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
 button:disabled{cursor:wait;opacity:.8}
-.main{flex:1;min-width:0;justify-content:flex-start;gap:6px}
-.utility{flex:none;width:24px;padding:0}
+.main{flex:1 1 auto;min-width:0;justify-content:flex-start;gap:6px;padding:0 5px;overflow:hidden}
+.utility{width:24px;padding:0}
 
 /* ---- status glyph: mic · wave · spinner · check · warn ----------------- */
 .glyph{position:relative;width:18px;height:18px;flex:none}
@@ -52,10 +56,10 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 [data-state=success] .g-check{opacity:1;transform:scale(1)}
 [data-state=error] .g-warn{opacity:1;transform:none}
 
-/* ---- text ---------------------------------------------------------------- */
-.label{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-.keys{flex:none;font-size:10px;line-height:1;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:2px 5px;white-space:nowrap}
-.timer{display:none;flex:none;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+/* ---- text --------------------------------------------------------------- */
+.label{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.keys{flex:none;font-size:10px;line-height:1;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:2px 5px;white-space:nowrap;max-width:74px;overflow:hidden}
+.timer{display:none;flex:none;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
 
 [data-state=listening] .label{color:var(--ink)}
 [data-state=success] .label{color:var(--ok)}
@@ -77,7 +81,7 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 </head>
 <body>
 <div class="pill" id="bar" data-state="idle" role="group" aria-label="Fixoflow dictation controls">
-<button id="toggle" class="main" aria-label="Start dictation" title="Click to dictate · drag to move" onclick="mainAction()">
+<button id="toggle" class="main" aria-label="Start dictation" title="Click to dictate · drag anywhere to move" onclick="mainAction()">
 <span class="glyph">
 <svg class="g-mic" viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 10.5v1.5a6.5 6.5 0 0 0 13 0v-1.5M12 18.5V21m-3.5 0h7"/></svg>
 <span class="g-wave" id="wave"><i></i><i></i><i></i><i></i><i></i></span>
@@ -93,9 +97,10 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 <button class="utility hub" aria-label="Open Fixoflow settings" title="Open Fixoflow settings" onclick="post('openHub')"><svg viewBox="0 0 20 20"><path d="M3.5 6h13M3.5 10h13M3.5 14h13"/><circle cx="7.5" cy="6" r="1.8" fill="#17171a"/><circle cx="12.5" cy="10" r="1.8" fill="#17171a"/><circle cx="8.5" cy="14" r="1.8" fill="#17171a"/></svg></button>
 </div>
 <script>
-const SIZES={idle:[92,30],hover:[192,30],listening:[208,36],processing:[156,34],success:[140,34],error:[252,36]};
+const SIZES={idle:[116,30],hover:[216,30],listening:[176,36],processing:[156,34],success:[132,34],error:[264,36]};
 const BAR_LEVEL_VARIANCE=[.55,.85,1.2,.85,.55];
-let current='idle',hovering=false,dragging=false,drag=null,started=0,clock=null,smoothed=0;
+const MOVE_THRESHOLD=4;
+let current='idle',hovering=false,dragging=false,drag=null,suppressClick=false,started=0,clock=null,smoothed=0;
 
 function post(action,extra){window.webkit?.messageHandlers?.fixoflow?.postMessage({action,...extra});}
 function mainAction(){post(current==='error'?'openHub':'toggle');}
@@ -130,7 +135,9 @@ function updateControl(data){
   current=state;
   const bar=document.getElementById('bar');
   bar.dataset.state=state;
-  document.getElementById('label').textContent=state==='listening'?'Listening…':(data.message||'');
+  const label=document.getElementById('label');
+  label.textContent=state==='listening'?'Listening…':(data.message||'');
+  label.title=label.textContent;
   const toggle=document.getElementById('toggle');
   toggle.disabled=state==='processing';
   toggle.setAttribute('aria-label',state==='listening'?'Stop dictation':state==='processing'?'Transcribing':state==='error'?'Open Fixoflow settings':'Start dictation');
@@ -151,29 +158,42 @@ const bar=document.getElementById('bar');
 bar.addEventListener('mouseenter',()=>{hovering=true;bar.classList.add('hover');post('hover',{hovered:true});applySize();});
 bar.addEventListener('mouseleave',()=>{hovering=false;bar.classList.remove('hover');post('hover',{hovered:false});applySize();});
 
-/* drag to place: press anywhere that is not a button, then move */
+/* drag: press anywhere (including buttons), move past a small threshold to
+   start dragging; the click that would follow a drag is suppressed so buttons
+   keep working as plain clicks. */
 bar.addEventListener('pointerdown',event=>{
-  if(event.button!==0||event.target.closest('button'))return;
-  drag={sx:event.screenX,sy:event.screenY,moved:false};
+  if(event.button!==0||dragging)return;
+  drag={sx:event.screenX,sy:event.screenY,pid:event.pointerId,moved:false};
+  try{bar.setPointerCapture(event.pointerId);}catch(_){/* synthetic events have no active pointer */}
 });
 window.addEventListener('pointermove',event=>{
   if(!drag)return;
   const dx=event.screenX-drag.sx,dy=event.screenY-drag.sy;
-  if(!drag.moved&&Math.hypot(dx,dy)>5){
-    drag.moved=true;dragging=true;bar.classList.add('dragging');
+  if(!drag.moved&&Math.hypot(dx,dy)>MOVE_THRESHOLD){
+    drag.moved=true;dragging=true;suppressClick=true;
+    bar.classList.add('dragging');
     post('dragStart',{x:drag.sx,y:drag.sy});
   }
   if(drag.moved){event.preventDefault();post('dragMove',{x:event.screenX,y:event.screenY});}
 });
-window.addEventListener('pointerup',event=>{
+function endPress(event){
   if(!drag)return;
-  const moved=drag.moved;drag=null;
-  if(moved){
-    dragging=false;bar.classList.remove('dragging');
-    post('dragEnd',{x:event.screenX,y:event.screenY});
-    applySize();
-  }
-});
+  const moved=drag.moved;
+  drag=null;
+  if(!moved)return;
+  dragging=false;
+  bar.classList.remove('dragging');
+  post('dragEnd',{x:event.screenX,y:event.screenY});
+  applySize();
+  setTimeout(()=>{suppressClick=false;},0);
+}
+window.addEventListener('pointerup',endPress);
+window.addEventListener('pointercancel',endPress);
+window.addEventListener('click',event=>{
+  if(suppressClick){event.preventDefault();event.stopImmediatePropagation();}
+},true);
+window.addEventListener('dragstart',event=>event.preventDefault());
+window.addEventListener('selectstart',event=>event.preventDefault());
 
 window.addEventListener('DOMContentLoaded',()=>post('ready'));
 </script>

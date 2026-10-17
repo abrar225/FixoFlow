@@ -60,7 +60,17 @@ def test_cloud_engine_is_rejected():
 def test_overlay_position_defaults_to_bottom_center_and_rejects_unknown_zones():
     from fixoflow.config import OVERLAY_POSITIONS
     assert FixoflowConfig().overlay_position == 'bottom-center'
+    assert 'bottom-left' in OVERLAY_POSITIONS
     for zone in OVERLAY_POSITIONS:
         FixoflowConfig(overlay_position=zone).validate()
     with pytest.raises(ValueError, match='Floating pill position'):
         FixoflowConfig(overlay_position='middle-left').validate()
+
+
+def test_output_style_defaults_to_natural_and_rejects_unknown_styles():
+    from fixoflow.config import OUTPUT_STYLES
+    assert FixoflowConfig().output_style == 'natural'
+    for style in OUTPUT_STYLES:
+        FixoflowConfig(output_style=style).validate()
+    with pytest.raises(ValueError, match='Output style'):
+        FixoflowConfig(output_style='shakespearean').validate()

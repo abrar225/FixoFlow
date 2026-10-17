@@ -1,8 +1,9 @@
 """
 Unit tests for Fixoflow Text Polisher.
-Verifies filler removal, spoken punctuation conversion, and zero-loss guarantees.
+Verifies filler removal, spoken punctuation conversion, output styles,
+fix counting, and zero-loss guarantees.
 """
-from fixoflow.brain.polisher import TextPolisher, clean_with_rules
+from fixoflow.brain.polisher import TextPolisher, clean_with_rules, clean_with_rules_counted
 from fixoflow.config import FixoflowConfig
 
 
@@ -42,3 +43,28 @@ def test_polisher_never_calls_network(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", forbidden)
     polisher = TextPolisher(FixoflowConfig(mode="writing"))
     assert polisher.polish("hello period") == "Hello."
+
+
+def test_concise_style_trims_hedges_natural_keeps_them():
+    natural = clean_with_rules_counted("basically this is fine", style="natural")
+    assert natural[0] == "Basically this is fine"
+    concise = clean_with_rules_counted("basically this is fine", style="concise")
+    assert concise[0] == "This is fine" and concise[1] >= 1
+
+
+def test_professional_style_expands_contractions():
+    result, fixes = clean_with_rules_counted("I don't think we can't ship it", style="professional")
+    assert result == "I do not think we cannot ship it"
+    assert fixes >= 2
+
+
+def test_verbatim_style_only_trims():
+    result, fixes = clean_with_rules_counted("  um hello   world  ", style="verbatim")
+    assert result == "um hello   world" and fixes == 0
+
+
+def test_polish_counted_reports_fixes_for_the_session_record():
+    polisher = TextPolisher(FixoflowConfig(mode="writing"))
+    text, fixes = polisher.polish_counted("um hello world period")
+    assert text == "Hello world." and fixes >= 2
+    assert polisher.polish("um hello world period") == text

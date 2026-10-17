@@ -170,6 +170,24 @@ class HubManager:
             js = f"onDashboardData({json.dumps(stats)}, {json.dumps(top_apps)});"
             self._eval_js(js)
 
+        elif action == "getInsights":
+            from Foundation import NSFullUserName
+            try:
+                user = str(NSFullUserName())
+            except Exception:
+                import getpass
+                user = getpass.getuser()
+            insights = {
+                "user": user,
+                "total": self.db.get_total_stats(),
+                "today": self.db.get_today_stats(),
+                "streak": self.db.get_streak(),
+                "week": self.db.get_week_activity(7),
+                "fixes": self.db.get_fix_stats(),
+                "apps": self.db.get_app_breakdown(),
+            }
+            self._eval_js(f"onInsightsData({json.dumps(insights)});")
+
         elif action == "getHistory":
             search = payload.get("search", "") if hasattr(payload, "get") else ""
             items = self.db.get_history(limit=50, search=str(search or ""))
@@ -218,7 +236,7 @@ class HubManager:
             if cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "hotkey", "model_name", "always_show_overlay", "sound_enabled", "dual_mode_hotkey", "hold_to_talk", "overlay_position"}
+                    allowed = {"mode", "hotkey", "model_name", "always_show_overlay", "sound_enabled", "dual_mode_hotkey", "hold_to_talk", "overlay_position", "output_style"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)

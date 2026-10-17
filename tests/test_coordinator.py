@@ -40,6 +40,14 @@ def test_coordinator_lifecycle(coordinator):
     assert coordinator.db.get_history()[0]['final_text'] == 'parseConfig'
 
 
+def test_session_records_measured_fix_counts(coordinator):
+    coordinator.start_recording()
+    coordinator.stop_and_process(auto_paste=False)
+    row = coordinator.db.get_history()[0]
+    assert row['fixes_vocab'] == 1   # spoken-code "camel case" transformation
+    assert row['fixes_polish'] == 0  # coding mode leaves prose polishing off
+
+
 def test_start_failure_rolls_back_state(coordinator):
     coordinator.recorder.start.side_effect = RuntimeError('microphone denied')
     coordinator.start_recording()
@@ -107,7 +115,7 @@ def test_decode_failure_saves_partial_and_never_pastes(coordinator, monkeypatch)
 
 
 def test_formatter_failure_retains_raw(coordinator):
-    coordinator.learner.format_for_mode = Mock(side_effect=RuntimeError('format error'))
+    coordinator.learner.format_for_mode_counted = Mock(side_effect=RuntimeError('format error'))
     coordinator.start_recording()
     assert coordinator.stop_and_process(auto_paste=False) == 'camel case parse config'
 

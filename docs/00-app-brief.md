@@ -17,7 +17,8 @@ The main action a user should complete:
 - Press the global shortcut (default `Ctrl+Space`, configurable), speak, and stop (tap again or release the held key). The transcript is pasted at the cursor of the app that was frontmost when dictation started, and is always stored in local History.
 
 Must-have features (implemented):
-- Global shortcut with tap-to-toggle and hold-to-talk gestures, plus a compact glass floating pill (click to toggle, drag to one of three snap slots: top center, bottom center, bottom right).
+- Global shortcut with tap-to-toggle and hold-to-talk gestures, plus a compact glass floating pill (click to toggle, press anywhere on it to drag; it snaps to one of four slots: top center, bottom left, bottom center, bottom right).
+- Regular Dock presence: Fixoflow shows in the Dock and app switcher; the pill itself stays a nonactivating panel.
 - 16 kHz mono capture; audio blocks are written, flushed, and fsynced to a recovery WAV during recording.
 - Butterworth bandpass filtering (80 Hz–7.5 kHz), peak normalization, and energy-valley slicing above 24 s.
 - Local Whisper (`mlx-community/whisper-base.en-mlx`) via mlx-whisper with prompt conditioning from approved vocabulary.

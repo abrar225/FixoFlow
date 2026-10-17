@@ -28,7 +28,7 @@ coll = COLLECT(exe, a.binaries, a.datas, name="Fixoflow")
 app = BUNDLE(coll, name="Fixoflow.app", icon=str(root / "resources" / "AppIcon.icns"),
              bundle_identifier="com.fixoflow.app", version="0.2.0",
              info_plist={"CFBundleDisplayName": "Fixoflow", "LSMinimumSystemVersion": "14.0",
-                         "NSHighResolutionCapable": True, "LSUIElement": True,
+                         "NSHighResolutionCapable": True, "LSUIElement": False,
                          "NSMicrophoneUsageDescription": "Record speech locally for dictation.",
                          "NSAccessibilityUsageDescription": "Insert dictated text into the application you choose.",
                          "NSInputMonitoringUsageDescription": "Respond to your global dictation shortcut."})

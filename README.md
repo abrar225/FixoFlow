@@ -43,9 +43,9 @@ Every transcript is stored in local SQLite history, so text is recoverable even 
 | Hold the shortcut past 0.45 s | Push-to-talk: release to stop and transcribe |
 | Escape | Cancels capture; the audio file is kept |
 | Click the floating pill | Same toggle control, no keyboard needed |
-| Drag the floating pill | Drops into the nearest of three slots — top center, bottom center, bottom right — and remembers it |
+| Drag the floating pill | Press anywhere on it (buttons included) and drag; it drops into the nearest of four slots — top center, bottom left, bottom center, bottom right — and remembers it |
 
-The floating pill is a 92 × 30 pt glass capsule over a real macOS backdrop blur (`NSVisualEffectView`), so it stays out of the way; it expands only while you hover, record, or when a result needs to be shown. Idle it sits at 82% opacity, wakes to full opacity on hover, and its width, corner radius, and position all animate between states.
+The floating pill is a 116 × 30 pt glass capsule over a real macOS backdrop blur (`NSVisualEffectView`), so it stays out of the way; it expands only while you hover, record, or when a result needs to be shown. Idle it sits at 82% opacity, wakes to full opacity on hover, and its width, corner radius, and position all animate between states. While dragging, ghost outlines show the four snap slots and the nearest one highlights; a click that follows a drag is suppressed, so dragging can start from a button without ever firing it.
 
 Text delivery is **clipboard-first**: the transcript is copied before any keystroke is posted. If the target app moved to the background, Fixoflow tries to refocus it; if Accessibility is missing or the paste keystroke is rejected, the text is already on your clipboard and a notification explains what happened.
 
@@ -79,6 +79,15 @@ No accounts, no telemetry, no network calls. Runtime transcription uses a bundle
 | Raw | Speech engine output untouched |
 
 The personal dictionary conditions the recognizer prompt and rewrites final text. Replacements are treated as literal text — backslashes and `\1` never corrupt output. Only entries you add are authoritative; model output is never auto-promoted.
+
+## Insights & style
+
+| Hub tab | What it shows |
+| :-- | :-- |
+| Insights | Daily streak with best-streak record and a week strip, words dictated today, lifetime words, dictations, average speaking pace, time saved, apps used, dictionary size — and the two learning counters: polish fixes (filler/spacing/punctuation cleanup) and fixes made by Fixoflow (learned terms and spoken-code replacements). Every number is aggregated from local SQLite; nothing leaves the Mac. |
+| Style | Four writing-mode styles — Natural, Concise, Professional, Verbatim — each with a preview of what it does. Stored as `output_style` and applied by the offline polisher; coding and raw modes are never touched. |
+
+Fixoflow appears in the Dock and app switcher like a regular app. The floating pill stays a nonactivating panel, so clicking it never steals focus, and quitting from the Dock stops dictation cleanly.
 
 ## Permissions
 

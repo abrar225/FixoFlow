@@ -1,11 +1,13 @@
 """A persistent, nonactivating dictation control backed by local WebKit.
 
-The control is a compact glass pill that snaps into one of three placement
-zones (top center, bottom center, bottom right). The user drags it anywhere
-and it drops into the nearest zone; a snap guide shows the zones while
-dragging. Placement geometry is plain tuple math (``zone_origin``,
-``anchored_origin``, ``dragged_origin``, ``nearest_zone``) so it is unit
-tested without Cocoa.
+The control is a compact glass pill that snaps into one of four placement
+zones (top center, bottom left, bottom center, bottom right). The user drags
+it anywhere — pressing any part of the pill, buttons included — and it drops
+into the nearest zone; a snap guide shows the zones while dragging. Placement
+geometry is plain tuple math (``zone_origin``, ``dragged_origin``,
+``clamp_origin``, ``nearest_zone``) so it is unit tested without Cocoa. Every
+resize re-derives the origin from the zone's canonical slot, so state changes
+and snap animations can never drift the pill off its margin.
 
 Glass look: the panel hosts an ``NSVisualEffectView`` (behind-window blend)
 with a capsule mask; the HTML only draws a translucent tint, so the blur is
@@ -29,11 +31,12 @@ logger = logging.getLogger(__name__)
 
 ZONE_LABELS = {
     "top-center": "Top center",
+    "bottom-left": "Bottom left",
     "bottom-center": "Bottom center",
     "bottom-right": "Bottom right",
 }
 ZONE_MARGIN = 10.0
-IDLE_SIZE = (92.0, 30.0)
+IDLE_SIZE = (116.0, 30.0)
 MIN_SIZE = (64.0, 26.0)
 RESIZE_SECONDS = 0.18
 SNAP_SECONDS = 0.26
@@ -51,30 +54,11 @@ def zone_origin(zone, size, visible_frame, margin=ZONE_MARGIN):
     pill_width, pill_height = size
     if zone == "top-center":
         return (x + (width - pill_width) / 2.0, y + height - pill_height - margin)
+    if zone == "bottom-left":
+        return (x + margin, y + margin)
     if zone == "bottom-right":
         return (x + width - pill_width - margin, y + margin)
     return (x + (width - pill_width) / 2.0, y + margin)
-
-
-def anchored_origin(zone, origin, old_size, new_size):
-    """Origin that keeps the zone's anchor edges when the pill resizes.
-
-    Top zones keep their top edge, bottom zones their bottom edge, and the
-    right zone its right edge, so state changes grow away from the screen
-    edge instead of drifting.
-    """
-    x, y = origin
-    old_width, old_height = old_size
-    new_width, new_height = new_size
-    if zone == "top-center":
-        center = x + old_width / 2.0
-        top = y + old_height
-        return (center - new_width / 2.0, top - new_height)
-    if zone == "bottom-right":
-        right = x + old_width
-        return (right - new_width, y)
-    center = x + old_width / 2.0
-    return (center - new_width / 2.0, y)
 
 
 def clamp_origin(origin, size, visible_frame):
@@ -299,10 +283,9 @@ class OverlayManager:
     def _apply_size(self, width, height, seconds=RESIZE_SECONDS):
         width = max(MIN_SIZE[0], float(width))
         height = max(MIN_SIZE[1], float(height))
-        frame = self._panel.frame()
-        origin = anchored_origin(self._zone, (frame.origin.x, frame.origin.y),
-                                 (frame.size.width, frame.size.height), (width, height))
-        origin = clamp_origin(origin, (width, height), self._visible_frame())
+        # Re-derive from the zone's canonical slot: idempotent, so a resize
+        # racing a snap animation can never leave the pill off its margin.
+        origin = zone_origin(self._zone, (width, height), self._visible_frame())
         self._effect.layer().setCornerRadius_(height / 2.0)
         self._animate_frame(NSRect(NSPoint(origin[0], origin[1]), NSSize(width, height)), seconds)
 

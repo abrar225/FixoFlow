@@ -1,3 +1,4 @@
+import datetime
 import tempfile
 from pathlib import Path
 from fixoflow.storage.db import FixoflowDB
@@ -105,3 +106,60 @@ def test_seed_vocabulary_runs_once_and_respects_deletions():
         db.delete_word("github")
         AdaptiveLearner(db)
         assert not any(entry["phrase"] == "github" for entry in db.get_dictionary())
+
+
+def test_counted_learner_reports_dictionary_and_code_fixes():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = FixoflowDB(Path(tmpdir) / "test.sqlite")
+        learner = AdaptiveLearner(db)
+        text, fixes = learner.format_for_mode_counted("ask claude code now", mode="writing", app_name="")
+        assert "Claude Code" in text and fixes >= 1
+        text, fixes = learner.format_for_mode_counted("pytest dash dash verbose", mode="coding", app_name="Terminal")
+        assert "--verbose" in text and fixes >= 1
+
+
+def test_fix_totals_aggregate_from_history():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = FixoflowDB(Path(tmpdir) / "test.sqlite")
+        db.record_session("a", "one two", "Mail", 1.0, 50.0, fixes_polish=3, fixes_vocab=2)
+        db.record_session("b", "three", "Mail", 1.0, 50.0, fixes_polish=1, fixes_vocab=0)
+        db.upsert_word("fizz buzz", "FizzBuzz")
+        stats = db.get_fix_stats()
+        assert stats["polish_fixes"] == 4 and stats["vocab_fixes"] == 2
+        assert stats["dictionary_total"] == 1 and stats["dictionary_uses"] == 1
+
+
+def _insert_days_ago(db, days_ago, words):
+    stamp = (datetime.datetime.now() - datetime.timedelta(days=days_ago)).isoformat()
+    with db._connect() as conn:
+        conn.execute(
+            "INSERT INTO history (id, timestamp, app_name, asr_text, final_text, duration_sec, word_count, latency_ms, mode, audio_path)"
+            " VALUES (?, ?, '', 'a', ?, 2.0, ?, 10.0, 'auto', '')",
+            (f"row-{days_ago}-{words}", stamp, " ".join(["word"] * words), words),
+        )
+
+
+def test_streak_counts_consecutive_days_and_survives_gaps():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = FixoflowDB(Path(tmpdir) / "test.sqlite")
+        assert db.get_streak() == {"current": 0, "best": 0, "last_date": None, "active_days": 0}
+        for days_ago in (0, 1, 2, 4, 5):
+            _insert_days_ago(db, days_ago, 10)
+        db.rebuild_analytics()
+        streak = db.get_streak()
+        assert streak["current"] == 3 and streak["best"] == 3
+        assert streak["active_days"] == 5
+
+
+def test_today_and_week_activity_fill_missing_days():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = FixoflowDB(Path(tmpdir) / "test.sqlite")
+        _insert_days_ago(db, 0, 12)
+        _insert_days_ago(db, 2, 8)
+        db.rebuild_analytics()
+        today = db.get_today_stats()
+        assert today["total_words"] == 12 and today["sessions_count"] == 1
+        week = db.get_week_activity(7)
+        assert len(week) == 7 and week[-1]["is_today"] and week[-1]["active"]
+        assert [day["active"] for day in week] == [False, False, False, False, True, False, True]
+        assert week[-1]["words"] == 12 and week[-3]["words"] == 8

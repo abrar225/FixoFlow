@@ -25,21 +25,23 @@
 ## 4. Component Language
 
 ### Floating control (always-on pill, or summoned)
-- Shape: 92 × 30 pt capsule at rest — glass over a real `NSVisualEffectView` backdrop blur, 82% opacity while idle, full opacity on hover; the panel window is exactly the pill, so it never steals clicks from surrounding content.
-- Idle: microphone glyph plus a shortcut key chip; hovering expands the capsule (~192 pt) to reveal "Click to dictate" and the settings button, then contracts on exit.
-- Recording: expands to ~208 × 36 pt with an audio-reactive five-bar waveform, "Listening…", live elapsed timer, a stop button, and a cancel control.
+- Shape: 116 × 30 pt capsule at rest — glass over a real `NSVisualEffectView` backdrop blur with a soft top sheen, 82% opacity while idle, full opacity on hover; each state adds a subtle halo ring (recording green, processing blue, success green, error amber). The panel window is exactly the pill, so it never steals clicks from surrounding content.
+- Idle: microphone glyph plus a shortcut key chip and a hub button; hovering expands the capsule (~216 pt) to reveal "Click to dictate", then contracts on exit. The label truncates with an ellipsis before it could ever overlap the key chip or hub button.
+- Recording: expands to ~176 × 36 pt with an audio-reactive five-bar waveform, "Listening…", live elapsed timer, a stop button, and a cancel control.
 - Processing: "Transcribing…" with a spinner; start is disabled so clicks cannot queue another session.
 - Success: green check pops in with "Pasted" / "Transcribed!" / "Recording saved" for 2.5 s.
 - Error: warm warning glyph with the reason (e.g. "Copied · enable Accessibility"); clicking the pill opens the hub for the fix.
-- Placement: drag anywhere and the pill falls into the nearest of three snap slots — top center, bottom center, bottom right — with ghost-outline guides shown during the drag; the slot is saved to preferences. Dragging is anchored from every non-button area of the pill.
-- Motion: width/height/resize, snap, and opacity all animate on a shared 0.18–0.26 s ease curve; `prefers-reduced-motion` and the macOS reduce-motion setting disable animation.
+- Placement: a press anywhere on the pill (buttons included) starts a drag after a 4 pt threshold; releasing drops it into the nearest of four snap slots — top center, bottom left, bottom center, bottom right — with ghost-outline guides shown during the drag; the nearest slot fills green and lifts. The slot is saved to preferences. A press that moved never counts as a click on the control underneath.
+- Motion: width/height/resize, snap, guide fade, and opacity all animate on a shared 0.18–0.26 s ease curve; `prefers-reduced-motion` and the macOS reduce-motion setting disable animation.
 
 ### Hub window (Cocoa + WebKit)
-- Sidebar: Overview, History, Dictionary, Settings; footer states "On your Mac — Local audio & transcription".
+- Sidebar: Overview, Insights, History, Dictionary, Style, Settings; footer states "On your Mac — Local audio & transcription".
 - Overview: runtime status dot (Ready / Listening / Transcribing), shortcut state, words dictated, time saved (estimated at 40 WPM), speaking pace, session count, and per-app breakdown.
+- Insights: greeting by macOS user name, a streak card with current and best streak plus a seven-day activity strip (green = active), words today, and stat cards for lifetime words, dictations, speaking pace, time saved, dictionary size, and apps used; two learning counters show polish fixes and fixes made by Fixoflow — learned terms and spoken-code replacements counted from real substitutions, not estimates. A seven-bar week chart and per-app bars animate in with count-up numbers; all data is local.
+- Style: four style cards (Natural, Concise, Professional, Verbatim) with a one-line preview each, a sample sentence that re-renders to show the chosen style's effect, and a Save button that writes only `output_style`.
 - History: searchable list with Copy and Delete; Clear history rebuilds analytics so the dashboard can never disagree with what is visible.
 - Dictionary: phrase → replacement entries with review and remove; Add word form with category.
-- Settings: control toggles, shortcut recorder (click the button, press the combination; Escape cancels, Backspace clears, presets included), dictation mode cards, local model selector, permission panel with live status, a Request permissions button, and Restart Fixoflow after granting Input Monitoring.
+- Settings: control toggles, shortcut recorder (click the button, press the combination; Escape cancels, Backspace clears, presets included), dictation mode cards, a four-zone placement picker (top center, bottom left, bottom center, bottom right), local model selector, permission panel with live status, a Request permissions button, and Restart Fixoflow after granting Input Monitoring.
 
 ### CLI
 - Plain sentences, no emoji. `record` ends with an explicit delivery line: pasted at cursor, clipboard untouched (`--no-paste`), or the exact failure reason.

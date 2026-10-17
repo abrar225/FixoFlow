@@ -132,10 +132,21 @@ class AdaptiveLearner:
 
     def format_for_mode(self, text: str, mode: str, app_name: str) -> str:
         """Apply personal-dictionary replacements and coding transformations."""
+        formatted, _ = self.format_for_mode_counted(text, mode=mode, app_name=app_name)
+        return formatted
+
+    def format_for_mode_counted(self, text: str, mode: str, app_name: str):
+        """Apply dictionary/coding formatting and count the fixes applied.
+
+        The count feeds the Insights tab as "Fixes made by Fixoflow":
+        each personal-dictionary substitution and each spoken-code
+        transformation counts once.
+        """
         if mode == "raw":
-            return text
+            return text, 0
 
         effective_mode = self.effective_mode(mode, app_name)
+        fixes = 0
 
         dictionary = self.db.get_dictionary(limit=200)
         for entry in dictionary:
@@ -143,14 +154,16 @@ class AdaptiveLearner:
             replacement = entry["replacement"]
             pattern = rf"\b{re.escape(phrase)}\b"
             if re.search(pattern, text, re.IGNORECASE):
-                text = re.sub(pattern, _literal_replacement(replacement), text, flags=re.IGNORECASE)
+                text, count = re.subn(pattern, _literal_replacement(replacement), text, flags=re.IGNORECASE)
+                fixes += count
                 self.db.increment_word_usage(phrase)
 
         if effective_mode == "coding":
             for pattern, replacement in SPOKEN_CODE_PATTERNS:
-                text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+                text, count = re.subn(pattern, replacement, text, flags=re.IGNORECASE)
+                fixes += count
 
-        return text
+        return text, fixes
 
     def get_dynamic_prompt_conditioning(self, app_name: str, mode: str = "auto") -> str:
         """Synthesize the Whisper initial prompt from approved vocabulary."""

@@ -1,9 +1,9 @@
 # App Flow: Fixoflow
 
 ## 1. Entry Points
-- **Installed app:** `Fixoflow.app` (menu-bar application; the hub opens on first launch).
+- **Installed app:** `Fixoflow.app` (regular Dock app — a menu-bar item, a Dock icon, and the hub open on first launch).
 - **CLI:** `fixoflow start` (floating control only), `fixoflow hub`, `fixoflow record`, `fixoflow transcribe file.wav`.
-- **Reopen:** launching again signals the running instance via `com.fixoflow.showHub` instead of starting a second copy.
+- **Reopen:** launching again signals the running instance via `com.fixoflow.showHub` instead of starting a second copy; clicking the Dock icon opens the same hub.
 
 ---
 
@@ -21,7 +21,7 @@
 
 | State | Mode | Purpose | Entry | Primary action | Failure | Success |
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| **IDLE** | Background | Menu bar + compact glass pill wait (92 × 30 pt; hover expands; drag re-slots among three zones) | Launched, permissions checked | Shortcut or click | Shortcut listener blocked → explicit detail in hub/menu | → RECORDING |
+| **IDLE** | Background | Menu bar + compact glass pill wait (116 × 30 pt; hover expands; press anywhere to drag it among four snap zones) | Launched, permissions checked | Shortcut or click | Shortcut listener blocked → explicit detail in hub/menu | → RECORDING |
 | **RECORDING** | Capture | 16 kHz blocks persisted to WAV | Shortcut tap/hold, floating control | Speak; Escape cancels | Mic unplugged → `RecordingError`, state rolls back | → PROCESSING |
 | **PROCESSING** | Inference | Filter, slice, transcribe, format | Stop gesture | Wait (new starts disabled) | Chunk failure → partial `.transcript.json`, never a fake success | → insertion |
 | **DELIVERY** | Insertion | Clipboard write, focus restore, ⌘V | Transcript ready | Automatic | `permission` / `event-failed` / `clipboard-failed` → notification + hub detail | → IDLE |
@@ -84,7 +84,11 @@ flowchart TD
 
 ### Configuration changes
 - Saving settings validates the hotkey (recorded via the shortcut button or presets; at least one modifier or a function key), persists atomically with a backup, rebuilds the recorder/STT/polisher on the live app, and restarts the shortcut listener when permitted.
-- Dragging the pill is a lightweight save: only `overlay_position` changes and the hub refreshes; no engines are rebuilt.
+- Dragging the pill is a lightweight save: only `overlay_position` changes and the hub refreshes; no engines are rebuilt. Picking a style card saves only `output_style` the same way — no engine rebuild.
+
+### Insights and style
+- The Insights tab reads only local aggregates (streak, today, week, lifetime counts, fix counters) built from `history`; it never runs inference and never leaves the device.
+- The Style tab sets the writing-mode polish level; the next dictation in writing mode uses it. Coding and raw modes ignore styles by design.
 
 ---
 
@@ -92,7 +96,8 @@ flowchart TD
 
 | User action | Condition | Result | Destination |
 | :-- | :-- | :-- | :-- |
-| Drag the pill | Any state | Snap guide shows the three slots; release drops into the nearest zone and saves the choice | same state |
+| Drag the pill | Any state | Snap guide shows the four slots; release drops into the nearest zone and saves the choice; a press that moved never counts as a click | same state |
+| Save a style card | Hub open | `output_style` persists; writing-mode polish changes on the next dictation | same state |
 | Press shortcut | IDLE | Recording starts; `Tink` | RECORDING |
 | Release before threshold | Recording (hold gesture) | Latch stays recording | RECORDING |
 | Release after threshold | Recording (hold gesture) | Stop and process | PROCESSING |

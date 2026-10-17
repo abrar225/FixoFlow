@@ -52,29 +52,51 @@ def check_floating_control(overlay):
     """Exercise actual local WebKit IPC without opening audio or pasting text."""
     import time
     from Foundation import NSDate, NSRunLoop
+    from fixoflow.ui.overlay import zone_origin
     events, result = [], []
+    reported = []
+    original_callback = overlay.on_position_change
     overlay.on_toggle = lambda: events.append('toggle')
     overlay.on_cancel = lambda: events.append('cancel')
     overlay.on_open_hub = lambda: events.append('settings')
+    # The drag exercise below must not persist a position into the user's config.
+    overlay.on_position_change = reported.append
+    initial_zone = overlay._zone
     assert not overlay._panel.canBecomeKeyWindow()
     assert not overlay._panel.ignoresMouseEvents()
-    deadline = time.monotonic() + 8
+    deadline = time.monotonic() + 12
     loop = NSRunLoop.currentRunLoop()
     while not overlay._ready and time.monotonic() < deadline:
         loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.05))
     assert overlay._ready, 'Floating control did not finish loading'
     script = """(() => {
+        const bar = document.getElementById('bar');
+        const overflow = () => bar.scrollWidth <= bar.clientWidth + 1;
         updateControl({state:'listening',message:'Listening',shortcut:'⌃ Space',elapsed:2});
+        const listeningFits = overflow();
         document.getElementById('toggle').click();
         document.querySelector('[aria-label="Cancel recording"]').click();
         updateControl({state:'processing',message:'Transcribing',shortcut:'⌃ Space'});
         const disabled = document.getElementById('toggle').disabled;
         document.getElementById('toggle').click();
+        updateControl({state:'error',message:'Enable Accessibility permission',shortcut:'⌃ Space'});
+        const errorFits = overflow();
         updateControl({state:'idle',message:'Click to dictate',shortcut:'⌃ Space'});
         document.querySelector('[aria-label="Open Fixoflow settings"]').click();
-        const bar = document.getElementById('bar');
+        const idleFits = overflow();
+        const drag = {};
+        try {
+          const dispatch = (target, type, id, x, y) => target.dispatchEvent(new PointerEvent(type, {bubbles:true, button:0, pointerId:id, screenX:x, screenY:y}));
+          dispatch(bar, 'pointerdown', 7, 400, 400);
+          dispatch(window, 'pointermove', 7, 400, -5000);
+          dispatch(window, 'pointerup', 7, 400, -5000);
+          dispatch(bar, 'pointerdown', 8, 400, 100);
+          dispatch(window, 'pointermove', 8, 400, 20000);
+          dispatch(window, 'pointerup', 8, 400, 20000);
+          drag.ok = true;
+        } catch (error) { drag.error = String(error); }
         return JSON.stringify({disabled, label:document.getElementById('toggle').getAttribute('aria-label'),
-            width:bar.style.width, height:bar.style.height});
+            width:bar.style.width, height:bar.style.height, idleFits, listeningFits, errorFits, drag});
     })()"""
     overlay._webview.evaluateJavaScript_completionHandler_(script, lambda value, error: result.append((value, error)))
     while (not result or len(events) < 3) and time.monotonic() < deadline:
@@ -85,7 +107,30 @@ def check_floating_control(overlay):
     # The idle pill must stay small and unobtrusive; it may never approach the
     # old full-width bar.
     assert float(payload['width'].rstrip('px')) <= 200 and float(payload['height'].rstrip('px')) <= 44, payload
+    # No state may overflow its flex row into the neighbouring controls.
+    assert payload['idleFits'] and payload['listeningFits'] and payload['errorFits'], payload
     assert events == ['toggle', 'cancel', 'settings'], f'Unexpected floating control actions: {events}'
+    # Synthetic pointer drag through WebKit: up snaps top-center, down returns
+    # to the starting column's bottom zone; the position callback reports each
+    # change and the frame lands on the zone origin.
+    assert payload['drag'].get('ok'), payload
+    expected = [] if initial_zone == 'top-center' else ['top-center']
+    down_zone = 'bottom-center' if initial_zone == 'top-center' else initial_zone
+    if not expected or expected[-1] != down_zone:
+        expected.append(down_zone)
+    while len(reported) < len(expected) and time.monotonic() < deadline:
+        loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.05))
+    assert reported == expected, f'Expected drag snap {expected}, got {reported} (initial {initial_zone})'
+    loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(1.0))
+    frame = overlay._panel.frame()
+    target_x, target_y = zone_origin(down_zone, (frame.size.width, frame.size.height), overlay._visible_frame())
+    assert abs(frame.origin.x - target_x) <= 6 and abs(frame.origin.y - target_y) <= 6, \
+        f'Pill did not land on {down_zone}: {(frame.origin.x, frame.origin.y)} vs {(target_x, target_y)}'
+    # Leave the pill exactly where the user had it.
+    overlay._zone = initial_zone
+    overlay._reported_zone = initial_zone
+    overlay._snap(animate=False)
+    overlay.on_position_change = original_callback
 
 
 class MenuDelegate(NSObject):
@@ -138,7 +183,9 @@ class FixoflowApp:
     def __init__(self):
         self.config = FixoflowConfig.load()
         self.ns_app = AppKit.NSApplication.sharedApplication()
-        self.ns_app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyAccessory)
+        # A regular app: Fixoflow keeps a Dock icon and joins the app switcher,
+        # while the floating pill stays a nonactivating panel.
+        self.ns_app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
 
         self.daemon = FixoflowDaemon(self.config)
         self.hub = HubManager.get_instance()
