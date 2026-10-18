@@ -4,6 +4,7 @@ import argparse
 from dataclasses import asdict
 import json
 import logging
+import queue
 from pathlib import Path
 import sys
 import threading
@@ -47,6 +48,7 @@ class DesktopApplication:
     def __init__(self,config,background=False,self_check=False,report=None):
         import webview
         self._audio_level=0.0
+        self._captures=queue.SimpleQueue()
         self.config=config;self.hub=DesktopHub(config);self._closed=threading.Event();self._loaded=threading.Event();self._error='';self._self_check=self_check;self.check_passed=False;self.report=report;self.restarting=False
         self.coordinator=FixoflowCoordinator(config,enable_overlay=False)
         self.coordinator.recorder.on_level_callback=self.audio_level
@@ -125,7 +127,7 @@ class DesktopApplication:
         if self.controls.state!='IDLE':raise RuntimeError('Finish dictation first.')
         error=self.enable_shortcut()
         if error:raise RuntimeError(error)
-        self.inputs.begin_capture(lambda binding,message:self.hub._eval_js('onShortcutCaptured('+json.dumps({'field':field,'binding':binding,'message':message})+');'))
+        self.inputs.begin_capture(lambda binding,message:self._captures.put({'field':field,'binding':binding,'message':message}))
 
     def apply_config(self,candidate):
         candidate.validate()
@@ -175,6 +177,10 @@ class DesktopApplication:
         while not self._closed.wait(0.2):
             if not self._loaded.is_set():continue
             self.inputs.expire_capture();status=self.status()
+            while True:
+                try:captured=self._captures.get_nowait()
+                except queue.Empty:break
+                self.hub._eval_js('onShortcutCaptured('+json.dumps(captured)+');')
             if status['state']=='RECORDING':
                 try:self.pill.evaluate_js('setAudioLevel('+json.dumps(self._audio_level)+');')
                 except Exception:pass

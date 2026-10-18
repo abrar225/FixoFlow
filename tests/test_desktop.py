@@ -84,3 +84,17 @@ def test_linux_window_identity_includes_process_birth():
     window=SimpleNamespace(id=42,get_full_property=lambda *args:SimpleNamespace(value=[os.getpid()]))
     identity=linux._identity(display,window)
     assert identity[:2]==[42,os.getpid()] and int(identity[2])>0
+
+
+def test_capture_callback_does_not_wait_for_native_ui():
+    import queue
+    from fixoflow.desktop_app import DesktopApplication
+    application=DesktopApplication.__new__(DesktopApplication)
+    application.controls=SimpleNamespace(state='IDLE')
+    application.inputs=Mock();application.hub=Mock();application._captures=queue.SimpleQueue()
+    application.enable_shortcut=lambda:None
+    application.capture('hold_shortcut')
+    callback=application.inputs.begin_capture.call_args.args[0]
+    callback({'keys':['space']},'selected')
+    application.hub._eval_js.assert_not_called()
+    assert application._captures.get_nowait()['field']=='hold_shortcut'
