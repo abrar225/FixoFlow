@@ -3,208 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fixoflow</title>
-  <style>
-    :root { color-scheme: light; --sidebar:#f5f4f0; --surface:#fff; --row:#f7f7f5; --text:#252522; --muted:#6d6d66; --line:#e7e7e1; --accent:#22221f; }
-    * { box-sizing:border-box; }
-    body { margin:0; height:100vh; display:flex; overflow:hidden; background:var(--surface); color:var(--text); font:13px -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif; -webkit-font-smoothing:antialiased; }
-    button,input,select { font:inherit; }
-    button { cursor:pointer; }
-    button:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #587798; outline-offset:3px; }
-    button:disabled { cursor:wait; opacity:.6; }
-    .sidebar { width:190px; flex-shrink:0; padding:27px 12px 17px; background:var(--sidebar); display:flex; flex-direction:column; border-right:1px solid var(--line); }
-    .app-brand { display:flex; align-items:center; gap:9px; padding:0 13px 30px; font-size:19px; font-weight:650; letter-spacing:-.6px; }
-    .brand-icon { width:26px; height:26px; display:flex; align-items:center; gap:3px; }
-    .brand-icon i { width:4px; border-radius:3px; background:var(--text); }
-    .brand-icon i:first-child { height:13px; }
-    .brand-icon i:nth-child(2) { height:21px; }
-    .brand-icon b { width:8px; height:8px; border-radius:50%; background:#3f7d52; }
-    .nav-btn { width:100%; display:flex; align-items:center; gap:11px; padding:11px 13px; margin-bottom:4px; border:0; border-radius:7px; background:transparent; color:var(--muted); text-align:left; font-weight:500; }
-    .nav-btn:hover { background:#eae9e4; color:var(--text); }
-    .nav-btn.active { background:#e5e4dd; color:var(--text); }
-    .nav-icon { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
-    .sidebar-footer { margin-top:auto; padding:18px 12px 0; display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:11px; }
-    .local-mark { display:flex; gap:6px; align-items:center; }
-    .local-mark::before { content:""; width:6px; height:6px; border-radius:50%; background:#5a755f; }
-    .content-area { flex:1; min-width:0; overflow-y:auto; padding:25px 32px 40px; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:24px; margin-bottom:8px; border-bottom:1px solid var(--line); }
-    .status { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
-    .status-dot { width:7px; height:7px; border-radius:50%; background:#999991; }
-    .status-dot.recording { background:#b44339; }
-    .status-dot.ready { background:#5a755f; }
-    .status-dot.processing { background:#a17b34; }
-    .shortcut-label { font-size:11px; color:var(--muted); margin-top:5px; }
-    .view-title { margin:24px 0 7px; font:normal 32px/1.18 Georgia,"Times New Roman",serif; letter-spacing:-.7px; }
-    .heading-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .subtitle { margin:0 0 25px; color:var(--muted); line-height:1.6; font-size:13px; max-width:65ch; }
-    h2 { margin:0; font-size:14px; font-weight:600; }
-    p { line-height:1.55; }
-    .primary-btn,.action-btn { min-height:32px; border-radius:7px; padding:7px 12px; font-size:12px; font-weight:550; border:1px solid var(--line); background:white; color:var(--text); }
-    .primary-btn { background:var(--accent); color:white; border-color:var(--accent); }
-    .primary-btn:hover { background:#41413a; }
-    .action-btn:hover { background:#f0f0ed; }
-    .action-btn.delete:hover { color:#a3362e; border-color:#dabeb8; background:#faf1ef; }
-    .setup-callout { margin:20px 0 25px; padding:16px 18px; border:1px solid var(--line); border-radius:10px; background:#fcfcfa; }
-    .setup-callout h2 { margin-bottom:5px; }
-    .setup-callout p { margin:0 0 12px; color:var(--muted); font-size:12px; }
-    .stats-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:22px 0 28px; }
-    .stat-card { padding:20px 14px 20px 0; }
-    .stat-card:nth-child(even) { padding-left:23px; border-left:1px solid var(--line); }
-    .stat-card:nth-child(-n+2) { border-bottom:1px solid var(--line); }
-    .stat-label { color:var(--muted); font-size:12px; margin-bottom:8px; }
-    .stat-value { font-size:27px; letter-spacing:-.8px; font-weight:500; }
-    .stat-subtext { font-size:11px; color:var(--muted); margin-top:5px; }
-    .card-section { margin:25px 0; }
-    .section-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; font-size:14px; font-weight:600; }
-    .section-description { margin:0 0 13px; color:var(--muted); font-size:12px; line-height:1.5; }
-    .setting-group { background:var(--row); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-    .setting-row { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:16px; }
-    .setting-row + .setting-row { border-top:1px solid var(--line); }
-    .setting-copy { flex:1; min-width:0; }
-    .setting-title { display:block; font-weight:550; font-size:13px; }
-    .setting-desc { display:block; margin-top:5px; font-size:11px; color:var(--muted); line-height:1.5; max-width:58ch; }
-    .setting-row select { max-width:210px; }
-    .switch { position:relative; flex-shrink:0; display:block; width:34px; height:21px; }
-    .switch input { position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
-    .switch span { display:block; width:34px; height:21px; background:#c9c9c2; border-radius:20px; pointer-events:none; }
-    .switch span::after { content:""; position:absolute; left:3px; top:3px; width:15px; height:15px; border-radius:50%; background:white; box-shadow:0 1px 2px #0002; }
-    .switch input:checked + span { background:var(--accent); }
-    .switch input:checked + span::after { transform:translateX(13px); }
-    .switch input:focus-visible + span { outline:3px solid #587798; outline-offset:3px; }
-    .field-stack { display:flex; flex-direction:column; gap:9px; }
-    .button-row { display:flex; flex-wrap:wrap; gap:7px; }
-    input:not([type=checkbox]),select { min-height:34px; border:1px solid #d9d9d2; border-radius:6px; background:white; color:var(--text); padding:7px 9px; min-width:0; }
-    input:not([type=checkbox]) { width:100%; }
-    .shortcut-recorder { width:100%; min-height:34px; border:1px solid #d9d9d2; border-radius:6px; background:white; color:var(--text); padding:7px 9px; text-align:left; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
-    .shortcut-recorder:hover { background:#f0f0ed; }
-    .shortcut-recorder.recording { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:#f7f7f3; color:var(--muted); }
-    .shortcut-recorder:focus-visible { outline:3px solid #587798; outline-offset:2px; }
-    .shortcut-preset { font-size:11px; min-height:27px; padding:4px 9px; }
-    .position-option.selected { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:#f7f7f3; }
-    .warning { color:#806132; font-size:11px; margin:9px 0 0; line-height:1.5; }
-    .mode-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
-    .mode-option { text-align:left; display:flex; flex-direction:column; gap:6px; padding:15px; border-radius:9px; border:1px solid var(--line); background:white; color:var(--text); }
-    .mode-option:hover { background:var(--row); }
-    .mode-option.selected { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:#f7f7f3; }
-    .mode-name { font-size:13px; font-weight:600; }
-    .mode-desc { font-size:11px; line-height:1.5; color:var(--muted); }
-    .item-list { display:flex; flex-direction:column; gap:9px; }
-    .list-item { border:1px solid var(--line); border-radius:9px; padding:15px; display:flex; flex-direction:column; gap:9px; }
-    .item-top { color:var(--muted); font-size:11px; }
-    .item-app-badge { font-size:12px; font-weight:600; }
-    .item-text { line-height:1.6; overflow-wrap:anywhere; user-select:text; -webkit-user-select:text; }
-    .item-actions { display:flex; gap:7px; justify-content:flex-end; }
-    .dictionary-entry { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-    .dictionary-phrase { overflow-wrap:anywhere; line-height:1.5; }
-    .empty-state { padding:28px 18px; text-align:center; font-size:12px; line-height:1.7; color:var(--muted); border:1px dashed #dcdcd5; border-radius:9px; }
-    .search-bar { margin:20px 0 14px; }
-    .word-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .word-fields label { display:flex; flex-direction:column; gap:7px; font-size:11px; color:var(--muted); }
-    .word-form-actions { display:flex; align-items:flex-end; justify-content:flex-end; gap:7px; }
-    .permission-list { margin:0 0 13px; font-size:12px; line-height:1.7; color:var(--muted); }
-    #permissionStatus { margin:0 0 10px; font-size:12px; font-weight:500; }
-    #settingsResult { margin:0; line-height:1.5; font-size:12px; }
-    #settingsResult[data-result=error] { color:#a3362e; }
-    #settingsResult[data-result=success] { color:#466449; }
-    .save-row { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:15px; padding-top:18px; border-top:1px solid var(--line); }
-    .save-row .primary-btn { margin-left:auto; }
-    .hidden { display:none !important; }
-
-    /* ---- Insights --------------------------------------------------------- */
-    :root { --green:#3f7d52; --green-deep:#2f6540; --green-soft:#e9f2ea; --green-line:#d4e4d7; }
-    .insight-hero { display:grid; grid-template-columns:236px minmax(0,1fr); gap:13px; margin:22px 0 26px; }
-    .streak-card { position:relative; border:1px solid var(--green-line); border-radius:14px; background:linear-gradient(155deg,#f4faf4,#e4efe6); padding:20px; overflow:hidden; }
-    .streak-card::after { content:""; position:absolute; right:-30px; top:-36px; width:116px; height:116px; border-radius:50%; background:radial-gradient(circle,#cfe6d4,transparent 70%); }
-    .streak-flame { width:24px; height:24px; color:var(--green); margin-bottom:12px; }
-    .streak-flame svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
-    .streak-number { font-size:44px; line-height:1; font-weight:600; letter-spacing:-1.6px; font-variant-numeric:tabular-nums; }
-    .streak-label { margin-top:6px; font-size:12px; font-weight:650; color:var(--green-deep); }
-    .streak-meta { margin-top:15px; display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--muted); }
-    .today-card { border:1px solid var(--line); border-radius:14px; background:var(--surface); padding:20px; display:flex; flex-direction:column; justify-content:center; gap:6px; }
-    .today-kicker { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
-    .today-words { font-size:30px; font-weight:600; letter-spacing:-1px; font-variant-numeric:tabular-nums; }
-    .today-words small { font-size:14px; font-weight:500; color:var(--muted); letter-spacing:0; }
-    .today-sub { font-size:12px; color:var(--muted); }
-    .week-strip { display:flex; gap:7px; margin-top:15px; }
-    .day-cell { flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; padding:9px 0 8px; border-radius:10px; background:#f7f7f4; border:1px solid var(--line); }
-    .day-cell.today { border-color:#bcd3c1; background:#f1f7f2; }
-    .day-letter { font-size:10px; font-weight:600; color:var(--muted); }
-    .day-cell.today .day-letter { color:var(--green-deep); }
-    .day-dot { width:9px; height:9px; border-radius:50%; background:#dcdcd5; }
-    .day-cell.active .day-dot { background:var(--green); box-shadow:0 0 0 3px rgba(63,125,82,.14); }
-    .insight-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 26px; }
-    .insight-card { border:1px solid var(--line); border-radius:12px; padding:16px 16px 14px; background:linear-gradient(180deg,#fff,#fbfbf8); }
-    .insight-label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:9px; }
-    .insight-value { font-size:26px; font-weight:600; letter-spacing:-.9px; font-variant-numeric:tabular-nums; }
-    .insight-value small { font-size:13px; font-weight:500; color:var(--muted); letter-spacing:0; margin-left:3px; }
-    .insight-sub { margin-top:6px; font-size:11px; color:var(--muted); }
-    .fix-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-    .fix-card { border:1px solid var(--green-line); border-radius:12px; padding:16px; background:linear-gradient(180deg,#fbfdfb,#eef6ef); }
-    .fix-value { font-size:30px; font-weight:600; color:var(--green-deep); letter-spacing:-1px; font-variant-numeric:tabular-nums; }
-    .fix-label { margin-top:5px; font-size:12px; font-weight:600; }
-    .fix-desc { margin-top:5px; font-size:11px; color:var(--muted); line-height:1.5; }
-    .week-chart { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:9px; padding:16px 14px 12px; border:1px solid var(--line); border-radius:12px; background:linear-gradient(180deg,#fff,#fafaf7); }
-    .day-col { display:flex; flex-direction:column; align-items:center; gap:7px; height:118px; justify-content:flex-end; }
-    .day-bar { width:100%; max-width:34px; border-radius:7px 7px 4px 4px; background:#e7e7e0; transform-origin:bottom; transform:scaleY(.04); transition:transform .55s cubic-bezier(.34,.8,.3,1); }
-    .day-bar.active { background:linear-gradient(180deg,#69a87c,#3f7d52); }
-    .day-bar.grown { transform:scaleY(1); }
-    .day-col-label { font-size:10px; font-weight:600; color:var(--muted); }
-    .day-col-words { font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
-    .app-bar-row { border:1px solid var(--line); border-radius:10px; padding:13px 15px; background:var(--surface); }
-    .app-bar-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:9px; }
-    .app-bar-track { height:7px; border-radius:99px; background:#efefe9; overflow:hidden; }
-    .app-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,#69a87c,#3f7d52); width:0; transition:width .6s cubic-bezier(.34,.8,.3,1); }
-
-    /* ---- Style ------------------------------------------------------------ */
-    .style-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:22px 0 18px; }
-    .style-option { text-align:left; display:flex; flex-direction:column; gap:7px; padding:16px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; }
-    .style-option:hover { background:var(--row); }
-    .style-option.selected { border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green); background:#f7fbf7; }
-    .style-name { font-size:13px; font-weight:650; display:flex; align-items:center; gap:8px; }
-    .style-check { width:14px; height:14px; border-radius:50%; border:1.5px solid #c9c9c2; flex:none; }
-    .style-option.selected .style-check { border-color:var(--green); background:radial-gradient(circle,#3f7d52 0 4.5px,transparent 5.5px); }
-    .style-desc { font-size:11px; line-height:1.55; color:var(--muted); }
-    .style-sample { font:italic 12px/1.55 Georgia,"Times New Roman",serif; color:#57574f; border-left:2px solid var(--green-line); padding-left:10px; }
-    .style-preview { border:1px solid var(--line); border-radius:12px; background:linear-gradient(180deg,#fff,#fafaf7); padding:18px 20px; }
-    .style-preview-label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:10px; }
-    .style-preview p { margin:0; font:15px/1.65 Georgia,"Times New Roman",serif; }
-
-    @media (max-width:800px) { .sidebar { width:166px; } .content-area { padding:22px 23px 35px; } .setting-row { gap:12px; } .setting-row select { max-width:165px; } .insight-hero { grid-template-columns:1fr; } .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .style-grid,.fix-grid { grid-template-columns:1fr; } }
-    @media (max-width:620px) { .sidebar { width:130px; padding-inline:7px; } .app-brand { padding-inline:8px; font-size:16px; } .brand-icon { display:none; } .nav-btn { padding-inline:9px; gap:7px; } .content-area { padding:18px; } .topbar,.setting-row { align-items:flex-start; } .setting-row { flex-wrap:wrap; } .setting-row select { max-width:100%; } .mode-grid,.word-fields { grid-template-columns:1fr; } .view-title { font-size:29px; } .insight-grid { grid-template-columns:1fr; } .week-chart { gap:5px; padding-inline:8px; } }
-    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .day-bar { transform:scaleY(1) !important; transition:none !important; } .app-bar-fill { transition:none !important; } }
-  </style>
+  <title>Fixo Flow</title>
+  <link rel="stylesheet" href="hub.css">
 </head>
 <body>
   <aside class="sidebar" aria-label="Navigation">
-    <div class="app-brand"><span class="brand-icon" aria-hidden="true"><i></i><i></i><b></b></span>Fixoflow</div>
-    <button id="navDashboard" class="nav-btn active" onclick="switchTab('dashboard')" aria-current="page"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9 10 3l7 6v8h-5v-5H8v5H3Z"/></svg>Overview</button>
-    <button id="navInsights" class="nav-btn" onclick="switchTab('insights')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17V9m5 8V4m5 13v-5m4 5H2"/></svg>Insights</button>
-    <button id="navStyle" class="nav-btn" onclick="switchTab('style')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 14h14"/><circle cx="8" cy="6" r="2.2" fill="var(--sidebar)"/><circle cx="12.5" cy="14" r="2.2" fill="var(--sidebar)"/></svg>Style</button>
-    <button id="navHistory" class="nav-btn" onclick="switchTab('history')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9a7 7 0 1 1 2 6M3 4v5h5m2-3v5l3 2"/></svg>History</button>
-    <button id="navDictionary" class="nav-btn" onclick="switchTab('dictionary')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 5c-3-2-5-2-8-1v12c3-1 5-1 8 1 3-2 5-2 8-1V4c-3-1-5-1-8 1Zm0 0v12"/></svg>Dictionary</button>
-    <button id="navSettings" class="nav-btn" onclick="switchTab('settings')"><svg class="nav-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/><circle cx="7" cy="5" r="2" fill="var(--sidebar)"/><circle cx="13" cy="10" r="2" fill="var(--sidebar)"/><circle cx="8" cy="15" r="2" fill="var(--sidebar)"/></svg>Settings</button>
-    <div class="sidebar-footer"><div class="local-mark">On your Mac</div><div>Local audio &amp; transcription</div></div>
+    <div class="app-brand"><img class="brand-icon" src="assets/flow-fold.png" alt=""><span>fixo<span class="brand-word-light">flow</span><span class="brand-dot">.</span></span></div>
+    <button id="navDashboard" class="nav-btn active" onclick="switchTab('dashboard')" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Overview</button>
+    <button id="navInsights" class="nav-btn" onclick="switchTab('insights')"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5"/><path d="M16 14v7"/><path d="M20 10v11"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18v3"/><path d="M8 14v7"/></svg>Insights</button>
+    <button id="navStyle" class="nav-btn" onclick="switchTab('style')"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>Style</button>
+    <button id="navHistory" class="nav-btn" onclick="switchTab('history')"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>History</button>
+    <button id="navDictionary" class="nav-btn" onclick="switchTab('dictionary')"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>Dictionary</button>
+    <button id="navSettings" class="nav-btn" onclick="switchTab('settings')"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>Settings</button>
+    <div class="sidebar-footer"><p class="sidebar-note">A little freedom from your keyboard.</p><div class="local-mark">Right here on your Mac</div><div id="appVersion">Fixo Flow</div><div>No account. Just your voice.</div></div>
   </aside>
   <main class="content-area">
     <header class="topbar">
-      <div><div class="status" role="status"><span id="runtimeDot" class="status-dot" aria-hidden="true"></span><span id="runtimeStatus">Connecting to Fixoflow…</span></div><div id="runtimeShortcut" class="shortcut-label">Checking keyboard shortcut…</div></div>
+      <div><div class="status" role="status"><span id="runtimeDot" class="status-dot" aria-hidden="true"></span><span id="runtimeStatus">Connecting to Fixo Flow…</span></div><div id="runtimeShortcut" class="shortcut-label">Checking keyboard shortcut…</div></div>
       <button class="action-btn" onclick="post('showOverlay')">Show floating bar</button>
     </header>
+    <div id="updateBanner" class="update-banner hidden" role="status"><span id="updateBannerText"></span><button class="action-btn" onclick="post('openRelease')">View update</button></div>
     <section id="viewDashboard" class="view-panel" aria-labelledby="dashboardTitle">
-      <h1 id="dashboardTitle" class="view-title">A little less typing.</h1>
-      <p class="subtitle">Your dictation activity, kept on this Mac.</p>
-      <div class="setup-callout"><h2>Speak wherever you write</h2><p>Place your cursor in your editor, email, or chat. Click the floating bar to start, then click again to finish. Your shortcut works alongside the bar.</p><button class="primary-btn" onclick="post('showOverlay')">Show floating bar</button> <button class="action-btn" onclick="switchTab('settings')">Set up controls</button><p id="runtimeDetail" style="margin:11px 0 0;" role="status">Check permissions in Settings if recording or typing does not work.</p></div>
+      <h1 id="dashboardTitle" class="view-title">Make room for your voice.</h1>
+      <p class="subtitle">Your thoughts have places to be. Let’s get them there.</p>
+      <div class="setup-callout">
+        <div><h2>Think it. Speak it.<br>Make it flow.</h2><p>Write an email, send a message, catch an idea. Speak naturally and your words land where you’re working.</p><div class="button-row"><button class="primary-btn" onclick="post('showOverlay')">Open dictation bar</button><button class="action-btn" onclick="switchTab('settings')">Set up controls</button></div></div>
+        <div class="flow-art" aria-hidden="true"><img src="assets/flow-fold.png" alt=""></div>
+        <p id="runtimeDetail" class="runtime-detail" role="status">Check permissions in Settings to get ready for your first words.</p>
+      </div>
+      <div class="quick-steps" aria-label="How to dictate">
+        <div class="quick-step"><span class="step-number">1</span><div><strong>Find your place</strong><p>Click a text field in any app.</p></div></div>
+        <div class="quick-step"><span class="step-number">2</span><div><strong>Say your thought</strong><p id="guideSpeak">Hold your shortcut and speak.</p></div></div>
+        <div class="quick-step"><span class="step-number">3</span><div><strong>Let it land</strong><p id="guideFinish">Release to turn it into writing.</p></div></div>
+      </div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-label">Words dictated</div><div id="statTotalWords" class="stat-value">—</div><div class="stat-subtext">All recorded sessions</div></div>
         <div class="stat-card"><div class="stat-label">Time saved</div><div id="statTimeSaved" class="stat-value">—</div><div class="stat-subtext">Estimate against typing at 40 WPM</div></div>
         <div class="stat-card"><div class="stat-label">Speaking pace</div><div id="statWpm" class="stat-value">—</div><div class="stat-subtext">Average words per minute</div></div>
         <div class="stat-card"><div class="stat-label">Dictations</div><div id="statSessions" class="stat-value">—</div><div class="stat-subtext">Sessions in your history</div></div>
       </div>
+      <div class="card-section"><div class="section-header"><span>Recent thoughts</span><button class="action-btn" onclick="switchTab('history')">View all history</button></div><div id="recentHistory" class="item-list"><div class="empty-state">Your recent dictations will appear here.</div></div></div>
       <div class="card-section"><div class="section-header">Where you dictate</div><div id="topAppsList" class="item-list"><div class="empty-state">Loading activity…</div></div></div>
     </section>
     <section id="viewInsights" class="view-panel hidden" aria-labelledby="insightsTitle">
       <h1 id="insightsTitle" class="view-title">Your flow, in numbers.</h1>
-      <p class="subtitle" id="insightsGreeting">A private look at how you dictate — everything stays on this Mac.</p>
+      <p class="subtitle" id="insightsGreeting">A private look at how you dictate — everything stays on this device.</p>
       <div class="insight-hero">
         <div class="streak-card">
           <div class="streak-flame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c1.6 3.2-3.2 4.8-3.2 8.2a3.2 3.2 0 0 0 6.4.2c0-1.2-.5-2.2-1.1-3.1 2.2 1.2 3.9 3.3 3.9 5.7a6 6 0 0 1-12 0C6 9.4 9.8 7.2 12 3Z"/></svg></div>
@@ -215,13 +58,13 @@
         <div class="today-card">
           <div class="today-kicker">Today</div>
           <div class="today-words"><span id="todayWords">0</span> <small>words</small></div>
-          <div class="today-sub" id="todaySub">No dictation yet today — your streak is waiting.</div>
+          <div class="today-sub" id="todaySub">A fresh page. Your first thought starts here.</div>
           <div class="week-strip" id="weekStrip" aria-label="Current week activity"></div>
         </div>
       </div>
       <div class="insight-grid">
         <div class="insight-card"><div class="insight-label">Words dictated</div><div class="insight-value"><span id="insightWords">0</span></div><div class="insight-sub">Across every session</div></div>
-        <div class="insight-card"><div class="insight-label">Dictations</div><div class="insight-value"><span id="insightSessions">0</span></div><div class="insight-sub">Times Fixoflow wrote for you</div></div>
+        <div class="insight-card"><div class="insight-label">Dictations</div><div class="insight-value"><span id="insightSessions">0</span></div><div class="insight-sub">Times Fixo Flow wrote for you</div></div>
         <div class="insight-card"><div class="insight-label">Avg pace</div><div class="insight-value"><span id="insightWpm">0</span><small>WPM</small></div><div class="insight-sub">Your speaking speed</div></div>
         <div class="insight-card"><div class="insight-label">Time saved</div><div class="insight-value"><span id="insightTime">0</span><small id="insightTimeUnit">min</small></div><div class="insight-sub">Against typing at 40 WPM</div></div>
         <div class="insight-card"><div class="insight-label">Apps used</div><div class="insight-value"><span id="insightApps">0</span></div><div class="insight-sub">Places you dictated into</div></div>
@@ -229,8 +72,8 @@
       </div>
       <div class="card-section"><div class="section-header">Fixes you didn't have to make</div>
         <div class="fix-grid">
-          <div class="fix-card"><div class="fix-value"><span id="fixPolish">0</span></div><div class="fix-label">Polish fixes</div><div class="fix-desc">Filler, spacing, and punctuation cleanup applied automatically — your transcript arrives ready to send.</div></div>
-          <div class="fix-card"><div class="fix-value"><span id="fixVocab">0</span></div><div class="fix-label">Fixes made by Fixoflow</div><div class="fix-desc">Times your learned terms, names, and code phrases replaced what the recognizer heard.</div></div>
+          <div class="fix-card"><div class="fix-value"><span id="fixPolish">0</span></div><div class="fix-label">Polish fixes</div><div class="fix-desc">Filler, spacing, and punctuation cleanup applied automatically — Review important text before sending it.</div></div>
+          <div class="fix-card"><div class="fix-value"><span id="fixVocab">0</span></div><div class="fix-label">Your words, recognized</div><div class="fix-desc">Times your dictionary terms and spoken-code phrases replaced what the recognizer heard.</div></div>
         </div>
       </div>
       <div class="card-section"><div class="section-header">Your week in words</div><div class="week-chart" id="weekChart" aria-label="Words dictated per day this week"></div></div>
@@ -238,9 +81,9 @@
     </section>
     <section id="viewStyle" class="view-panel hidden" aria-labelledby="styleTitle">
       <h1 id="styleTitle" class="view-title">Your voice, your rules.</h1>
-      <p class="subtitle">Pick how Fixoflow shapes the transcript before it lands. Styles apply in writing mode — coding and raw modes always stay untouched.</p>
+      <p class="subtitle">Pick how Fixo Flow shapes the transcript before it lands. Styles apply in writing mode — coding and raw modes always stay untouched.</p>
       <div class="style-grid" id="styleGrid" role="radiogroup" aria-label="Output style"></div>
-      <div class="card-section"><div class="section-header">Preview</div><div class="style-preview"><div class="style-preview-label">What “<span id="stylePreviewName">Natural</span>” does to your dictation</div><p id="stylePreview" role="status">Send the deck Tuesday and I will leave notes in the margin.</p></div></div>
+      <div class="card-section"><div class="section-header">From your voice to your words</div><div class="style-input"><span>You say</span><p id="styleInput">Loading example…</p></div><div class="style-preview"><div class="style-preview-label">What “<span id="stylePreviewName">Natural</span>” does to your dictation</div><p id="stylePreview" role="status">Loading example…</p></div></div>
       <div class="save-row"><p id="styleResult" data-settings-result role="status" aria-live="polite">Changes apply when you save.</p><button id="saveStyle" class="primary-btn save-button" data-default-label="Save style" onclick="saveStyle()">Save style</button></div>
     </section>
     <section id="viewHistory" class="view-panel hidden" aria-labelledby="historyTitle">
@@ -251,8 +94,8 @@
     </section>
     <section id="viewDictionary" class="view-panel hidden" aria-labelledby="dictionaryTitle">
       <div class="heading-row"><h1 id="dictionaryTitle" class="view-title">Make it your language.</h1><button class="primary-btn" onclick="toggleAddWordModal()">Add word</button></div>
-      <p class="subtitle">Keep names, coding tools, and technical terms spelled the way you use them. Review and remove entries at any time.</p>
-      <div id="addWordForm" class="card-section hidden"><div class="section-header">Add a dictionary entry</div><div class="word-fields"><label>Spoken phrase<input type="text" id="newPhrase" placeholder="claude code" autocomplete="off"></label><label>Replace with<input type="text" id="newReplacement" placeholder="Claude Code" autocomplete="off"></label><label>Category<select id="newCategory"><option value="ai">AI agent</option><option value="code">Code / tool</option><option value="acronym">Acronym</option><option value="general">General</option></select></label><div class="word-form-actions"><button class="action-btn" onclick="toggleAddWordModal()">Cancel</button><button class="primary-btn" onclick="saveNewWord()">Add entry</button></div></div><p id="dictionaryResult" role="status"></p></div>
+      <p class="subtitle">People, places, and words that matter to you. Keep them spelled your way.</p>
+      <div id="addWordForm" class="card-section hidden"><div class="section-header">Add a dictionary entry</div><div class="word-fields"><label>Spoken phrase<input type="text" id="newPhrase" placeholder="maya desai" autocomplete="off"></label><label>Replace with<input type="text" id="newReplacement" placeholder="Maya Desai" autocomplete="off"></label><label>Category<select id="newCategory"><option value="ai">AI agent</option><option value="code">Code / tool</option><option value="acronym">Acronym</option><option value="general">General</option></select></label><div class="word-form-actions"><button class="action-btn" onclick="toggleAddWordModal()">Cancel</button><button class="primary-btn" onclick="saveNewWord()">Add entry</button></div></div><p id="dictionaryResult" role="status"></p></div>
       <div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div>
     </section>
     <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
@@ -260,9 +103,12 @@
       <div class="card-section"><div class="section-header">Controls</div><div class="setting-group">
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show the floating pill at all times</label><span class="setting-desc">Keep the compact dictation pill visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgSounds">Recording sounds</label><span class="setting-desc">Play a sound when a recording starts and stops.</span></div><label class="switch"><input id="cfgSounds" type="checkbox" checked><span aria-hidden="true"></span></label></div>
-        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgInteraction">Shortcut behavior</label><span class="setting-desc">The floating bar always works as a click-to-toggle control.</span></div><select id="cfgInteraction"><option value="both">Tap to toggle, hold to talk</option><option value="toggle">Tap to toggle</option><option value="hold">Hold to talk</option></select></div>
         <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="pillPositionTitle">Floating pill position</span><div class="button-row" role="radiogroup" aria-labelledby="pillPositionTitle"><button id="posTopCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('top-center')">Top center</button><button id="posBottomLeft" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-left')">Bottom left</button><button id="posBottomCenter" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-center')">Bottom center</button><button id="posBottomRight" class="action-btn position-option" role="radio" aria-checked="false" onclick="selectPillPosition('bottom-right')">Bottom right</button></div><p class="warning">Drag the pill anywhere and it snaps into the nearest of four slots — top center, bottom left, bottom center, or bottom right. You can also choose the slot here.</p></div></div>
-        <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title" id="shortcutTitle">Keyboard shortcut</span><button type="button" id="shortcutRecorder" class="shortcut-recorder" aria-labelledby="shortcutTitle shortcutRecorderLabel" aria-describedby="shortcutHelp" onclick="toggleShortcutRecording()"><span id="shortcutRecorderLabel">⌃ Space</span></button><div class="button-row"><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;cmd&gt;+&lt;shift&gt;+d')">⌘ ⇧ D</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;ctrl&gt;+&lt;space&gt;')">⌃ Space</button><button class="action-btn shortcut-preset" onclick="setShortcut('&lt;alt&gt;+&lt;space&gt;')">⌥ Space</button></div><p id="shortcutHelp" class="warning">Click the button, then press the combination you want. Include a modifier (⌘ ⌃ ⌥ ⇧) or use a function key. Escape cancels; Backspace clears. Control + Space can conflict with the macOS input-source shortcut.</p></div></div>
+        <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title">Your shortcuts</span><span class="setting-desc">Choose a key, a combination, or a mouse button for each action. Record the two actions separately.</span>
+          <div class="shortcut-card"><div><strong id="holdShortcutTitle">Hold to talk</strong><p>Press and hold to speak. Release to write.</p></div><button type="button" id="holdShortcutRecorder" class="shortcut-recorder shortcut-capture-area" aria-labelledby="holdShortcutTitle holdShortcutLabel" onclick="startShortcutRecording('hold_shortcut')"><span id="holdShortcutLabel">Loading…</span></button></div>
+          <div class="shortcut-card"><div><strong id="handsFreeShortcutTitle">Hands-free</strong><p>Press once to start. Press again to finish.</p></div><button type="button" id="handsFreeShortcutRecorder" class="shortcut-recorder shortcut-capture-area" aria-labelledby="handsFreeShortcutTitle handsFreeShortcutLabel" onclick="startShortcutRecording('hands_free_shortcut')"><span id="handsFreeShortcutLabel">Loading…</span></button></div>
+          <div id="shortcutCaptureControls" class="hidden"><button type="button" class="action-btn" onclick="stopShortcutRecording()">Cancel shortcut recording</button></div><p id="shortcutResult" class="warning" role="status">Click a shortcut, then press and release your choice. Escape cancels. Changes apply when you save.</p><p class="warning">Fn/Globe, standalone modifiers, letters, and exposed mouse buttons are supported. Caps Lock can toggle hands-free, but cannot act as a held key. System-reserved keys may be unavailable. Primary mouse clicks trigger dictation only outside this window.</p>
+        </div></div>
       </div></div>
       <div class="card-section"><div class="section-header">Dictation mode</div><p class="section-description">Choose how local formatting handles your transcript.</p><div class="mode-grid">
         <button id="modeAuto" class="mode-option" aria-pressed="false" onclick="selectMode('auto')"><span class="mode-name">Automatic</span><span class="mode-desc">Choose coding or writing rules from the active application.</span></button>
@@ -271,12 +117,25 @@
         <button id="modeRaw" class="mode-option" aria-pressed="false" onclick="selectMode('raw')"><span class="mode-name">Raw transcript</span><span class="mode-desc">Use the speech engine’s transcript without additional polishing.</span></button>
       </div></div>
       <div class="card-section"><div class="section-header">Speech model</div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
-      <div class="card-section"><div class="section-header">macOS permissions</div><p id="permissionStatus" role="status">Checking permissions…</p><p class="permission-list">Accessibility lets Fixoflow paste your transcript into the app you were using. Input Monitoring lets the keyboard shortcut work while other apps are focused. Microphone is required to record. macOS applies new grants only to a freshly started app, so after allowing Input Monitoring click Restart Fixoflow. The shortcut then turns on by itself within a second.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'accessibility'})">Accessibility</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'input'})">Input Monitoring</button><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Microphone</button><button class="action-btn" onclick="post('enableShortcut')">Retry shortcut</button><button class="action-btn" onclick="post('restartApp')">Restart Fixoflow</button></div></div>
+      <div class="card-section"><div class="section-header">A little introduction to your Mac</div><p id="permissionStatus" role="status">Checking permissions…</p>
+        <div class="permission-cards">
+          <div class="permission-card"><strong>Microphone</strong><span id="permissionMicrophone" class="permission-state">Checking…</span><p>Hear your voice when you start a dictation.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Open settings</button></div>
+          <div class="permission-card"><strong>Accessibility</strong><span id="permissionAccessibility" class="permission-state">Checking…</span><p>Put your words at the cursor in your app.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'accessibility'})">Open settings</button></div>
+          <div class="permission-card"><strong>Input Monitoring</strong><span id="permissionInput" class="permission-state">Checking…</span><p>Use your shortcut while another app is in front.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'input'})">Open settings</button></div>
+        </div>
+        <p class="permission-list">After granting Input Monitoring, restart Fixo Flow to activate your shortcut. If pasting is unavailable, your transcript stays on the clipboard.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('enableShortcut')">Retry shortcut</button><button class="action-btn" onclick="post('restartApp')">Restart Fixo Flow</button></div>
+      </div>
+      <div class="card-section"><div class="section-header">Updates</div><div class="setting-group">
+        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgCheckUpdates">Check for updates when Fixo Flow opens</label><span class="setting-desc">Requests public release metadata. Your audio and writing stay on your Mac.</span></div><label class="switch"><input id="cfgCheckUpdates" type="checkbox"><span aria-hidden="true"></span></label></div>
+        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAutoInstall">Automatically download signed updates</label><span id="autoUpdateHelp" class="setting-desc">Available when the signed update feed is configured.</span></div><label class="switch"><input id="cfgAutoInstall" type="checkbox" disabled><span aria-hidden="true"></span></label></div>
+        <div class="setting-row"><div class="setting-copy"><span id="updateStatus" role="status">Checking update configuration…</span><span id="updateVersion" class="setting-desc"></span></div><button id="checkUpdatesButton" class="action-btn" onclick="post('checkUpdates')">Check for updates</button></div>
+      </div></div>
       <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes apply when you save.</p><button id="savePreferences" class="primary-btn save-button" data-default-label="Save preferences" onclick="saveSettings()">Save preferences</button></div>
     </section>
   </main>
   <script>
     let activeTab = 'dashboard';
+    let lastRuntimeState = null;
     let currentConfig = {};
     let configLoaded = false;
     function post(action, payload = {}) {
@@ -284,6 +143,7 @@
         window.webkit.messageHandlers.fixoflow.postMessage({ action, ...payload });
         return true;
       }
+      if (window.pywebview?.api?.post) { window.pywebview.api.post({action,...payload}); return true; }
       return false;
     }
     function switchTab(tab) {
@@ -299,6 +159,11 @@
         else button.removeAttribute('aria-current');
         document.getElementById('view' + suffix).classList.toggle('hidden', !selected);
       }
+      const panel = document.getElementById('view' + names[tab]);
+      const heading = panel.querySelector('h1');
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({preventScroll:true});
+      document.querySelector('.content-area').scrollTop = 0;
       if (tab === 'dashboard') post('getDashboard');
       else if (tab === 'insights') post('getInsights');
       else if (tab === 'style') { if (!configLoaded) post('getConfig'); else renderStyleOptions(); }
@@ -314,7 +179,8 @@
       return node;
     }
     function empty(container, message) { container.append(element('div', 'empty-state', message)); }
-    function onDashboardData(stats, topApps) {
+    function onDashboardData(stats, topApps, recent) {
+      renderTranscripts(recent, document.getElementById('recentHistory'), 'Your recent thoughts will appear here after your first dictation.', false);
       document.getElementById('statTotalWords').textContent = stats.total_words.toLocaleString();
       document.getElementById('statTimeSaved').textContent = stats.time_saved_minutes + ' min';
       document.getElementById('statWpm').textContent = stats.avg_wpm + ' WPM';
@@ -328,23 +194,32 @@
       }
       if (!container.childElementCount) empty(container, 'Your app activity appears after your first dictation. Open an editor or chat, then use the floating bar to begin.');
     }
-    function onHistoryData(items) {
-      const list = document.getElementById('historyList');
+    function renderTranscripts(items, list, emptyMessage, allowDelete = true) {
       list.replaceChildren();
+      let lastDay = '';
       for (const item of items || []) {
+        const date = new Date(item.timestamp);
+        const day = date.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+        if (day !== lastDay) { list.append(element('div','history-day',day)); lastDay = day; }
         const row = element('div', 'list-item');
         const actions = element('div', 'item-actions');
         const copy = element('button', 'action-btn', 'Copy');
         copy.onclick = () => copyText(item.final_text);
-        const remove = element('button', 'action-btn delete', 'Delete');
-        remove.onclick = () => deleteHistoryItem(item.id);
-        actions.append(copy, remove);
+        actions.append(copy);
+        if (allowDelete) {
+          const remove = element('button', 'action-btn delete', 'Delete');
+          remove.onclick = () => deleteHistoryItem(item.id);
+          actions.append(remove);
+        }
         const text = element('div', 'item-text', item.final_text);
         text.style.whiteSpace = 'pre-wrap';
-        row.append(element('div', 'item-app-badge', item.app_name || 'Unknown app'), element('div', 'item-top', new Date(item.timestamp).toLocaleString() + ' · ' + item.word_count + ' words'), text, actions);
+        row.append(element('div','item-app-badge',item.app_name || 'Unknown app'), element('div','item-top',date.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) + ' · ' + item.word_count + ' words'), text, actions);
         list.append(row);
       }
-      if (!list.childElementCount) empty(list, document.getElementById('historySearch').value ? 'No matching transcripts. Try another search.' : 'Your completed dictations appear here. Start with the floating bar, then click it again to finish.');
+      if (!list.childElementCount) empty(list, emptyMessage);
+    }
+    function onHistoryData(items) {
+      renderTranscripts(items,document.getElementById('historyList'),document.getElementById('historySearch').value ? 'No matching transcripts. Try another search.' : 'Your completed dictations appear here. Start with the floating bar, then click it again to finish.');
     }
     function onDictionaryData(words) {
       const list = document.getElementById('dictionaryList');
@@ -358,7 +233,7 @@
         row.append(content);
         list.append(row);
       }
-      if (!list.childElementCount) empty(list, 'Add your first name or technical term. For example, replace “claude code” with “Claude Code”.');
+      if (!list.childElementCount) empty(list, 'Add a name or a word you use often. For example, replace “maya desai” with “Maya Desai”.');
     }
     function onSettingsResult(ok, message) {
       for (const result of document.querySelectorAll('[data-settings-result]')) {
@@ -371,18 +246,29 @@
       }
     }
     function onPermissionData(status) {
-      const permission = value => value === true ? 'allowed' : value === false ? 'needed' : 'unknown';
-      const microphone = value => typeof value === 'string' ? {granted:'allowed',denied:'needed',undetermined:'will ask',unavailable:'unavailable'}[value] || value : permission(value);
-      let text = 'Accessibility: ' + permission(status.accessibility) + ' · Input Monitoring: ' + permission(status.input) + ' · Microphone: ' + microphone(status.microphone);
-      document.getElementById('permissionStatus').textContent = text;
+      const permission = value => value === true ? 'Allowed' : value === false ? 'Needed' : 'Unknown';
+      const mic = {authorized:'Allowed',denied:'Needed','not determined':'Not requested',restricted:'Restricted'}[status.microphone] || 'Unknown';
+      const values = {permissionMicrophone:mic, permissionAccessibility:permission(status.accessibility), permissionInput:permission(status.input)};
+      for (const [id, value] of Object.entries(values)) {
+        const node = document.getElementById(id);
+        node.textContent = value;
+        node.classList.toggle('allowed', value === 'Allowed');
+      }
+      document.getElementById('permissionStatus').textContent = Object.values(values).every(value => value === 'Allowed') ? 'All set. Your Mac is ready for your voice.' : 'Each permission has a purpose. You control them in System Settings.';
     }
     function onControlStatus(data) {
       const state = data.state || 'IDLE';
+      if (state === 'IDLE' && ['RECORDING','PROCESSING'].includes(lastRuntimeState)) {
+        if (activeTab === 'dashboard') post('getDashboard');
+        else if (activeTab === 'history') filterHistory();
+        else if (activeTab === 'insights') post('getInsights');
+      }
+      lastRuntimeState = state;
       const ready = data.shortcut_active === true;
-      const labels = {IDLE:'Ready to dictate',RECORDING:'Listening…',PROCESSING:'Transcribing on your Mac…'};
+      const labels = {IDLE:'Ready to dictate',RECORDING:'Listening…',PROCESSING:'Transcribing locally…'};
       document.getElementById('runtimeStatus').textContent = labels[state] || state;
       document.getElementById('runtimeDot').className = 'status-dot ' + (state === 'RECORDING' ? 'recording' : state === 'PROCESSING' ? 'processing' : ready ? 'ready' : '');
-      document.getElementById('runtimeShortcut').textContent = (data.shortcut || 'Keyboard shortcut') + (ready ? ' · shortcut active' : ' · shortcut unavailable');
+      document.getElementById('runtimeShortcut').textContent = 'Hold: ' + (data.shortcut || '—') + ' · Hands-free: ' + (data.hands_free_shortcut || '—') + (ready ? '' : ' · unavailable');
       document.getElementById('runtimeDetail').textContent = data.detail || (ready ? 'Your keyboard shortcut and floating bar are ready.' : 'Use the floating bar, or check permissions in Settings to enable your shortcut.');
     }
     function onConfigData(cfg) {
@@ -399,8 +285,11 @@
       model.value = modelName;
       document.getElementById('cfgAlwaysShow').checked = cfg.always_show_overlay !== false;
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
-      document.getElementById('cfgInteraction').value = cfg.dual_mode_hotkey !== false ? 'both' : cfg.hold_to_talk ? 'hold' : 'toggle';
+      document.getElementById('cfgCheckUpdates').checked = cfg.check_updates_on_launch === true;
+      document.getElementById('cfgAutoInstall').checked = cfg.auto_install_updates === true;
       renderPillPosition();
+      document.getElementById('guideSpeak').textContent = 'Hold ' + (cfg.hold_shortcut?.label || 'your shortcut') + ' and speak.';
+      document.getElementById('guideFinish').textContent = 'Release to write, or use hands-free to toggle.';
       styleSelection = OUTPUT_STYLE_CARDS.some(card => card.id === cfg.output_style) ? cfg.output_style : 'natural';
       currentConfig.output_style = styleSelection;
       renderStyleOptions();
@@ -423,61 +312,60 @@
       currentConfig.mode = mode;
       if (changed) markUnsaved();
     }
-    const SHORTCUT_GLYPHS = {'<cmd>':'⌘','<ctrl>':'⌃','<alt>':'⌥','<shift>':'⇧','<space>':'Space','<enter>':'↩','<tab>':'⇥','<backspace>':'⌫','<delete>':'⌦','<up>':'↑','<down>':'↓','<left>':'←','<right>':'→','<home>':'Home','<end>':'End','<page_up>':'PgUp','<page_down>':'PgDn'};
-    const SHORTCUT_KEYS = {' ':'<space>','Enter':'<enter>','Tab':'<tab>','Backspace':'<backspace>','Delete':'<delete>','ArrowUp':'<up>','ArrowDown':'<down>','ArrowLeft':'<left>','ArrowRight':'<right>','Home':'<home>','End':'<end>','PageUp':'<page_up>','PageDown':'<page_down>'};
-    let shortcutRecording = false;
-    function formatShortcut(shortcut) {
-      if (!shortcut) return 'Not set — click to record';
-      return shortcut.split('+').map(part => {
-        const key = part.trim().toLowerCase();
-        if (SHORTCUT_GLYPHS[key]) return SHORTCUT_GLYPHS[key];
-        const inner = key.replace(/[<>]/g, '');
-        return inner.length === 1 ? inner.toUpperCase() : inner.charAt(0).toUpperCase() + inner.slice(1);
-      }).join(' ');
-    }
+    let shortcutRecording = null;
+    let primaryCapturePending = false;
+    const SHORTCUT_FIELDS = {hold_shortcut:['holdShortcutRecorder','holdShortcutLabel'],hands_free_shortcut:['handsFreeShortcutRecorder','handsFreeShortcutLabel']};
     function renderShortcutRecorder() {
-      document.getElementById('shortcutRecorderLabel').textContent = formatShortcut(currentConfig.hotkey);
+      for (const [field,[button,label]] of Object.entries(SHORTCUT_FIELDS)) {
+        const recording = shortcutRecording === field;
+        document.getElementById(button).classList.toggle('recording',recording);
+        document.getElementById(label).textContent = recording ? 'Press a key or mouse button…' : currentConfig[field]?.label || 'Choose shortcut';
+      }
+      document.getElementById('shortcutCaptureControls').classList.toggle('hidden',!shortcutRecording);
     }
-    function shortcutKeyName(event) {
-      const key = event.key;
-      if (/^[a-z]$/i.test(key)) return key.toLowerCase();
-      if (/^[0-9]$/.test(key)) return key;
-      if (/^F([1-9]|1[0-9]|20)$/.test(key)) return '<' + key.toLowerCase() + '>';
-      return SHORTCUT_KEYS[key] || null;
-    }
-    function toggleShortcutRecording() { shortcutRecording ? stopShortcutRecording() : startShortcutRecording(); }
-    function startShortcutRecording() {
-      shortcutRecording = true;
-      document.getElementById('shortcutRecorder').classList.add('recording');
-      document.getElementById('shortcutRecorderLabel').textContent = 'Press your combination… (Esc cancels)';
-      window.addEventListener('keydown', captureShortcut, true);
+    function startShortcutRecording(field) {
+      if (shortcutRecording) { stopShortcutRecording(); return; }
+      if (!configLoaded || !SHORTCUT_FIELDS[field]) return;
+      shortcutRecording = field;
+      renderShortcutRecorder();
+      document.getElementById('shortcutResult').textContent = 'Release any held keys, then press your new key or combination. Escape cancels.';
+      if (!post('startShortcutCapture',{field})) onShortcutCaptured({field,binding:null,message:'Open Fixo Flow to record a shortcut.'});
     }
     function stopShortcutRecording() {
-      shortcutRecording = false;
-      window.removeEventListener('keydown', captureShortcut, true);
-      document.getElementById('shortcutRecorder').classList.remove('recording');
+      post('cancelShortcutCapture');
+      shortcutRecording = null;
       renderShortcutRecorder();
     }
-    function captureShortcut(event) {
+    function onShortcutCaptured(data) {
+      if (!SHORTCUT_FIELDS[data.field]) return;
+      if (data.binding) { currentConfig[data.field] = data.binding; markUnsaved(); }
+      shortcutRecording = null;
+      renderShortcutRecorder();
+      document.getElementById('shortcutResult').textContent = data.message;
+    }
+    document.addEventListener('keydown',event => {
+      if (shortcutRecording && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); stopShortcutRecording(); }
+    },true);
+    document.addEventListener('pointerdown',event => {
+      if (!shortcutRecording || !event.target.closest('.shortcut-capture-area') || ![0,1].includes(event.button)) return;
       event.preventDefault();
       event.stopPropagation();
-      if (event.key === 'Escape') { stopShortcutRecording(); return; }
-      const parts = [];
-      if (event.metaKey) parts.push('<cmd>');
-      if (event.ctrlKey) parts.push('<ctrl>');
-      if (event.altKey) parts.push('<alt>');
-      if (event.shiftKey) parts.push('<shift>');
-      const key = shortcutKeyName(event);
-      if (!key) return;
-      if (key === '<backspace>' && parts.length === 0) { setShortcut(''); stopShortcutRecording(); return; }
-      if (parts.length === 0 && !/^<f([1-9]|1[0-9]|20)>$/.test(key)) {
-        document.getElementById('shortcutRecorderLabel').textContent = 'Add a modifier (⌘ ⌃ ⌥ ⇧) or use a function key';
-        return;
-      }
-      setShortcut([...parts, key].join('+'));
-      stopShortcutRecording();
+      primaryCapturePending = true;
+      post('capturePrimaryMouse',{button:event.button});
+    },true);
+    document.addEventListener('click',event => { if (primaryCapturePending && event.target.closest('.shortcut-capture-area')) { event.preventDefault(); event.stopImmediatePropagation(); primaryCapturePending = false; } },true);
+    document.addEventListener('contextmenu',event => { if (shortcutRecording || primaryCapturePending) { event.preventDefault(); primaryCapturePending = false; } });
+    function onUpdateData(data) {
+      document.getElementById('appVersion').textContent = 'Fixo Flow ' + data.version;
+      document.getElementById('updateVersion').textContent = 'Installed version ' + data.version;
+      document.getElementById('updateStatus').textContent = data.message;
+      document.getElementById('checkUpdatesButton').disabled = data.state === 'checking';
+      document.getElementById('cfgAutoInstall').disabled = !data.auto_install_available;
+      if (!data.auto_install_available) document.getElementById('cfgAutoInstall').checked = false;
+      document.getElementById('autoUpdateHelp').textContent = data.auto_install_available ? 'Sparkle verifies signatures and manages installation. You can choose when to relaunch.' : 'This local build has no signed update feed yet. Manual release checks are available.';
+      document.getElementById('updateBanner').classList.toggle('hidden',data.state !== 'available');
+      document.getElementById('updateBannerText').textContent = data.message;
     }
-    function setShortcut(value) { currentConfig.hotkey = value; if (!shortcutRecording) renderShortcutRecorder(); markUnsaved(); }
     const PILL_POSITIONS = {'top-center':'posTopCenter','bottom-left':'posBottomLeft','bottom-center':'posBottomCenter','bottom-right':'posBottomRight'};
     function renderPillPosition() {
       const selected = currentConfig.overlay_position in PILL_POSITIONS ? currentConfig.overlay_position : 'bottom-center';
@@ -486,18 +374,25 @@
         const active = zone === selected;
         button.classList.toggle('selected', active);
         button.setAttribute('aria-checked', String(active));
+        button.tabIndex = active ? 0 : -1;
       }
     }
     function selectPillPosition(zone) { currentConfig.overlay_position = zone; renderPillPosition(); markUnsaved(); }
 
     /* ---- output style ------------------------------------------------------ */
     const OUTPUT_STYLE_CARDS = [
-      {id:'natural',name:'Natural',desc:'Clean punctuation and capitalization with filler words removed — the everyday default.',sample:'Send the deck Tuesday and I will leave notes in the margin.'},
-      {id:'concise',name:'Concise',desc:'Natural, and hedges like “basically” or “you know” are trimmed out of the sentence.',sample:'Send the deck Tuesday. Notes go in the margin.'},
-      {id:'professional',name:'Professional',desc:'Natural, with contractions expanded for a formal read — “don’t” becomes “do not”.',sample:'Send the deck on Tuesday, and I will leave my notes in the margin.'},
-      {id:'verbatim',name:'Verbatim',desc:'Exactly what the recognizer heard, trimmed but otherwise untouched.',sample:'Um, send the deck Tuesday, and I will, you know, leave notes in the margin.'},
+      {id:'natural',name:'Natural',desc:'Clean punctuation and capitalization with filler words removed — the everyday default.'},
+      {id:'concise',name:'Concise',desc:'Natural, and hedges like “basically” or “you know” are trimmed out of the sentence.'},
+      {id:'professional',name:'Professional',desc:'Natural, with contractions expanded for a formal read — “don’t” becomes “do not”.'},
+      {id:'verbatim',name:'Verbatim',desc:'Exactly what the recognizer heard, trimmed but otherwise untouched.'},
     ];
     let styleSelection = 'natural';
+    let stylePreviews = {};
+    function onStylePreviewData(data) {
+      stylePreviews = data.outputs || {};
+      document.getElementById('styleInput').textContent = data.input || '';
+      renderStyleOptions();
+    }
     function renderStyleOptions() {
       const grid = document.getElementById('styleGrid');
       if (!grid) return;
@@ -507,15 +402,16 @@
         card.type = 'button';
         card.setAttribute('role', 'radio');
         card.setAttribute('aria-checked', String(style.id === styleSelection));
+        card.tabIndex = style.id === styleSelection ? 0 : -1;
         const name = element('span', 'style-name');
         name.append(element('span', 'style-check'), style.name);
-        card.append(name, element('span', 'style-desc', style.desc), element('span', 'style-sample', style.sample));
+        card.append(name, element('span', 'style-desc', style.desc), element('span', 'style-sample', stylePreviews[style.id] || 'Loading example…'));
         card.onclick = () => selectOutputStyle(style.id);
         grid.append(card);
       }
       const selected = OUTPUT_STYLE_CARDS.find(style => style.id === styleSelection) || OUTPUT_STYLE_CARDS[0];
       document.getElementById('stylePreviewName').textContent = selected.name;
-      document.getElementById('stylePreview').textContent = selected.sample;
+      document.getElementById('stylePreview').textContent = stylePreviews[selected.id] || 'Loading example…';
     }
     function selectOutputStyle(style) {
       if (!OUTPUT_STYLE_CARDS.some(card => card.id === style)) return;
@@ -531,7 +427,7 @@
       if (sent) {
         button.disabled = true;
         button.textContent = 'Applying…';
-      } else onSettingsResult(false, 'Open Fixoflow to apply this style.');
+      } else onSettingsResult(false, 'Open Fixo Flow to apply this style.');
     }
 
     /* ---- insights ------------------------------------------------------------ */
@@ -539,27 +435,29 @@
     function countUp(node, target, decimals = 0, duration = 700) {
       if (!node) return;
       const format = value => decimals ? value.toFixed(decimals) : Math.round(value).toLocaleString();
-      if (reducedMotion() || !target) { node.textContent = format(target); return; }
+      if (node._countFrame) cancelAnimationFrame(node._countFrame);
+      if (reducedMotion() || document.hidden || activeTab !== 'insights' || !target) { node.textContent = format(target); return; }
       const startTime = performance.now();
       const step = now => {
         const progress = Math.min(1, (now - startTime) / duration);
         const eased = 1 - Math.pow(1 - progress, 3);
         node.textContent = format(target * eased);
-        if (progress < 1) requestAnimationFrame(step);
+        if (progress < 1 && activeTab === 'insights' && !document.hidden) node._countFrame = requestAnimationFrame(step);
+        else node.textContent = format(target);
       };
-      requestAnimationFrame(step);
+      node._countFrame = requestAnimationFrame(step);
     }
     function onInsightsData(data) {
       const total = data.total || {}, streak = data.streak || {}, today = data.today || {}, fixes = data.fixes || {};
       const firstName = (data.user || '').trim().split(/\s+/)[0];
-      document.getElementById('insightsGreeting').textContent = (firstName ? 'Hey ' + firstName + ' — ' : '') + 'a private look at how you dictate. Everything stays on this Mac.';
+      document.getElementById('insightsGreeting').textContent = (firstName ? 'Hey ' + firstName + ' — ' : '') + 'a private look at how you dictate. Everything stays on this device.';
       countUp(document.getElementById('streakCurrent'), streak.current || 0);
       document.getElementById('streakBest').textContent = 'Best streak: ' + (streak.best || 0) + ' day' + ((streak.best || 0) === 1 ? '' : 's');
       document.getElementById('streakActiveDays').textContent = (streak.active_days || 0) + ' active day' + ((streak.active_days || 0) === 1 ? '' : 's');
       countUp(document.getElementById('todayWords'), today.total_words || 0);
       document.getElementById('todaySub').textContent = today.sessions_count
         ? today.sessions_count + ' dictation' + (today.sessions_count === 1 ? '' : 's') + ' · ' + today.avg_wpm + ' WPM today'
-        : 'No dictation yet today — your streak is waiting.';
+        : 'A fresh page. Your first thought starts here.';
       const strip = document.getElementById('weekStrip');
       strip.replaceChildren();
       for (const day of data.week || []) {
@@ -637,22 +535,50 @@
     function copyText(text) { post('copyText', {text}); }
     function saveSettings() {
       if (!configLoaded) { onSettingsResult(false, 'Settings are still loading. Reopen Settings and try again.'); return; }
-      if (!currentConfig.hotkey) { onSettingsResult(false, 'Record a keyboard shortcut before saving.'); return; }
-      const interaction = document.getElementById('cfgInteraction').value;
-      const candidate = {...currentConfig,hotkey:currentConfig.hotkey,model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,dual_mode_hotkey:interaction === 'both',hold_to_talk:interaction === 'hold'};
+      if (shortcutRecording) { onSettingsResult(false, 'Finish shortcut recording before saving.'); return; }
+      const candidate = {...currentConfig,model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,auto_install_updates:document.getElementById('cfgAutoInstall').checked};
       const sent = post('saveConfig', {config:candidate});
       if (sent) {
         document.getElementById('settingsResult').textContent = 'Applying preferences…';
         document.getElementById('settingsResult').removeAttribute('data-result');
         document.getElementById('savePreferences').disabled = true;
         document.getElementById('savePreferences').textContent = 'Applying…';
-      } else onSettingsResult(false, 'Open Fixoflow to apply these preferences.');
+      } else onSettingsResult(false, 'Open Fixo Flow to apply these preferences.');
     }
+    document.addEventListener('keydown', event => {
+      const radio = event.target.closest('[role="radio"]');
+      if (!radio || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) return;
+      const group = radio.closest('[role="radiogroup"]');
+      if (!group) return;
+      event.preventDefault();
+      const radios = [...group.querySelectorAll('[role="radio"]')];
+      const delta = ['ArrowLeft','ArrowUp'].includes(event.key) ? -1 : 1;
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? radios.length-1 : (radios.indexOf(radio) + delta + radios.length) % radios.length;
+      radios[next].click();
+      group.querySelectorAll('[role="radio"]')[next].focus();
+    });
+    function onDesktopPlatform(name) {
+      document.querySelector('.local-mark').textContent = 'Right here on '+name;
+      for (const node of document.querySelectorAll('.section-header,.setting-desc,.subtitle')) {
+        node.textContent = node.textContent.replaceAll('your Mac','your device').replaceAll('on your Mac','on your device');
+      }
+      const model=document.getElementById('cfgModel');
+      model.replaceChildren(element('option','','Base English · bundled'));
+      model.options[0].value='bundled-base.en';
+      if (currentConfig.model_name && currentConfig.model_name!=='bundled-base.en') {
+        const option=element('option','',currentConfig.model_name); option.value=currentConfig.model_name;model.append(option);
+      }
+      model.value=currentConfig.model_name || 'bundled-base.en';
+      document.getElementById('permissionStatus').textContent = name==='Windows' ? 'Allow desktop microphone access in Windows Settings. Automatic paste cannot cross administrator privilege boundaries.' : 'Global shortcuts and automatic paste require an X11 desktop. Wayland support is limited to manual controls and clipboard output.';
+    }
+    window.addEventListener('pywebviewready', () => { post('getConfig');post('getUpdateStatus');switchTab('dashboard'); });
     window.onload = () => {
       document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('input', markUnsaved));
       post('getConfig');
+      post('getUpdateStatus');
       switchTab('dashboard');
     };
+    window.addEventListener('blur', () => { if (shortcutRecording) stopShortcutRecording(); });
     window.addEventListener('focus', () => { post('getPermissions'); post('getControlStatus'); });
   </script>
 </body>

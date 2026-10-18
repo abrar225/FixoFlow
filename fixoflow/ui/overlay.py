@@ -402,7 +402,7 @@ class OverlayManager:
     def configure(self, config, on_toggle=None, on_cancel=None, on_open_hub=None, on_position_change=None):
         self._always_show = config.always_show_overlay
         self._explicit_reveal = False
-        self._shortcut = shortcut_label(config.hotkey)
+        self._shortcut = shortcut_label(config.hold_shortcut)
         if on_toggle is not None:
             self.on_toggle = on_toggle
         if on_cancel is not None:

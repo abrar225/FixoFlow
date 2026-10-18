@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 import AppKit
-from Foundation import NSObject, NSDistributedNotificationCenter, NSOperationQueue
+from Foundation import NSObject, NSDistributedNotificationCenter, NSOperationQueue, NSURL
 
 from fixoflow.config import FixoflowConfig, OVERLAY_POSITIONS
 from fixoflow.daemon import FixoflowDaemon
@@ -153,6 +153,15 @@ class MenuDelegate(NSObject):
         if self.app_instance:
             self.app_instance.hub.show()
 
+    def openSettings_(self, sender):
+        if self.app_instance:
+            self.app_instance.hub.show()
+            self.app_instance.hub._eval_js("switchTab('settings');")
+
+    def checkUpdates_(self, sender):
+        if self.app_instance:
+            self.app_instance.check_updates()
+
     def setModeCoding_(self, sender):
         if self.app_instance:
             self.app_instance.set_mode("coding")
@@ -173,10 +182,16 @@ class MenuDelegate(NSObject):
         if self.app_instance:
             self.app_instance.restart()
 
-    def quitApp_(self, sender):
+    def applicationShouldTerminate_(self, application):
         if self.app_instance:
             self.app_instance.stop()
-        sys.exit(0)
+        return AppKit.NSTerminateNow
+
+    def applicationShouldTerminateAfterLastWindowClosed_(self, application):
+        return False
+
+    def quitApp_(self, sender):
+        AppKit.NSApp.terminate_(sender)
 
 
 class FixoflowApp:
@@ -186,6 +201,9 @@ class FixoflowApp:
         # A regular app: Fixoflow keeps a Dock icon and joins the app switcher,
         # while the floating pill stays a nonactivating panel.
         self.ns_app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
+        icon = AppKit.NSImage.alloc().initWithContentsOfFile_(str(Path(__file__).parent / "ui/assets/flow-fold.png"))
+        if icon is not None:
+            self.ns_app.setApplicationIconImage_(icon)
 
         self.daemon = FixoflowDaemon(self.config)
         self.hub = HubManager.get_instance()
@@ -202,6 +220,19 @@ class FixoflowApp:
         self.hub.on_show_overlay = self.show_overlay
         self.hub.on_control_status = self.control_status
         self.hub.on_restart = self.restart
+        self.hub.on_shortcut_capture = self.begin_shortcut_capture
+        self.hub.on_cancel_capture = self.daemon.cancel_capture
+        self.hub.on_primary_mouse_capture = self.daemon.capture_primary_mouse
+        from fixoflow.updates import UpdateService
+        from fixoflow.platform.macos_updates import load_signed_updater
+        self.updates = UpdateService(lambda value:self.hub._eval_js(f"onUpdateData({json.dumps(value)});"),
+            dispatch=lambda fn:NSOperationQueue.mainQueue().addOperationWithBlock_(fn),signed_updater=load_signed_updater())
+        self.hub.on_update_check = self.check_updates
+        self.hub.on_update_status = self.updates.snapshot
+        self.hub.on_open_release = self.open_release
+        if self.updates.signed_updater:
+            self.updates.signed_updater.set_checks(self.config.check_updates_on_launch)
+            self.updates.set_automatic(self.config.auto_install_updates)
         self.daemon.controls.on_change = lambda: NSOperationQueue.mainQueue().addOperationWithBlock_(self.refresh_status)
         self._status_cache = None
         self._shortcut_error = "Shortcut needs Accessibility and Input Monitoring. Grant them, then restart Fixoflow if the status stays red."
@@ -210,6 +241,7 @@ class FixoflowApp:
         request_notification_authorization()
 
         self._setup_menu_bar()
+        self._setup_application_menu()
         self.daemon.coordinator.overlay.configure(self.config, on_toggle=self.daemon.controls.toggle,
             on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show,
             on_position_change=self.set_overlay_position)
@@ -221,12 +253,15 @@ class FixoflowApp:
 
     def control_status(self):
         listener = self.daemon._listener
-        active = bool(listener is not None and listener.is_alive() and listener.running)
+        mouse_listener = self.daemon._mouse_listener
+        active = bool(listener is not None and listener.is_alive() and listener.running and mouse_listener is not None and mouse_listener.is_alive() and mouse_listener.running)
         state = self.daemon.controls.state
-        detail = self.daemon.coordinator.last_error or ("Tap to toggle; hold to talk." if active else self._shortcut_error)
-        return {"state": state, "shortcut": shortcut_label(self.config.hotkey), "shortcut_active": active, "detail": detail}
+        detail = self.daemon.coordinator.last_error or ("Hold your hold-to-talk shortcut, or tap hands-free to start and stop." if active else self._shortcut_error)
+        return {"state": state, "shortcut": shortcut_label(self.config.hold_shortcut), "hands_free_shortcut": shortcut_label(self.config.hands_free_shortcut), "shortcut_active": active, "detail": detail}
 
     def refresh_status(self):
+        self.daemon._hub_focused = bool(self.hub._window and self.hub._window.isKeyWindow())
+        self.daemon.expire_capture()
         status = self.control_status()
         serialized = json.dumps(status)
         if serialized != self._status_cache:
@@ -271,28 +306,78 @@ class FixoflowApp:
         self.refresh_status()
         return None
 
-    def apply_config(self, candidate):
-        from pynput import keyboard
-        keyboard.HotKey.parse(candidate.hotkey)
-        candidate.validate()
-        from fixoflow.audio.recorder import AudioRecorder
-        from fixoflow.stt.engine import STTEngine
-        from fixoflow.brain.polisher import TextPolisher
-        def update():
-            candidate.save()
-            self.daemon.stop_listener()
-            self.config.__dict__.update(candidate.__dict__)
-            self.daemon.coordinator.recorder = AudioRecorder(self.config)
-            self.daemon.coordinator.stt = STTEngine(self.config)
-            self.daemon.coordinator.polisher = TextPolisher(self.config)
-            self.daemon.configure_hotkey()
-        self.daemon.controls.configure(update)
-        self.daemon.coordinator.overlay.configure(self.config)
-        self._update_menu_mode_checks()
+    def begin_shortcut_capture(self, field):
+        if self.daemon.controls.state != 'IDLE':
+            raise RuntimeError('Finish or cancel dictation before recording a shortcut.')
         message = self.enable_shortcut()
         if message:
-            logger.info("Preferences saved; shortcut awaits macOS permissions")
+            raise RuntimeError(message)
+        def captured(binding, message):
+            value = {'field':field,'binding':binding,'message':message}
+            NSOperationQueue.mainQueue().addOperationWithBlock_(lambda:self.hub._eval_js(f"onShortcutCaptured({json.dumps(value)});"))
+        self.daemon.begin_capture(captured)
+
+    def check_updates(self):
+        if self.daemon.controls.state != 'IDLE':
+            self.hub._eval_js("onSettingsResult(false, 'Finish dictation before checking for updates.');")
+            return
+        self.updates.check()
+
+    def open_release(self):
+        url = self.updates.release_url()
+        if url:
+            AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_(url))
+
+    def apply_config(self, candidate):
+        candidate.validate()
+        if candidate.auto_install_updates and self.updates.signed_updater is None:
+            raise ValueError('Automatic installation needs a signed update feed. Manual update checks are available.')
+        if self.daemon.controls.state != 'IDLE':
+            raise RuntimeError('Finish the current dictation before changing settings.')
+        if self.daemon.router.quarantined and self.daemon.router.pressed:
+            raise RuntimeError('Release the captured keys or mouse button before saving.')
+        from fixoflow.audio.recorder import AudioRecorder
+        from fixoflow.stt.engine import create_stt_engine
+        from fixoflow.brain.polisher import TextPolisher
+        # Stop input before taking the session lock: an input callback may be
+        # waiting on that lock. Holding it while joining would deadlock.
+        self.daemon.stop_listener()
+        def update():
+            candidate.save()
+            self.config.__dict__.update(candidate.__dict__)
+            self.daemon.coordinator.recorder = AudioRecorder(self.config)
+            self.daemon.coordinator.stt = create_stt_engine(self.config)
+            self.daemon.coordinator.polisher = TextPolisher(self.config)
+            self.daemon.configure_shortcuts()
+        try:
+            self.daemon.controls.configure(update)
+        finally:
+            self.enable_shortcut()
+        self.daemon.coordinator.overlay.configure(self.config)
+        self._update_menu_mode_checks()
+        self.updates.set_automatic(self.config.auto_install_updates)
+        if self.updates.signed_updater:
+            self.updates.signed_updater.set_checks(self.config.check_updates_on_launch)
         self.refresh_status()
+
+    def _setup_application_menu(self):
+        # A regular Dock app also needs the standard application/edit menu.
+        bar = AppKit.NSMenu.alloc().init()
+        root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Fixo Flow',None,'')
+        menu = AppKit.NSMenu.alloc().initWithTitle_('Fixo Flow')
+        for title,action,key,target in [('Open Fixo Flow','openHub:','0',self._delegate),('Settings…','openSettings:',',',self._delegate),('Check for Updates…','checkUpdates:','',self._delegate),('Quit Fixo Flow','quitApp:','q',self._delegate)]:
+            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title,action,key)
+            item.setTarget_(target)
+            menu.addItem_(item)
+        root.setSubmenu_(menu)
+        bar.addItem_(root)
+        edit_root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Edit',None,'')
+        edit = AppKit.NSMenu.alloc().initWithTitle_('Edit')
+        for title,action,key in [('Undo','undo:','z'),('Cut','cut:','x'),('Copy','copy:','c'),('Paste','paste:','v'),('Select All','selectAll:','a')]:
+            edit.addItem_(AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title,action,key))
+        edit_root.setSubmenu_(edit)
+        bar.addItem_(edit_root)
+        self.ns_app.setMainMenu_(bar)
 
     def _setup_menu_bar(self):
         status_bar = AppKit.NSStatusBar.systemStatusBar()
@@ -320,7 +405,7 @@ class FixoflowApp:
         menu.addItem_(hub_item)
 
         toggle_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            f"Toggle Dictation ({self.config.hotkey})", "toggleDictation:", ""
+            f"Hands-free ({shortcut_label(self.config.hands_free_shortcut)})", "toggleDictation:", ""
         )
         toggle_item.setTarget_(self._delegate)
         self._toggle_menu_item = toggle_item
@@ -415,6 +500,8 @@ class FixoflowApp:
 
         if show_hub_on_launch:
             self.hub.show()
+        if self.config.check_updates_on_launch:
+            self.updates.check(manual=False)
 
         from Foundation import NSTimer
         self._signal_timer = NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
@@ -430,6 +517,8 @@ class FixoflowApp:
     def stop(self):
         self._running = False
         self.ns_app.stop_(None)
+        if getattr(self, "updates", None):
+            self.updates.close()
         if self.daemon:
             self.daemon.stop()
         if self.hub:
@@ -461,10 +550,13 @@ def main(argv=None):
     if args.self_check:
         import tempfile
         from fixoflow.storage.db import FixoflowDB
-        from fixoflow.stt.engine import STTEngine
+        from fixoflow.stt.engine import create_stt_engine
         with tempfile.TemporaryDirectory() as directory:
             FixoflowDB._instance = FixoflowDB(Path(directory) / "check.sqlite")
             app = FixoflowApp()
+            assert app.ns_app.activationPolicy() == AppKit.NSApplicationActivationPolicyRegular
+            assert app.ns_app.applicationIconImage() is not None
+            assert app.ns_app.mainMenu() is not None
             assert app.hub._window is not None and app.hub._webview is not None
             assert app.daemon.coordinator.overlay._panel is not None
             app.hub.handle_action("getConfig", {})
@@ -476,7 +568,7 @@ def main(argv=None):
             window.makeKeyAndOrderFront_(None)
             assert window.isVisible() and window.alphaValue() == 1.0
             window.orderOut_(None)
-            model = STTEngine(app.config).resolve_model_path()
+            model = create_stt_engine(app.config).resolve_model_path()
             print(json.dumps({"ui": "ok", "model": str(model), "hotkey_started": False, "microphone_opened": False}))
             app.stop()
         return

@@ -4,34 +4,35 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fixoflow floating control</title>
 <style>
+@font-face{font-family:Geist;src:url('assets/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-display:swap}
 :root{
   --ease:cubic-bezier(.34,.8,.3,1);
-  --tint:rgba(30,30,34,.40);
-  --tint-live:rgba(36,32,42,.60);
-  --line:rgba(255,255,255,.16);
-  --ink:#fafafc;
-  --dim:rgba(250,250,252,.58);
-  --ok:#9fd8a8;
-  --err:#f2a29a;
+  --tint:rgba(238,233,251,.90);
+  --tint-live:rgba(215,201,241,.96);
+  --line:rgba(41,38,47,.18);
+  --ink:#29262f;
+  --dim:#69636f;
+  --ok:#31543d;
+  --err:#923f3f;
 }
 *{box-sizing:border-box;outline:none;-webkit-user-drag:none;touch-action:none}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
-body{display:grid;place-items:center;font:12px -apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;cursor:default}
+body{display:grid;place-items:center;font:12px Geist,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;cursor:default}
 
 /* ---- the pill ---------------------------------------------------------- */
 .pill{position:relative;display:flex;align-items:center;height:30px;width:116px;padding:0 4px;border-radius:999px;background:var(--tint);cursor:grab;overflow:hidden;
   transition:width .18s var(--ease),height .18s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease)}
-.pill::before{content:"";position:absolute;inset:0 0 50% 0;background:linear-gradient(rgba(255,255,255,.10),rgba(255,255,255,0));pointer-events:none}
+.pill::before{content:"";position:absolute;inset:0 0 50% 0;background:transparent;pointer-events:none}
 .pill.dragging{cursor:grabbing;background:var(--tint-live)}
-.pill[data-state=listening]{box-shadow:inset 0 0 0 1px rgba(255,255,255,.26)}
-.pill[data-state=success]{box-shadow:inset 0 0 0 1px rgba(159,216,168,.38)}
-.pill[data-state=error]{box-shadow:inset 0 0 0 1px rgba(242,162,154,.38)}
+.pill[data-state=listening]{box-shadow:inset 0 0 0 1px rgba(93,67,121,.32)}
+.pill[data-state=success]{box-shadow:inset 0 0 0 1px rgba(49,84,61,.38)}
+.pill[data-state=error]{box-shadow:inset 0 0 0 1px rgba(146,63,63,.38)}
 
 button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer;border-radius:999px;height:24px;min-width:24px;padding:0 5px;display:flex;align-items:center;justify-content:center;flex:none;
   transition:background .12s ease,opacity .12s ease}
-button:hover{background:rgba(255,255,255,.10)}
-button:active{background:rgba(255,255,255,.18)}
-button:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+button:hover{background:rgba(93,67,121,.10)}
+button:active{background:rgba(93,67,121,.18)}
+button:focus-visible{box-shadow:0 0 0 2px rgba(93,67,121,.55)}
 button:disabled{cursor:wait;opacity:.8}
 .main{flex:1 1 auto;min-width:0;justify-content:flex-start;gap:6px;padding:0 5px;overflow:hidden}
 .utility{width:24px;padding:0}
@@ -40,12 +41,12 @@ button:disabled{cursor:wait;opacity:.8}
 .glyph{position:relative;width:18px;height:18px;flex:none}
 .glyph>*{position:absolute;inset:0;margin:auto;transition:opacity .14s ease,transform .22s var(--ease)}
 svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
-.g-mic{opacity:1}
+.g-mic{opacity:1;width:18px;height:18px;object-fit:contain}
 .g-wave{width:18px;height:16px;display:flex;align-items:center;justify-content:center;gap:1.5px;opacity:0;transform:scale(.5)}
 .g-wave i{width:2.5px;height:5px;border-radius:2px;background:currentColor;transform-origin:center}
 .g-wave i:nth-child(2),.g-wave i:nth-child(4){height:8px}
 .g-wave i:nth-child(3){height:11px}
-.g-spin{width:14px;height:14px;border:1.6px solid rgba(255,255,255,.28);border-top-color:#fff;border-radius:50%;opacity:0;transform:scale(.5);animation:spin .8s linear infinite}
+.g-spin{width:14px;height:14px;border:1.6px solid rgba(93,67,121,.2);border-top-color:#5d4379;border-radius:50%;opacity:0;transform:scale(.5);animation:spin .8s linear infinite}
 .g-check{opacity:0;transform:scale(.4);stroke:var(--ok)}
 .g-warn{opacity:0;transform:scale(.5);stroke:var(--err)}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -83,7 +84,7 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 <div class="pill" id="bar" data-state="idle" role="group" aria-label="Fixoflow dictation controls">
 <button id="toggle" class="main" aria-label="Start dictation" title="Click to dictate · drag anywhere to move" onclick="mainAction()">
 <span class="glyph">
-<svg class="g-mic" viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 10.5v1.5a6.5 6.5 0 0 0 13 0v-1.5M12 18.5V21m-3.5 0h7"/></svg>
+<img class="g-mic" src="assets/flow-fold.png" alt="" width="18" height="18">
 <span class="g-wave" id="wave"><i></i><i></i><i></i><i></i><i></i></span>
 <span class="g-spin"></span>
 <svg class="g-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
@@ -94,7 +95,7 @@ svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 <span class="timer" id="timer">0:00</span>
 </button>
 <button class="utility cancel" aria-label="Cancel recording" title="Cancel recording — audio stays in History" onclick="post('cancel')"><svg viewBox="0 0 20 20"><path d="m6.5 6.5 7 7m0-7-7 7"/></svg></button>
-<button class="utility hub" aria-label="Open Fixoflow settings" title="Open Fixoflow settings" onclick="post('openHub')"><svg viewBox="0 0 20 20"><path d="M3.5 6h13M3.5 10h13M3.5 14h13"/><circle cx="7.5" cy="6" r="1.8" fill="#17171a"/><circle cx="12.5" cy="10" r="1.8" fill="#17171a"/><circle cx="8.5" cy="14" r="1.8" fill="#17171a"/></svg></button>
+<button class="utility hub" aria-label="Open Fixoflow settings" title="Open Fixoflow settings" onclick="post('openHub')"><svg viewBox="0 0 20 20"><path d="M3.5 6h13M3.5 10h13M3.5 14h13"/><circle cx="7.5" cy="6" r="1.8" fill="#eee9fb"/><circle cx="12.5" cy="10" r="1.8" fill="#eee9fb"/><circle cx="8.5" cy="14" r="1.8" fill="#eee9fb"/></svg></button>
 </div>
 <script>
 const SIZES={idle:[116,30],hover:[216,30],listening:[176,36],processing:[156,34],success:[132,34],error:[264,36]};
@@ -102,7 +103,7 @@ const BAR_LEVEL_VARIANCE=[.55,.85,1.2,.85,.55];
 const MOVE_THRESHOLD=4;
 let current='idle',hovering=false,dragging=false,drag=null,suppressClick=false,started=0,clock=null,smoothed=0;
 
-function post(action,extra){window.webkit?.messageHandlers?.fixoflow?.postMessage({action,...extra});}
+function post(action,extra){if(window.pywebview?.api?.post)window.pywebview.api.post({action,...extra});else window.webkit?.messageHandlers?.fixoflow?.postMessage({action,...extra});}
 function mainAction(){post(current==='error'?'openHub':'toggle');}
 
 function sizeFor(){return current==='idle'?(hovering?SIZES.hover:SIZES.idle):(SIZES[current]||SIZES.idle);}

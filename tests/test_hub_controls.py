@@ -88,12 +88,12 @@ def test_new_preferences_preserve_unexposed_settings():
     changes = []
     ui.on_config_change = lambda candidate: changes.append(candidate)
     ui.handle_action('saveConfig', {'config': {'always_show_overlay': False, 'sound_enabled':False,
-         'dual_mode_hotkey':False, 'hold_to_talk':True, 'initial_prompt':'unexpected replacement'}})
+         'check_updates_on_launch':False, 'initial_prompt':'unexpected replacement'}})
     assert len(changes) == 1
     cfg = changes[0]
     assert cfg.always_show_overlay is False
     assert cfg.sound_enabled is False
-    assert cfg.hold_to_talk is True and cfg.dual_mode_hotkey is False
+    assert cfg.check_updates_on_launch is False
     assert cfg.initial_prompt == 'Keep the selected prompt'
 
 
@@ -108,7 +108,7 @@ def test_invalid_toggle_value_is_rejected_without_applying():
 def test_retry_publishes_current_permissions_even_when_shortcut_fails(monkeypatch):
     ui = manager()
     ui.on_enable_shortcut = Mock(return_value='Input Monitoring needed')
-    monkeypatch.setattr(hub, 'permission_snapshot',
+    monkeypatch.setattr('fixoflow.ui.controller.permission_snapshot',
                         lambda: {'accessibility':True,'input':False,'microphone':'authorized'})
     ui.handle_action('enableShortcut', {})
     messages = [call.args[0] for call in ui._eval_js.call_args_list]
@@ -121,7 +121,7 @@ def test_retry_publishes_current_permissions_even_when_shortcut_fails(monkeypatc
 def test_successful_enable_reports_success(monkeypatch):
     ui = manager()
     ui.on_enable_shortcut = Mock(return_value=None)
-    monkeypatch.setattr(hub, 'permission_snapshot',
+    monkeypatch.setattr('fixoflow.ui.controller.permission_snapshot',
                         lambda: {'accessibility':True,'input':True,'microphone':'authorized'})
     ui.handle_action('enableShortcut', {})
     messages = [call.args[0] for call in ui._eval_js.call_args_list]
@@ -131,7 +131,7 @@ def test_successful_enable_reports_success(monkeypatch):
 def test_request_permissions_triggers_system_prompts(monkeypatch):
     ui = manager()
     requested = []
-    monkeypatch.setattr(hub, 'request_all_permissions',
+    monkeypatch.setattr('fixoflow.ui.controller.request_all_permissions',
                         lambda: requested.append(True) or {'accessibility':False,'input':False,'microphone':'not determined'})
     ui.handle_action('requestPermissions', {})
     assert requested == [True]
@@ -143,7 +143,7 @@ def test_request_permissions_triggers_system_prompts(monkeypatch):
 
 def test_permission_refresh_does_not_reload_unsaved_preferences(monkeypatch):
     ui = manager()
-    monkeypatch.setattr(hub, 'permission_snapshot',
+    monkeypatch.setattr('fixoflow.ui.controller.permission_snapshot',
                         lambda: {'accessibility':False,'input':True,'microphone':'denied'})
     ui.handle_action('getPermissions', {})
     assert ui._eval_js.call_count == 1

@@ -8,8 +8,8 @@ Speak anywhere you type, in any app. Your audio and transcript never leave the M
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-black)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
-![Tests](https://img.shields.io/badge/tests-76%20passing-brightgreen)
-![Local only](https://img.shields.io/badge/network-none-4c9e63)
+![Tests](https://img.shields.io/badge/tests-local%20suite-brightgreen)
+![Local dictation](https://img.shields.io/badge/dictation-on%20device-4c9e63)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 </div>
@@ -18,11 +18,20 @@ Speak anywhere you type, in any app. Your audio and transcript never leave the M
 
 ---
 
+## Product release and platform status
+
+The initial release identity is **0.1.0**. The Mac app has separate configurable
+hold-to-talk and hands-free shortcuts, recent history on Overview, and release
+checking in Settings. The selected Windows target is **Windows 11 x64**; the
+local speech backend and shared-code preparation are present, but the Windows
+desktop host, native integrations, installer, and hardware acceptance remain.
+See the [task ownership, Windows plan, and signed-update runbook](docs/07-platform-and-release-plan.md).
+
 ## How it works
 
 ```mermaid
 flowchart LR
-    A["Global shortcut<br/>(tap = toggle · hold = push-to-talk)"] --> B["16 kHz mono capture<br/>WAV flushed to disk during recording"]
+    A["Two configurable shortcuts<br/>hold-to-talk · hands-free toggle"] --> B["16 kHz mono capture<br/>WAV flushed to disk during recording"]
     B --> C["Butterworth bandpass<br/>80 Hz – 7.5 kHz + normalize"]
     C --> D{"Longer than 24 s?"}
     D -- Yes --> E["Slice at low-energy<br/>breathing pauses"]
@@ -39,8 +48,8 @@ Every transcript is stored in local SQLite history, so text is recoverable even 
 
 | Gesture | Result |
 | :-- | :-- |
-| Tap the shortcut | Recording starts and stays on until you tap again |
-| Hold the shortcut past 0.45 s | Push-to-talk: release to stop and transcribe |
+| Hold-to-talk shortcut | Press to record; release to stop and transcribe |
+| Hands-free shortcut | Press once to start; press again to stop and transcribe |
 | Escape | Cancels capture; the audio file is kept |
 | Click the floating pill | Same toggle control, no keyboard needed |
 | Drag the floating pill | Press anywhere on it (buttons included) and drag; it drops into the nearest of four slots — top center, bottom left, bottom center, bottom right — and remembers it |
@@ -67,7 +76,11 @@ stateDiagram-v2
 | `~/.fixoflow/audio_cache/` | Session WAVs + `.transcript.json` partial recovery files |
 | `~/Library/Logs/Fixoflow/fixoflow.log` | Rotating log |
 
-No accounts, no telemetry, no network calls. Runtime transcription uses a bundled model, an explicit local model directory, or an already-cached snapshot; a missing model produces an error instead of a download. Cloud polishing is removed — older Gemini keys load as offline rules and are never read, and unknown/legacy config keys are ignored instead of crashing.
+No accounts or telemetry. Dictation stays on-device. Optional startup/manual update checks request only public GitHub release metadata; signed update downloads require a separately configured Sparkle appcast. Disable startup checks in Settings for an offline-only workflow. Runtime transcription uses a bundled model, an explicit local model directory, or an already-cached snapshot; a missing model produces an error instead of a download. Cloud polishing is removed — older Gemini keys load as offline rules and are never read, and unknown/legacy config keys are ignored instead of crashing.
+
+Shortcuts are recorded in Settings, including exposed keyboard keys, modifiers,
+Fn/Globe, and mouse buttons. Legacy preferences migrate without being overwritten
+until Save. See the release plan for primary-mouse and reserved-key behavior.
 
 ## Modes
 
@@ -128,7 +141,7 @@ fixoflow config --hotkey '<cmd>+<shift>+d' --model ...
 
 ```sh
 uv sync --extra dev
-.venv/bin/pytest tests/ -q                      # 76 tests
+.venv/bin/pytest tests/ -q
 .venv/bin/python -m fixoflow.app --self-check   # UI + model check, no mic
 ```
 

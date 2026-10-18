@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
-from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import AppKit
@@ -46,18 +45,7 @@ _MICROPHONE_STATES = {
 }
 
 
-@dataclass(frozen=True)
-class InsertionOutcome:
-    """Result of one insertion attempt.
-
-    ``inserted`` means a Cmd+V keystroke was posted. ``copied`` means the text
-    reached the system clipboard. ``reason`` is one of ``inserted``,
-    ``permission``, ``event-failed`` or ``clipboard-failed``.
-    """
-
-    inserted: bool
-    copied: bool
-    reason: str
+from .contracts import InsertionOutcome
 
 
 # ---------------------------------------------------------------------------
@@ -277,3 +265,10 @@ def play_sound(sound_name: str = "Tink") -> None:
         subprocess.Popen(["afplay", sound_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
+
+
+def open_permission_settings(section):
+    from Foundation import NSURL
+    names = {'microphone':'Privacy_Microphone','accessibility':'Privacy_Accessibility','input':'Privacy_ListenEvent'}
+    if section in names:
+        AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('x-apple.systempreferences:com.apple.preference.security?'+names[section]))

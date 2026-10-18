@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fixoflow"
-version = "0.2.0"
-description = "Ultra-lightweight, 100% local, zero-loss voice dictation engine for macOS"
+dynamic = ["version"]
+description = "Local voice dictation for macOS, Windows, and Linux"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -15,25 +15,30 @@ dependencies = [
   "sounddevice>=0.5.0",
   "numpy>=1.26.0",
   "scipy>=1.12.0",
-  "mlx-whisper>=0.4.0",
+  "mlx-whisper>=0.4.0; sys_platform == 'darwin'",
   "pynput>=1.7.6",
-  "pyobjc-framework-Cocoa>=10.0",
-  "pyobjc-framework-ApplicationServices>=10.0",
-  "pyobjc-framework-WebKit>=10.0",
-  "pyobjc-framework-AVFoundation>=10.0",
-  "pyobjc-framework-UserNotifications>=10.0"
+  "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
+  "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
+  "pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'",
+  "pyobjc-framework-AVFoundation>=10.0; sys_platform == 'darwin'",
+  "pyobjc-framework-UserNotifications>=10.0; sys_platform == 'darwin'"
 ]
 
 [project.scripts]
 fixoflow = "fixoflow.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "fixoflow.version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["fixoflow*"]
 
 [project.optional-dependencies]
+windows = ["faster-whisper>=1.1,<2; sys_platform == 'win32'", "pywebview>=5,<7; sys_platform == 'win32'"]
+linux = ["faster-whisper>=1.1,<2; sys_platform == 'linux'", "pywebview[gtk]>=5,<7; sys_platform == 'linux'"]
 packaging = ["pyinstaller==6.20.0"]
 dev = ["pytest>=8,<10"]
 
 [tool.setuptools.package-data]
-"fixoflow.ui" = ["*.html"]
+"fixoflow.ui" = ["*.html", "*.css", "assets/*"]

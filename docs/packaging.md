@@ -10,6 +10,8 @@ Build on Apple Silicon macOS using the project environment:
 
 ```sh
 uv pip install --python .venv/bin/python -e '.[packaging]'
+# Regenerate the macOS icon from the approved local Flow Fold PNG:
+.venv/bin/python scripts/make_icon.py
 bash scripts/build_app.sh
 bash scripts/build_dmg.sh
 ```
@@ -64,3 +66,27 @@ checkout, with an empty working directory and sanitized environment. UI launch,
 microphone, hotkey permissions, recording, insertion, recognition accuracy, and
 peak memory are separate acceptance checks: a passing package diagnostic does
 not establish those outcomes or the requested 200 MB memory ceiling.
+
+## Product interface assets
+
+The frozen app bundles `hub.html`, `hub.css`, `overlay.html`, and the complete
+`fixoflow/ui/assets/` directory, including Flow Fold, Geist Sans, and font/icon
+licenses. Setuptools includes these resources too. Neither build nor runtime
+reads the landing-page directory. See [product interface](04-ui-ux-brief.md) for
+the visual system and the recorded checks.
+
+Run `.venv/bin/python scripts/check_product_ui.py` for an isolated native
+Cocoa/WebKit integration check. `--preview` opens a temporary-database design
+preview; it does not connect to the running dictation daemon or write user
+preferences. The ordinary packaged application connects to the real engine.
+
+## Versioned releases and optional updater
+
+`fixoflow/version.py` supplies both the user-visible release and numeric build
+number to the application bundle. `configure_updater.py` runs on the unsigned
+staging app. With no updater inputs, only public GitHub release discovery is
+enabled. With complete caller-provided Sparkle framework, HTTPS appcast, and
+Ed25519 public-key inputs, it embeds the framework and public settings before
+signing. It never generates or stores a private key or downloads a framework.
+See [the release runbook](07-platform-and-release-plan.md) for public signing,
+notarization, feed publication, real-upgrade acceptance, and Windows 11 x64.

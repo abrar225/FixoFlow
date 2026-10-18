@@ -23,6 +23,9 @@ if __name__ == "__main__":
 
         root = Path(sys._MEIPASS)
         required = [root / "fixoflow/ui/hub.html", root / "fixoflow/ui/overlay.html",
+                    root / "fixoflow/ui/hub.css", root / "fixoflow/ui/assets/flow-fold.png",
+                    root / "fixoflow/ui/assets/Geist-Variable.woff2",
+                    root / "fixoflow/ui/assets/Geist-LICENSE.txt", root / "fixoflow/ui/assets/Lucide-LICENSE.txt",
                     root / "models/whisper/config.json", root / "mlx/lib/mlx.metallib",
                     root / "mlx_whisper/assets/gpt2.tiktoken", root / "mlx_whisper/assets/mel_filters.npz"]
         model = root / "models/whisper"

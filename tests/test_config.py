@@ -23,11 +23,21 @@ def test_unknown_keys_never_break_startup(tmp_path, monkeypatch):
     assert cfg.mode == 'coding'
 
 
-def test_legacy_hold_threshold_key_maps_to_current_field(tmp_path, monkeypatch):
+def test_legacy_shortcuts_migrate_without_rewriting(tmp_path, monkeypatch):
     path = tmp_path / 'config.json'
-    path.write_text(json.dumps({'dual_mode_threshold_sec': 0.9}))
-    monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
-    assert FixoflowConfig.load().hold_threshold_sec == 0.9
+    original = {'hotkey':'<cmd>+<shift>+d','dual_mode_hotkey':True,'dual_mode_threshold_sec':0.9}
+    path.write_text(json.dumps(original))
+    monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:path))
+    cfg = FixoflowConfig.load()
+    assert cfg.hold_shortcut['keys'] == ['cmd','shift','d']
+    assert cfg.hands_free_shortcut['keys'] != cfg.hold_shortcut['keys']
+    assert json.loads(path.read_text()) == original
+
+
+def test_legacy_toggle_keeps_existing_shortcut_for_hands_free(tmp_path, monkeypatch):
+    path=tmp_path/'config.json';path.write_text(json.dumps({'hotkey':'<ctrl>+<space>','dual_mode_hotkey':False,'hold_to_talk':False}))
+    monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:path))
+    assert FixoflowConfig.load().hands_free_shortcut['keys']==['ctrl','space']
 
 
 def test_invalid_config_is_not_silently_reset(tmp_path, monkeypatch):

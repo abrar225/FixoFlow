@@ -23,13 +23,13 @@ def setup_logging(verbose: bool = False):
 
 def cmd_start(args):
     """Use the same single-instance application and floating controls as the DMG."""
-    from fixoflow.app import main as app_main
+    from fixoflow.desktop import main as app_main
     return app_main(["--background"])
 
 
 def cmd_hub(args):
     """Open the shared application, rather than a second disconnected GUI."""
-    from fixoflow.app import main as app_main
+    from fixoflow.desktop import main as app_main
     return app_main([])
 
 
@@ -103,7 +103,11 @@ def cmd_config(args):
     if args.model:
         config.model_name = args.model
     if args.hotkey:
-        config.hotkey = args.hotkey
+        from fixoflow.shortcuts import Shortcut
+        config.hold_shortcut = Shortcut.from_text(args.hotkey).as_dict()
+    if args.hands_free_shortcut:
+        from fixoflow.shortcuts import Shortcut
+        config.hands_free_shortcut = Shortcut.from_text(args.hands_free_shortcut).as_dict()
     if args.polisher:
         config.polishing_engine = args.polisher
 
@@ -114,7 +118,7 @@ def cmd_config(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="fixoflow", description="Fixoflow: Zero-Loss Local Voice Dictation for Mac")
+    parser = argparse.ArgumentParser(prog="fixoflow", description="Fixoflow: Zero-Loss Local Local Voice Dictation")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose debug logging")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -132,7 +136,8 @@ def main():
     # config
     cfg_parser = subparsers.add_parser("config", help="View or update configuration")
     cfg_parser.add_argument("--model", help="Whisper model (e.g. mlx-community/whisper-tiny, mlx-community/whisper-base)")
-    cfg_parser.add_argument("--hotkey", help="Hotkey sequence (e.g. '<ctrl>+<space>')")
+    cfg_parser.add_argument("--hold-shortcut", "--hotkey", dest="hotkey", help="Hold-to-talk keys, e.g. <ctrl>+<space>")
+    cfg_parser.add_argument("--hands-free-shortcut", help="Toggle keys, e.g. <alt>+<space>")
     cfg_parser.add_argument("--polisher", choices=["rules", "none"], help="Polishing engine")
 
     # hub

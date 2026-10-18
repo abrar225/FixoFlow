@@ -9,17 +9,14 @@ import json
 import logging
 import os
 import shutil
+import sys
 import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
+from fixoflow.shortcuts import Shortcut, validate_pair
 
 logger = logging.getLogger(__name__)
-
-# Legacy keys from earlier releases that map onto a current field.
-LEGACY_FIELD_MAP = {
-    "dual_mode_threshold_sec": "hold_threshold_sec",
-}
 
 # Floating pill snap zones. Shared with the overlay geometry so the hub,
 # validation, and positioning cannot drift apart.
@@ -33,7 +30,7 @@ OUTPUT_STYLES = ("natural", "concise", "professional", "verbatim")
 @dataclass
 class FixoflowConfig:
     # Model configuration
-    model_name: str = "mlx-community/whisper-base.en-mlx"
+    model_name: str = "mlx-community/whisper-base.en-mlx" if sys.platform == "darwin" else "bundled-base.en"
     language: Optional[str] = "en"  # "en" for English, or None for auto-detect
     initial_prompt: str = "Clean, punctuated English speech."
 
@@ -53,11 +50,11 @@ class FixoflowConfig:
     # Writing-mode output style: "natural", "concise", "professional", "verbatim".
     output_style: str = "natural"
 
-    # Hotkey (pynput format): tap toggles, holding past the threshold talks.
-    hotkey: str = "<ctrl>+<space>"
-    dual_mode_hotkey: bool = True
-    hold_threshold_sec: float = 0.45
-    hold_to_talk: bool = False
+    # Separate device-local bindings; labels never determine key identity.
+    hold_shortcut: dict = field(default_factory=lambda: Shortcut.from_text('<ctrl>+<space>').as_dict())
+    hands_free_shortcut: dict = field(default_factory=lambda: Shortcut.from_text('<alt>+<space>').as_dict())
+    check_updates_on_launch: bool = True
+    auto_install_updates: bool = False
     always_show_overlay: bool = True
     # Floating pill snap zone: "top-center", "bottom-left", "bottom-center"
     # or "bottom-right".
@@ -95,11 +92,36 @@ class FixoflowConfig:
         Unknown keys are ignored with a warning instead of failing startup, so
         configurations written by older releases keep working.
         """
+        data = dict(data)
+        # Old timing-based settings migrate once at this owning boundary. The
+        # user's existing shortcut becomes hold-to-talk; no file is rewritten
+        # until the user saves, when the original is backed up atomically.
+        legacy = data.pop('hotkey', None)
+        dual = data.pop('dual_mode_hotkey', True)
+        hold_only = data.pop('hold_to_talk', False)
+        data.pop('hold_threshold_sec', None)
+        data.pop('dual_mode_threshold_sec', None)
+        if legacy and 'hold_shortcut' not in data and 'hands_free_shortcut' not in data:
+            saved = Shortcut.from_text(legacy).as_dict()
+            data['hold_shortcut'] = saved
+            candidates = ['<alt>+<space>','<cmd>+<shift>+<f12>','<ctrl>+<alt>+<f11>']
+            for candidate in candidates:
+                alternate = Shortcut.from_text(candidate).as_dict()
+                try:
+                    validate_pair(saved, alternate)
+                    data['hands_free_shortcut'] = alternate
+                    break
+                except ValueError:
+                    continue
+            if data.get('hands_free_shortcut') is None:
+                raise ValueError('Choose two distinct shortcuts in Settings.')
+            if not dual and not hold_only:
+                data['hold_shortcut'], data['hands_free_shortcut'] = data['hands_free_shortcut'], saved
         known = {field.name for field in dataclasses.fields(cls)}
         normalized: dict = {}
         unknown: list = []
         for key, value in data.items():
-            target = LEGACY_FIELD_MAP.get(key, key)
+            target = key
             if target in known:
                 normalized[target] = value
             else:
@@ -111,7 +133,7 @@ class FixoflowConfig:
         return normalized
 
     def validate(self) -> None:
-        for name in ("always_show_overlay", "sound_enabled", "dual_mode_hotkey", "hold_to_talk"):
+        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"{name} must be a boolean")
         if self.mode not in {"auto", "coding", "writing", "raw"}:
@@ -126,10 +148,9 @@ class FixoflowConfig:
             raise ValueError("Fixoflow requires 16 kHz mono audio")
         if not 1 <= self.max_continuous_segment_sec <= 24:
             raise ValueError("Audio chunks must be between 1 and 24 seconds")
-        if not 0.1 <= self.hold_threshold_sec <= 2:
-            raise ValueError("Hold threshold must be between 0.1 and 2 seconds")
-        if not self.hotkey.strip() or not self.model_name.strip():
-            raise ValueError("Shortcut and model must not be empty")
+        validate_pair(self.hold_shortcut, self.hands_free_shortcut)
+        if not isinstance(self.model_name, str) or not self.model_name.strip():
+            raise ValueError("Model must not be empty")
         if not self.cache_dir.strip():
             raise ValueError("Audio cache directory must not be empty")
 

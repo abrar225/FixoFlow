@@ -7,8 +7,15 @@ import sys
 from typing import Optional
 
 import numpy as np
-import mlx_whisper
-from huggingface_hub import snapshot_download
+if sys.platform == 'darwin':
+    import mlx_whisper
+else:
+    mlx_whisper = None
+
+
+def snapshot_download(*args, **kwargs):
+    from huggingface_hub import snapshot_download as resolve
+    return resolve(*args, **kwargs)
 
 from fixoflow.audio.slicer import slice_audio_for_transcription
 from fixoflow.config import FixoflowConfig
@@ -83,17 +90,8 @@ class STTEngine:
         for index, chunk in enumerate(chunks):
             if len(chunk) == 0:
                 continue
-            options = {}
-            if self.language:
-                options['language'] = self.language
-            if prompt:
-                options['initial_prompt'] = prompt
             try:
-                result = mlx_whisper.transcribe(
-                    chunk, path_or_hf_repo=model_path,
-                    condition_on_previous_text=False, **options,
-                )
-                text = result['text'].strip()
+                text = self._decode(chunk, model_path, prompt).strip()
                 if text:
                     transcriptions.append(text)
                     prompt = ' '.join(part for part in (base_prompt, ' '.join(text.split()[-30:])) if part)
@@ -103,3 +101,23 @@ class STTEngine:
                     partial_text=' '.join(transcriptions), failed_chunk_index=index,
                 ) from error
         return ' '.join(transcriptions).strip()
+
+    def _decode(self, chunk, model_path, prompt):
+        if mlx_whisper is None:
+            raise TranscriptionError('The MLX speech backend requires macOS. Use the Windows local backend.')
+        options = {}
+        if self.language:
+            options['language'] = self.language
+        if prompt:
+            options['initial_prompt'] = prompt
+        return mlx_whisper.transcribe(chunk,path_or_hf_repo=model_path,
+            condition_on_previous_text=False,**options)['text']
+
+
+def create_stt_engine(config):
+    if sys.platform == 'darwin':
+        return STTEngine(config)
+    if sys.platform == 'win32' or sys.platform.startswith('linux'):
+        from fixoflow.stt.cpu import CPUWhisperEngine
+        return CPUWhisperEngine(config)
+    raise RuntimeError('Unsupported desktop platform.')

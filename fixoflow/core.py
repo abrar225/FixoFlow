@@ -16,7 +16,7 @@ from typing import Optional
 from fixoflow.audio.recorder import AudioRecorder
 from fixoflow.brain.polisher import TextPolisher
 from fixoflow.config import FixoflowConfig
-from fixoflow.platform.macos import (
+from fixoflow.platform import (
     activate_application,
     copy_to_clipboard,
     get_frontmost_app_info,
@@ -24,13 +24,14 @@ from fixoflow.platform.macos import (
     notify,
     play_sound,
 )
-from fixoflow.stt.engine import STTEngine
+from fixoflow.stt.engine import create_stt_engine
 from fixoflow.storage.db import FixoflowDB
 from fixoflow.brain.learner import AdaptiveLearner
 
-try:
+import sys
+if sys.platform == "darwin":
     from fixoflow.ui.overlay import OverlayManager
-except Exception:
+else:
     OverlayManager = None
 
 logger = logging.getLogger("fixoflow.core")
@@ -40,7 +41,7 @@ class FixoflowCoordinator:
     def __init__(self, config: Optional[FixoflowConfig] = None, enable_overlay: bool = True):
         self.config = config or FixoflowConfig.load()
         self.recorder = AudioRecorder(self.config)
-        self.stt = STTEngine(self.config)
+        self.stt = create_stt_engine(self.config)
         self.polisher = TextPolisher(self.config)
         self.db = FixoflowDB.get_instance()
         self.learner = AdaptiveLearner(self.db)

@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Optional
 
 import AppKit
-from Foundation import NSObject, NSOperationQueue, NSPoint, NSRect, NSSize, NSURL
+from Foundation import NSObject, NSOperationQueue, NSPoint, NSRect, NSSize, NSURL, NSJSONSerialization
 import WebKit
 
+from fixoflow.ui.controller import HubController
 from fixoflow.config import FixoflowConfig
-from fixoflow.platform.macos import permission_snapshot, request_all_permissions
 from fixoflow.storage.db import FixoflowDB
 
 logger = logging.getLogger("fixoflow.ui.hub")
@@ -26,19 +26,23 @@ class HubBridgeHandler(NSObject):
 
     def userContentController_didReceiveScriptMessage_(self, userContentController, message):
         try:
-            body = message.body()
-            # body might be an NSDictionary or dict
-            action = body.get("action") if hasattr(body, "get") else None
-            if not action and hasattr(body, "valueForKey_"):
-                action = body.valueForKey_("action")
-
-            if self.hub_manager is not None and action:
-                self.hub_manager.handle_action(str(action), body)
+            raw = message.body()
+            # WKWebView returns nested NSDictionary/NSArray values, not Python
+            # dict/list instances. Normalize the JSON protocol once at entry.
+            if not NSJSONSerialization.isValidJSONObject_(raw):
+                return
+            data,error = NSJSONSerialization.dataWithJSONObject_options_error_(raw,0,None)
+            if error is not None or data is None:
+                return
+            body = json.loads(bytes(data).decode('utf-8'))
+            action = body.get('action') if isinstance(body,dict) else None
+            if self.hub_manager is not None and isinstance(action,str):
+                self.hub_manager.handle_action(action,body)
         except Exception as e:
             logger.error("Error processing JS message: %s", e)
 
 
-class HubManager:
+class HubManager(HubController):
     _instance: Optional[HubManager] = None
 
     def __init__(self):
@@ -51,6 +55,12 @@ class HubManager:
         self.on_show_overlay = None
         self.on_control_status = None
         self.on_restart = None
+        self.on_shortcut_capture = None
+        self.on_cancel_capture = None
+        self.on_primary_mouse_capture = None
+        self.on_update_check = None
+        self.on_update_status = None
+        self.on_open_release = None
         self._init_window()
 
     @classmethod
@@ -61,8 +71,8 @@ class HubManager:
 
     def _init_window(self):
         try:
-            width = 880.0
-            height = 600.0
+            width = 1040.0
+            height = 740.0
 
             screen = AppKit.NSScreen.mainScreen()
             if screen is not None:
@@ -86,13 +96,14 @@ class HubManager:
                 AppKit.NSBackingStoreBuffered,
                 False,
             )
-            self._window.setTitle_("Fixoflow")
+            self._window.setTitle_("Fixo Flow")
+            self._window.setMinSize_(NSSize(820.0, 620.0))
             self._window.setAppearance_(AppKit.NSAppearance.appearanceNamed_(AppKit.NSAppearanceNameAqua))
             # Keep the retained hub reusable after the red close button. The
             # menu/Dock and second-instance notification reopen this same window.
             self._window.setReleasedWhenClosed_(False)
             self._window.setTitlebarAppearsTransparent_(True)
-            self._window.setBackgroundColor_(AppKit.NSColor.colorWithRed_green_blue_alpha_(0.96, 0.957, 0.941, 1.0))
+            self._window.setBackgroundColor_(AppKit.NSColor.colorWithRed_green_blue_alpha_(0.933, 0.914, 0.984, 1.0))
 
             # Configure WebKit View
             config = WebKit.WKWebViewConfiguration.alloc().init()
@@ -119,135 +130,6 @@ class HubManager:
     def _eval_js(self, script: str):
         if self._webview is not None:
             self._webview.evaluateJavaScript_completionHandler_(script, None)
-
-    def _publish_permissions(self):
-        self._eval_js(f"onPermissionData({json.dumps(permission_snapshot())});")
-
-    def handle_action(self, action: str, payload):
-        """Processes IPC messages coming from hub.html UI."""
-        if action == "getPermissions":
-            self._publish_permissions()
-        elif action == "requestPermissions":
-            self._eval_js(f"onPermissionData({json.dumps(request_all_permissions())});")
-            self.handle_action("getControlStatus", {})
-        elif action == "getControlStatus":
-            if self.on_control_status:
-                self._eval_js(f"onControlStatus({json.dumps(self.on_control_status())});")
-        elif action == "showOverlay":
-            if self.on_show_overlay:
-                self.on_show_overlay()
-        elif action == "enableShortcut":
-            try:
-                if self.on_enable_shortcut is None:
-                    raise RuntimeError("Open the full Fixoflow application to enable dictation.")
-                message = self.on_enable_shortcut()
-                if message:
-                    self._eval_js(f"onSettingsResult(false, {json.dumps(message)});")
-                else:
-                    self._eval_js("onSettingsResult(true, 'Shortcut enabled.');")
-            except Exception as e:
-                self._eval_js(f"onSettingsResult(false, {json.dumps(str(e))});")
-            self._publish_permissions()
-            self.handle_action("getControlStatus", {})
-        elif action == "restartApp":
-            if self.on_restart is None:
-                self._eval_js("onSettingsResult(false, 'Open the full Fixoflow application to restart it.');")
-            else:
-                self._eval_js("onSettingsResult(true, 'Restarting Fixoflow…');")
-                self.on_restart()
-        elif action == "openPermissionSettings":
-            section = payload.get("section", "")
-            allowed = {"microphone": "Privacy_Microphone", "accessibility": "Privacy_Accessibility", "input": "Privacy_ListenEvent"}
-            if section in allowed:
-                AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_("x-apple.systempreferences:com.apple.preference.security?" + allowed[section]))
-        elif action == "copyText":
-            from fixoflow.platform.macos import copy_to_clipboard
-            if isinstance(payload.get("text"), str):
-                copy_to_clipboard(payload["text"])
-        elif action == "getDashboard":
-            stats = self.db.get_total_stats()
-            top_apps = self.db.get_app_breakdown()
-            js = f"onDashboardData({json.dumps(stats)}, {json.dumps(top_apps)});"
-            self._eval_js(js)
-
-        elif action == "getInsights":
-            from Foundation import NSFullUserName
-            try:
-                user = str(NSFullUserName())
-            except Exception:
-                import getpass
-                user = getpass.getuser()
-            insights = {
-                "user": user,
-                "total": self.db.get_total_stats(),
-                "today": self.db.get_today_stats(),
-                "streak": self.db.get_streak(),
-                "week": self.db.get_week_activity(7),
-                "fixes": self.db.get_fix_stats(),
-                "apps": self.db.get_app_breakdown(),
-            }
-            self._eval_js(f"onInsightsData({json.dumps(insights)});")
-
-        elif action == "getHistory":
-            search = payload.get("search", "") if hasattr(payload, "get") else ""
-            items = self.db.get_history(limit=50, search=str(search or ""))
-            js = f"onHistoryData({json.dumps(items)});"
-            self._eval_js(js)
-
-        elif action == "deleteHistory":
-            sess_id = payload.get("id") if hasattr(payload, "get") else None
-            if sess_id:
-                self.db.delete_history_item(str(sess_id))
-                self.handle_action("getHistory", {})
-                self.handle_action("getDashboard", {})
-
-        elif action == "clearHistory":
-            self.db.clear_all_history()
-            self.handle_action("getHistory", {})
-            self.handle_action("getDashboard", {})
-
-        elif action == "getDictionary":
-            words = self.db.get_dictionary(limit=100)
-            js = f"onDictionaryData({json.dumps(words)});"
-            self._eval_js(js)
-
-        elif action == "addWord":
-            phrase = str(payload.get("phrase", "") if hasattr(payload, "get") else "")
-            replacement = str(payload.get("replacement", "") if hasattr(payload, "get") else "")
-            category = str(payload.get("category", "general") if hasattr(payload, "get") else "general")
-            if phrase and replacement:
-                self.db.upsert_word(phrase, replacement, category=category, auto_learned=0)
-                self.handle_action("getDictionary", {})
-
-        elif action == "deleteWord":
-            phrase = str(payload.get("phrase", "") if hasattr(payload, "get") else "")
-            if phrase:
-                self.db.delete_word(phrase)
-                self.handle_action("getDictionary", {})
-
-        elif action == "getConfig":
-            from dataclasses import asdict
-            js = f"onConfigData({json.dumps(asdict(self.config))});"
-            self._eval_js(js)
-            self._publish_permissions()
-
-        elif action == "saveConfig":
-            cfg_dict = payload.get("config") if hasattr(payload, "get") else {}
-            if cfg_dict:
-                try:
-                    from dataclasses import asdict
-                    allowed = {"mode", "hotkey", "model_name", "always_show_overlay", "sound_enabled", "dual_mode_hotkey", "hold_to_talk", "overlay_position", "output_style"}
-                    data = asdict(self.config)
-                    data.update({k: v for k, v in cfg_dict.items() if k in allowed})
-                    candidate = FixoflowConfig(**data)
-                    candidate.validate()
-                    if self.on_config_change is None:
-                        raise RuntimeError("Open the full Fixoflow application to change dictation settings.")
-                    self.on_config_change(candidate)
-                    self._eval_js("onSettingsResult(true, 'Preferences applied.');")
-                    self.handle_action("getConfig", {})
-                except Exception as e:
-                    self._eval_js(f"onSettingsResult(false, {json.dumps(str(e))});")
 
     def show(self):
         def _action():

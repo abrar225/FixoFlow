@@ -13,6 +13,7 @@ BUILD_OUTPUT="$(mktemp -d "$PROJECT_DIR/build/app-stage.XXXXXX")"
 trap 'rm -rf "$BUILD_OUTPUT"' EXIT
 "$PYTHON_EXEC" -m PyInstaller --noconfirm --clean --distpath "$BUILD_OUTPUT" --workpath "$PROJECT_DIR/build/pyinstaller" "$PROJECT_DIR/packaging/Fixoflow.spec"
 CANDIDATE="$BUILD_OUTPUT/Fixoflow.app"
+"$PYTHON_EXEC" "$SCRIPT_DIR/configure_updater.py" "$CANDIDATE"
 # Prefer the stable local identity (scripts/create_signing_cert.sh) so TCC
 # grants survive rebuilds. Ad-hoc signing pins grants to the binary hash and
 # silently resets permissions on every update.

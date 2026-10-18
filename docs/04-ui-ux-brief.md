@@ -1,82 +1,115 @@
-# UI/UX Design Brief: Fixoflow
+# Fixo Flow product interface
 
-## 1. Experience Goal
-- **Desired feeling:** Quiet, native, dependable. Fixoflow should read as a small macOS utility, not an application you manage.
-- **Adjectives:** 1) *Frictionless* — activated by shortcut, floating control, or menu bar; 2) *Candid* — failures name the exact reason and the recovery path; 3) *Lightweight* — one menu-bar item, one small window, one floating pill.
-- **Avoid:** persistent overlays that cover the cursor, setup wizards, decorative animation, and any success message that the pipeline cannot back up.
+The core Mac application shares the approved marketing identity: Flow Fold,
+Geist Sans, lilac, mint, charcoal, and an ivory writing surface. The landing
+page is a design reference; it is not a runtime dependency of the application.
 
----
+## Design tokens
 
-## 2. Users and Context
-- **Primary user:** developers and writers who dictate into many apps across a workday.
-- **Environment:** macOS on Apple Silicon, often with a coding agent or terminal focused, sometimes in noisy rooms.
-- **Accessibility:** every state change has a sound cue and text label; tap-to-toggle exists for users who cannot hold a key; the hub is keyboard navigable.
+| Role | Value |
+| --- | --- |
+| Canvas / sidebar | `#eee9fb` |
+| Writing surface | `#fffefb` |
+| Text / primary button | `#29262f` |
+| Secondary text | `#69636f` |
+| Mint | `#badbc4` |
+| Lilac | `#d7c9f1` |
+| Plum / selected controls | `#5d4379` |
 
----
+Geist is bundled as a variable WOFF2 under `fixoflow/ui/assets/` with its SIL
+Open Font License. No remote font or UI dependency is requested. Navigation
+uses locally embedded Lucide SVG paths with the ISC license alongside the font.
+The chosen, unmodified Flow Fold PNG is the shared hub and floating-bar asset.
+`scripts/make_icon.py` converts that source into the standard macOS ICNS sizes.
+It does not redraw the mark. The app bundle references `resources/AppIcon.icns`.
 
-## 3. Auditory Direction
-- **Recording start:** `/System/Library/Sounds/Tink.aiff`.
-- **Stop / processing:** `/System/Library/Sounds/Basso.aiff`.
-- **Failure that needs action:** desktop notification with the reason (e.g. "Copied to clipboard — enable Accessibility in Settings to paste automatically").
-- Sounds respect the "Recording sounds" setting.
+## Layout and behavior
 
----
+The hub opens at 1040 × 740 points, with a minimum outer window of 820 × 620.
+A lilac sidebar keeps all six destinations visible. The content scrolls while
+the live dictation status and floating-bar control remain at the top.
 
-## 4. Component Language
+- **Overview:** expressive heading, branded dictation introduction, a three-step
+  guide that follows the configured hold shortcut, local activity totals, five
+  recent dictations with date groups and Copy, and apps used. Its primary action reveals the actual nonactivating dictation
+  bar, preserving the destination application's cursor.
+- **Insights:** mint streak, lilac daily activity, week history, and local
+  statistics. Time saved is explicitly an estimate against typing at 40 WPM.
+  Empty states invite the first dictation rather than imply recorded activity.
+- **Style:** Natural, Concise, Professional, and Verbatim, with one shared spoken
+  example. Preview output comes from the real local polisher in Python rather
+  than independently authored examples in JavaScript. Changes require Save style.
+- **History:** searchable transcripts, readable paragraphs, copy, delete, and
+  explicit confirmation before clearing all history. User text is rendered with
+  `textContent`, including strings that resemble HTML.
+- **Dictionary:** spoken phrase, replacement, and category. Names and everyday
+  vocabulary lead the examples; coding terms remain supported.
+- **Settings:** switches, two independent shortcut recorders, floating-bar placement, formatting
+  modes, model choice, and individual permission cards. Permission labels use
+  the macOS adapter's actual states, including `authorized` and `not determined`.
+  Preference changes retain the existing backend validation and save behavior.
 
-### Floating control (always-on pill, or summoned)
-- Shape: 116 × 30 pt capsule at rest — glass over a real `NSVisualEffectView` backdrop blur with a soft top sheen, 82% opacity while idle, full opacity on hover; each state adds a subtle halo ring (recording green, processing blue, success green, error amber). The panel window is exactly the pill, so it never steals clicks from surrounding content.
-- Idle: microphone glyph plus a shortcut key chip and a hub button; hovering expands the capsule (~216 pt) to reveal "Click to dictate", then contracts on exit. The label truncates with an ellipsis before it could ever overlap the key chip or hub button.
-- Recording: expands to ~176 × 36 pt with an audio-reactive five-bar waveform, "Listening…", live elapsed timer, a stop button, and a cancel control.
-- Processing: "Transcribing…" with a spinner; start is disabled so clicks cannot queue another session.
-- Success: green check pops in with "Pasted" / "Transcribed!" / "Recording saved" for 2.5 s.
-- Error: warm warning glyph with the reason (e.g. "Copied · enable Accessibility"); clicking the pill opens the hub for the fix.
-- Placement: a press anywhere on the pill (buttons included) starts a drag after a 4 pt threshold; releasing drops it into the nearest of four snap slots — top center, bottom left, bottom center, bottom right — with ghost-outline guides shown during the drag; the nearest slot fills green and lifts. The slot is saved to preferences. A press that moved never counts as a click on the control underneath.
-- Motion: width/height/resize, snap, guide fade, and opacity all animate on a shared 0.18–0.26 s ease curve; `prefers-reduced-motion` and the macOS reduce-motion setting disable animation.
+All data and actions continue through the existing WebKit bridge and SQLite
+owners. The redesign does not replace the speech engine, configuration format,
+audio retention, clipboard fallback, or shortcut/control coordinator.
 
-### Hub window (Cocoa + WebKit)
-- Sidebar: Overview, Insights, History, Dictionary, Style, Settings; footer states "On your Mac — Local audio & transcription".
-- Overview: runtime status dot (Ready / Listening / Transcribing), shortcut state, words dictated, time saved (estimated at 40 WPM), speaking pace, session count, and per-app breakdown.
-- Insights: greeting by macOS user name, a streak card with current and best streak plus a seven-day activity strip (green = active), words today, and stat cards for lifetime words, dictations, speaking pace, time saved, dictionary size, and apps used; two learning counters show polish fixes and fixes made by Fixoflow — learned terms and spoken-code replacements counted from real substitutions, not estimates. A seven-bar week chart and per-app bars animate in with count-up numbers; all data is local.
-- Style: four style cards (Natural, Concise, Professional, Verbatim) with a one-line preview each, a sample sentence that re-renders to show the chosen style's effect, and a Save button that writes only `output_style`.
-- History: searchable list with Copy and Delete; Clear history rebuilds analytics so the dashboard can never disagree with what is visible.
-- Dictionary: phrase → replacement entries with review and remove; Add word form with category.
-- Settings: control toggles, shortcut recorder (click the button, press the combination; Escape cancels, Backspace clears, presets included), dictation mode cards, a four-zone placement picker (top center, bottom left, bottom center, bottom right), local model selector, permission panel with live status, a Request permissions button, and Restart Fixoflow after granting Input Monitoring.
+## Floating control and motion
 
-### CLI
-- Plain sentences, no emoji. `record` ends with an explicit delivery line: pasted at cursor, clipboard untouched (`--no-paste`), or the exact failure reason.
+The nonactivating glass capsule remains 116 × 30 points at rest, expanding on
+hover and for recording, processing, success, and errors. Its tint is lilac,
+its text charcoal, and its idle mark Flow Fold. Audio-reactive strokes represent
+actual incoming levels; the timer, cancel control, processing lock, and four
+snap positions retain their existing behavior.
 
-### Menu bar
-- Status item with Start/Stop (shows the shortcut), mode selection (Coding / Writing / Automatic), Open Hub, Restart Fixoflow, Quit. Title reflects processing state.
+View changes reveal content over 360 ms. Buttons and switches give short,
+contextual feedback; real statistics and charts animate when updated. Refreshed
+counts cancel prior count-up work. Reduced motion disables CSS transitions,
+entrances, and pulsing, and presents statistics directly. No continuous hero
+animation or promotional carousel runs in the product.
 
----
+Controls have visible keyboard focus. View changes move assistive-technology
+focus to the heading; headings suppress the browser's incidental focus outline.
+Style and position radio groups support arrow keys, Home, and End with a single
+Tab stop for the selected option. Errors name the recovery action. Microphone,
+Accessibility, and Input Monitoring each explain their purpose and link to the
+corresponding macOS settings.
 
-## 5. Interaction States & Motion
-- **Tap:** latches recording until the next tap.
-- **Hold (>0.45 s):** push-to-talk; release stops and processes.
-- **Escape / Cancel:** stops capture, keeps the audio file, never pastes.
-- **Motion:** none decorative; the pill state changes are immediate. Insertion happens as soon as the transcript exists.
-- **Focus restore:** if another app was focused mid-dictation, Fixoflow attempts to reactivate the session's original app before pasting; failure means clipboard-only, never a paste into the wrong window.
+## Verification on 2026-10-18
 
----
+- Existing Python suite: 102 passed.
+- `scripts/check_product_ui.py`: actual Cocoa/WebKit loading, all six panels,
+  local font/logo loading, dictionary write, history search and literal text,
+  style preview and keyboard selection, style/settings bridge, permission state
+  labels, and minimum-width layout. Uses a temporary database and in-memory
+  preferences; does not record, paste, or request permissions.
+- Native packaged app inspected for home, style, and settings layout.
+- App signed with the existing local identity; signature verified. DMG verified
+  and its mounted UI/font/icon contents compared against source.
+- Frozen self-check and packaging/inference checks executed outside the source
+  checkout in a sanitized environment. Synthetic silence returned a short model
+  hallucination; successful inference proves execution, not recognition quality.
+- Live microphone capture, real destination insertion, recognition accuracy,
+  native reduced-motion preference switching, cold/warm performance, CPU, and
+  process-family peak memory were not measured in this design pass.
+- Landing-page source/assets were hashed before the work and checked unchanged.
 
-## 6. Honest Feedback Rules
-- "Paste sent" means a ⌘V event was posted — not that the other app accepted it.
-- Failure labels state the cause and the location of the text (clipboard or History).
-- Partial transcriptions are labeled incomplete; they are never presented as the full result.
+## Windows feasibility
 
----
+A Windows product is feasible, but the current app cannot be repackaged directly
+as an EXE. The installed engine is MLX Whisper with Metal resources; the shell,
+floating window, permissions, focus handling, clipboard insertion, and global
+shortcut integration use macOS APIs. A Windows build needs a supported local
+inference runtime and model format, Windows system/UI adapters, packaging, and
+verification on real Windows hardware. Local storage, formatting rules, audio
+processing concepts, and most of the HTML design can be reused. No Windows port
+is implemented by this Mac redesign.
 
-## 7. Consistency Rules
+## Shortcuts and releases follow-up
 
-### Always
-- Copy to the clipboard before posting any keystroke.
-- Sound cue + text label for every state transition.
-- Native `NSPasteboard` and `CGEvent` primitives for insertion.
-- Non-blocking audio I/O; the UI thread never waits on inference.
-
-### Never
-- Electron/Chromium runtimes.
-- Network calls for dictation.
-- Silent failures: every failed insertion produces a notification and a hub detail message.
-- Discarding text under any error condition.
+The timing-based single shortcut has been replaced by separate hold-to-talk and
+hands-free bindings. The app owns its Dock policy and icon, and has standard
+application/edit menus. Overview and History share a literal-text transcript
+renderer and refresh after dictation completes. Version 0.1.0, bounded GitHub
+release checks, optional signed Sparkle integration, and the Windows 11 x64
+preparation are documented in [the platform and release plan](07-platform-and-release-plan.md).
+The real signed-upgrade path and Windows hardware acceptance remain release gates.

@@ -1,27 +1,24 @@
-"""One ordered interaction owner for the floating button and keyboard shortcut."""
+"""One ordered session owner for hold-to-talk, hands-free, and the floating bar."""
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
 
 class DictationControls:
-    def __init__(self, coordinator, config, executor=None, on_change=None, clock=time.monotonic):
+    def __init__(self, coordinator, config, executor=None, on_change=None):
         self.coordinator = coordinator
         self.config = config
         self.executor = executor or ThreadPoolExecutor(max_workers=1, thread_name_prefix='Fixoflow-session')
         self.on_change = on_change or (lambda: None)
-        self.clock = clock
         self._lock = threading.RLock()
         self._intent = 'IDLE'
-        self._down_at = None
-        self._gesture = None
+        self._hold_down = False
         self._session_id = 0
-        self._gesture_session = None
+        self._hold_session = None
         self._closed = False
 
     @property
@@ -76,36 +73,23 @@ class DictationControls:
             # Ignore clicks during processing; never queue a surprise recording.
         self.on_change()
 
-    def press(self):
+    def hold_press(self):
         with self._lock:
-            if self._closed or self._down_at is not None:
+            if self._closed or self._hold_down:
                 return
-            self._down_at = self.clock()
+            self._hold_down = True
+            self._hold_session = None
             if self._intent == 'IDLE':
-                self._gesture = 'start'
                 self._begin_locked()
-            elif self._intent == 'RECORDING':
-                self._gesture = 'stop'
-            else:
-                self._gesture = 'ignore'
-            self._gesture_session = self._session_id
+                self._hold_session = self._session_id
         self.on_change()
 
-    def release(self):
+    def hold_release(self):
         with self._lock:
-            if self._down_at is None:
-                return
-            held = self.clock() - self._down_at
-            gesture = self._gesture
-            gesture_session = self._gesture_session
-            self._down_at = None
-            self._gesture = None
-            if self._closed or gesture == 'ignore' or gesture_session != self._session_id:
-                return
-            held_to_talk = (self.config.dual_mode_hotkey and held >= self.config.hold_threshold_sec) or (
-                not self.config.dual_mode_hotkey and self.config.hold_to_talk
-            )
-            if gesture == 'stop' or (gesture == 'start' and held_to_talk):
+            session = self._hold_session
+            self._hold_down = False
+            self._hold_session = None
+            if not self._closed and session is not None and session == self._session_id:
                 self._end_locked()
         self.on_change()
 
@@ -113,7 +97,7 @@ class DictationControls:
         with self._lock:
             if self._closed:
                 return
-            self._gesture = 'ignore'
+            self._hold_session = None
             self._end_locked(cancel=True)
         self.on_change()
 
@@ -123,13 +107,13 @@ class DictationControls:
             if self._intent != 'IDLE' or self._closed:
                 raise RuntimeError('Finish the current dictation before changing settings.')
             update()
-            self._down_at = None
-            self._gesture = None
+            self._hold_down = False
+            self._hold_session = None
 
     def shutdown(self):
         with self._lock:
             self._closed = True
-            self._down_at = None
+            self._hold_down = False
         # Drain an in-flight start before closing capture. Queued finish keeps
         # ownership of its audio; shutdown must not abandon it midway.
         self.executor.shutdown(wait=True)
@@ -138,6 +122,5 @@ class DictationControls:
 
 
 def shortcut_label(shortcut):
-    symbols = {'ctrl': '⌃', 'cmd': '⌘', 'shift': '⇧', 'alt': '⌥', 'space': 'Space'}
-    return ' '.join(symbols.get(part.strip('<>').lower(), part.strip('<>').upper())
-                    for part in shortcut.split('+'))
+    from fixoflow.shortcuts import Shortcut
+    return Shortcut.read(shortcut).display()

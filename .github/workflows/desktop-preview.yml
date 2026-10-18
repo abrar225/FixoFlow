@@ -1,0 +1,85 @@
+name: Desktop preview packages
+on:
+  push:
+    branches: ['codex/multiplatform-release']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Install build dependencies
+        run: python -m pip install -e ".[windows,packaging,dev]"
+      - name: Test portable and Windows integration contracts
+        run: python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_desktop.py -q
+      - name: Stage pinned local speech model
+        run: python scripts/prepare_cpu_model.py --output build/model
+      - name: Freeze native application
+        shell: pwsh
+        run: |
+          $env:FIXOFLOW_BUILD_MODEL_DIR = (Resolve-Path build/model).Path
+          python -m PyInstaller --noconfirm --clean packaging/Desktop.spec
+      - name: Frozen UI and bundled model smoke check
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath dist/Fixoflow/Fixoflow.exe -ArgumentList '--self-check --check-report build/self-check.json' -PassThru -RedirectStandardOutput build/self-check.log -RedirectStandardError build/self-check-error.log
+          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'UI smoke check timed out' }
+          Get-Content build/self-check.log
+          Get-Content build/self-check-error.log
+          if ($process.ExitCode -ne 0) { throw "UI smoke check failed: $($process.ExitCode)" }
+          if (-not (Select-String -Path build/self-check.json -Pattern '"ui": "ok"' -Quiet)) { throw 'UI completion evidence missing' }
+      - name: Create per-user installer
+        shell: pwsh
+        run: |
+          $version = python -c "from fixoflow.version import __version__; print(__version__)"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging/windows.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-preview
+          path: |
+            dist/*-setup.exe
+            build/self-check*
+            build/Fixoflow/warn-Fixoflow.txt
+          if-no-files-found: error
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux build and native runtime dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-venv python3-dev python3-gi python3-gi-cairo gir1.2-webkit2-4.1 libwebkit2gtk-4.1-dev libportaudio2 xclip libnotify-bin xvfb openbox
+      - name: Install build dependencies
+        run: |
+          /usr/bin/python3 -m venv --system-site-packages .venv
+          .venv/bin/python -m pip install -e ".[linux,packaging,dev]"
+      - name: Test shared contracts
+        run: .venv/bin/python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_desktop.py -q
+      - name: Stage pinned local speech model
+        run: .venv/bin/python scripts/prepare_cpu_model.py --output build/model
+      - name: Freeze native application
+        run: FIXOFLOW_BUILD_MODEL_DIR="$PWD/build/model" .venv/bin/python -m PyInstaller --noconfirm --clean packaging/Desktop.spec
+      - name: Frozen UI and bundled model smoke check
+        run: |
+          xvfb-run -a sh -c 'openbox > /tmp/openbox.log 2>&1 & timeout 120 dist/Fixoflow/Fixoflow --self-check --check-report build/self-check.json' 2>&1 | tee build/self-check.log
+          test "${PIPESTATUS[0]}" = 0
+          grep -q '"ui": "ok"' build/self-check.json
+      - name: Create Debian installer
+        run: .venv/bin/python scripts/package_linux.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-preview
+          path: |
+            dist/*.deb
+            build/self-check*
+            build/Fixoflow/warn-Fixoflow.txt
+          if-no-files-found: error
