@@ -47,14 +47,14 @@ class DesktopApplication:
     def __init__(self,config,background=False,self_check=False,report=None):
         import webview
         self._audio_level=0.0
-        self.config=config;self.hub=DesktopHub(config);self._closed=threading.Event();self._loaded=threading.Event();self._error='';self._self_check=self_check;self.check_passed=False;self.report=report
+        self.config=config;self.hub=DesktopHub(config);self._closed=threading.Event();self._loaded=threading.Event();self._error='';self._self_check=self_check;self.check_passed=False;self.report=report;self.restarting=False
         self.coordinator=FixoflowCoordinator(config,enable_overlay=False)
         self.coordinator.recorder.on_level_callback=self.audio_level
         self.controls=DictationControls(self.coordinator,config)
         self.inputs=DesktopInput(config,self.controls)
         self.updates=UpdateService(on_change=lambda status:self.hub._eval_js('onUpdateData('+json.dumps(status)+');'))
         ui=Path(__file__).parent/'ui'
-        self.hub.window=webview.create_window('Fixo Flow',str(ui/'hub.html'),js_api=Bridge(self.hub.handle_action),width=1040,height=740,min_size=(820,620),hidden=background)
+        self.hub.window=webview.create_window('Fixo Flow',str(ui/'hub.html'),js_api=Bridge(self.hub.handle_action),width=1040,height=740,min_size=(820,620),hidden=False,minimized=background)
         self.pill=webview.create_window('Fixo Flow dictation',str(ui/'overlay.html'),js_api=Bridge(self.pill_action),width=600,height=96,hidden=True,frameless=True,focus=False,on_top=True,resizable=False,background_color='#eee9fb',easy_drag=False)
         self.pill.events.loaded+=self.position_pill
         self.hub.window.events.loaded+=self.loaded
@@ -69,7 +69,7 @@ class DesktopApplication:
         self.hub.on_update_check=self.updates.check
         self.hub.on_update_status=self.updates.snapshot
         self.hub.on_open_release=lambda:webbrowser.open(self.updates.release_url()) if self.updates.release_url() else None
-        self.hub.on_restart=lambda:self.hub._eval_js("onSettingsResult(false,'Quit and reopen Fixo Flow to restart.');")
+        self.hub.on_restart=self.restart
 
     def loaded(self):
         try:self._load_content()
@@ -99,6 +99,12 @@ class DesktopApplication:
             self.enable_shortcut()
             if self.config.always_show_overlay:self.pill.show()
             if self.config.check_updates_on_launch:self.updates.check()
+
+    def restart(self):
+        if self.controls.state!='IDLE':
+            self.hub._eval_js("onSettingsResult(false,'Finish dictation before restarting.');")
+            return
+        self.restarting=True;self.hub.window.destroy()
 
     def closing(self):
         self._closed.set()
@@ -202,5 +208,9 @@ def main(argv=None):
         app._closed.set();worker.join(timeout=2)
         if args.self_check and not app.check_passed:raise SystemExit('Desktop self-check did not complete')
     finally:lock.close()
+    if app.restarting:
+        import subprocess
+        command=[sys.executable] if getattr(sys,'frozen',False) else [sys.executable,'-m','fixoflow.desktop']
+        subprocess.Popen(command,start_new_session=True)
 
 if __name__=='__main__':main()

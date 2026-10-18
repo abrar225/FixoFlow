@@ -12,7 +12,7 @@ parser=argparse.ArgumentParser();parser.add_argument('--artifacts',type=Path,def
 public=root/'Landing_Page/public/downloads';public.mkdir(parents=True,exist_ok=True)
 platforms=[
     ('macos','macOS','Apple Silicon','macOS 14 or later','Fixoflow.dmg',f'Fixoflow-{__version__}-macos-arm64.dmg','local build','Locally signed; not Apple notarized. English model included.'),
-    ('windows','Windows','x64','Windows 11; Windows 10 22H2 compatibility target',f'Fixoflow-{__version__}-windows-x64-setup.exe',f'Fixoflow-{__version__}-windows-x64-setup.exe','preview','Unsigned preview. WebView2 runtime required. No GPU needed. Physical-device acceptance is pending.'),
+    ('windows','Windows','x64','Windows 11; Windows 10 22H2 compatibility target',f'Fixoflow-{__version__}-windows-x64-setup.exe',f'Fixoflow-{__version__}-windows-x64-setup.exe','preview','Unsigned preview. WebView2 and Microsoft Visual C++ runtimes required. No GPU needed. Physical-device acceptance is pending.'),
     ('linux','Linux','x64','Ubuntu 24.04 · x64 · X11 desktop',f'Fixoflow-{__version__}-linux-x64.deb',f'Fixoflow-{__version__}-linux-x64.deb','preview','Preview for X11. Wayland global shortcuts and automatic paste are not supported yet. No GPU needed.'),
 ]
 releases=[];keep=set()
