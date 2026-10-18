@@ -181,7 +181,9 @@ class DesktopApplication:
 
 def main(argv=None):
     parser=argparse.ArgumentParser();parser.add_argument('--background',action='store_true');parser.add_argument('--self-check',action='store_true');parser.add_argument('--check-report',type=Path);args=parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO)
+    from logging.handlers import RotatingFileHandler
+    log_dir=FixoflowConfig.get_config_path().parent/'logs';log_dir.mkdir(exist_ok=True)
+    logging.basicConfig(level=logging.INFO,handlers=[RotatingFileHandler(log_dir/'fixoflow.log',maxBytes=2_000_000,backupCount=2,encoding='utf-8')])
     if sys.stdout:print('Importing native webview',flush=True)
     import webview
     lock=InstanceLock(FixoflowConfig.get_config_path().parent/'desktop.lock')
