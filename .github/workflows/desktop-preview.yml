@@ -41,6 +41,8 @@ jobs:
           $version = python -c "from fixoflow.version import __version__; print(__version__)"
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging/windows.iss
           if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
+      - name: Install and test the generated Windows setup package
+        run: python scripts/check_desktop_installer.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -74,6 +76,11 @@ jobs:
           grep -q '"ui": "ok"' build/self-check.json
       - name: Create Debian installer
         run: .venv/bin/python scripts/package_linux.py
+      - name: Install and test Debian package
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          xvfb-run -a sh -c 'openbox > /tmp/openbox-installed.log 2>&1 & cd /tmp && timeout 120 /opt/fixoflow/Fixoflow --self-check --check-report /tmp/fixoflow-installed-check.json'
+          grep -q '"local_inference": "executed"' /tmp/fixoflow-installed-check.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

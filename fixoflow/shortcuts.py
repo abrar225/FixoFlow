@@ -6,6 +6,7 @@ No OS imports, audio work, or persistent key log belongs in this module.
 from __future__ import annotations
 from dataclasses import dataclass
 import re
+import sys
 import time
 
 MODIFIERS = {'ctrl', 'ctrl_l', 'ctrl_r', 'alt', 'alt_l', 'alt_r', 'cmd', 'cmd_l', 'cmd_r', 'shift', 'shift_l', 'shift_r', 'fn'}
@@ -13,6 +14,9 @@ NAMED = MODIFIERS | {'space','tab','enter','backspace','delete','esc','caps_lock
     'media_play_pause','media_volume_mute','media_volume_down','media_volume_up','media_previous','media_next','media_eject'} | {f'f{i}' for i in range(1,25)}
 SYMBOLS = {'ctrl':'⌃','alt':'⌥','cmd':'⌘','shift':'⇧','fn':'Fn','space':'Space','esc':'Escape','caps_lock':'Caps Lock',
            'page_up':'Page Up','page_down':'Page Down','media_play_pause':'Play / Pause','media_volume_up':'Volume Up','media_volume_down':'Volume Down','media_volume_mute':'Mute'}
+
+if sys.platform != 'darwin':
+    SYMBOLS.update(ctrl='Ctrl',alt='Alt',cmd='Windows' if sys.platform=='win32' else 'Super',shift='Shift')
 
 
 def key_label(key):
