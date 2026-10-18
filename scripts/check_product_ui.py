@@ -135,7 +135,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='fixoflow-ui-check-') as directory:
         FixoflowDB._instance = FixoflowDB(Path(directory) / 'check.sqlite')
         with patch.object(FixoflowConfig, 'load', return_value=FixoflowConfig()), \
-             patch('fixoflow.ui.hub.permission_snapshot', return_value={'accessibility':False,'input':False,'microphone':'not determined'}):
+             patch('fixoflow.ui.controller.permission_snapshot', return_value={'accessibility':False,'input':False,'microphone':'not determined'}):
             hub = HubManager()
             assert hub._window is not None and hub._webview is not None
             def apply(candidate):

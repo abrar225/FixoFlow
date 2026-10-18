@@ -70,6 +70,13 @@ class DesktopApplication:
         self.hub.on_restart=lambda:self.hub._eval_js("onSettingsResult(false,'Quit and reopen Fixo Flow to restart.');")
 
     def loaded(self):
+        try:self._load_content()
+        except Exception:
+            logging.getLogger(__name__).exception('Desktop content initialization failed')
+            if self._self_check:self.hub.window.destroy()
+
+    def _load_content(self):
+        if sys.stdout:print('Hub content loaded',flush=True)
         self._loaded.set()
         self.hub._eval_js("document.getElementById('appVersion').textContent="+json.dumps('Fixo Flow '+__version__)+';')
         self.hub.handle_action('getConfig',{});self.hub.handle_action('getDashboard',{});self.hub.handle_action('getUpdateStatus',{})
@@ -162,6 +169,8 @@ class DesktopApplication:
 
 def main(argv=None):
     parser=argparse.ArgumentParser();parser.add_argument('--background',action='store_true');parser.add_argument('--self-check',action='store_true');parser.add_argument('--check-report',type=Path);args=parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO)
+    if sys.stdout:print('Importing native webview',flush=True)
     import webview
     lock=InstanceLock(FixoflowConfig.get_config_path().parent/'desktop.lock')
     if not args.self_check and not lock.acquire():
@@ -170,9 +179,11 @@ def main(argv=None):
         if sys.platform=='win32':
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('FixoFlow.Desktop')
+        if sys.stdout:print('Creating desktop windows',flush=True)
         app=DesktopApplication(FixoflowConfig.load(),args.background,args.self_check,args.check_report)
         worker=threading.Thread(target=app.poll,name='FixoFlow-status',daemon=True);worker.start()
         icon=Path(__file__).parent/'ui/assets'/('flow-fold.ico' if sys.platform=='win32' else 'flow-fold.png')
+        if sys.stdout:print('Starting native event loop',flush=True)
         webview.start(gui='edgechromium' if sys.platform=='win32' else 'gtk',icon=str(icon),private_mode=True,debug=False)
         app._closed.set();worker.join(timeout=2)
         if args.self_check and not app.check_passed:raise SystemExit('Desktop self-check did not complete')
