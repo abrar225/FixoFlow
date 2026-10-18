@@ -82,10 +82,10 @@ class DesktopApplication:
         self.hub.handle_action('getConfig',{});self.hub.handle_action('getDashboard',{});self.hub.handle_action('getUpdateStatus',{})
         self.hub._eval_js('onDesktopPlatform('+json.dumps('Windows' if sys.platform=='win32' else 'Linux')+');')
         if self._self_check:
-            result=self.hub.window.evaluate_js("({views:document.querySelectorAll('.view').length,logo:!!document.querySelector('img'),bridge:typeof window.pywebview.api.post})")
+            result=self.hub.window.evaluate_js("({views:document.querySelectorAll('.view-panel').length,logo:!!document.querySelector('img'),bridge:typeof window.pywebview.api.post})")
             # UI/model resolution check never activates input, audio or network.
             self.coordinator.stt.resolve_model_path()
-            assert result['bridge']=='function',result
+            assert result['bridge']=='function' and result['views']==6,result
             self.check_passed=True
             evidence={'ui':'ok','platform':sys.platform,'version':__version__,'microphone_opened':False,'input_started':False}
             if self.report:self.report.write_text(json.dumps(evidence))
