@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "platforms": [
+    {
+      "id": "macos",
+      "name": "macOS",
+      "architecture": "Apple Silicon",
+      "requirements": "macOS 14 or later",
+      "available": true,
+      "filename": "Fixoflow-0.2.0-macos-arm64.dmg",
+      "bytes": 239970523,
+      "sha256": "84e0ea2a957ea23f99a5b88943d1d05e1c5c20cae31d49fcb58775362ff7eca1",
+      "channel": "local build",
+      "notes": "Locally signed; not Apple notarized. English model included."
+    },
+    {
+      "id": "windows",
+      "name": "Windows",
+      "architecture": "x64",
+      "requirements": "Windows 11; Windows 10 22H2 compatibility target",
+      "available": true,
+      "filename": "Fixoflow-0.2.0-windows-x64-setup.exe",
+      "bytes": 209218442,
+      "sha256": "c82a2669542a6459b56a1000ba617afbc89e3190bce763fe441c44c5e9e05c21",
+      "channel": "preview",
+      "notes": "Unsigned preview. WebView2 and Microsoft Visual C++ runtimes required. No GPU needed. Physical-device acceptance is pending."
+    },
+    {
+      "id": "linux",
+      "name": "Linux",
+      "architecture": "x64",
+      "requirements": "Ubuntu 24.04 \u00b7 x64 \u00b7 X11 desktop",
+      "available": true,
+      "filename": "Fixoflow-0.2.0-linux-x64.deb",
+      "bytes": 265607792,
+      "sha256": "09890555c5a99413d45e91cc70f519246964264cc8fe8c7b33d349e6876639b4",
+      "channel": "preview",
+      "notes": "Preview for X11. Wayland global shortcuts and automatic paste are not supported yet. No GPU needed."
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+> Historical 0.1.0 record. Current implementation, commands and platform status: [0.2.0 runbook](08-multiplatform-release.md).
+
 # Shortcuts, Windows 11 x64, and product releases
 
 This is the implementation and launch checklist for the product, not the landing

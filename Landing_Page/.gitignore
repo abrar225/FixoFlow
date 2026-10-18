@@ -1,0 +1,8 @@
+node_modules/
+.next/
+out/
+dist/
+.astro/
+.DS_Store
+public/downloads/
+*.tsbuildinfo

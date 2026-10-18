@@ -35,9 +35,10 @@ if __name__ == "__main__":
         assert Path(os.environ["FIXOFLOW_BUNDLED_MODEL"]) == model
         if "--inference" in sys.argv:
             import numpy as np
-            result = mlx_whisper.transcribe(np.zeros(16000, dtype=np.float32),
-                                            path_or_hf_repo=str(model), language="en")
-            print(json.dumps({"synthetic_silence_text": result.get("text", "")}))
+            from fixoflow.stt.engine import create_stt_engine
+            from fixoflow.config import FixoflowConfig
+            result = create_stt_engine(FixoflowConfig()).transcribe(np.zeros(16000,dtype=np.float32))
+            print(json.dumps({"synthetic_silence_text": result, "shared_engine_inference": "executed"}))
         print(json.dumps({"status": "ok", "bundle": str(root), "model": str(model),
                           "ui_resources": "present", "native_dependencies": "imported",
                           "offline": True}))

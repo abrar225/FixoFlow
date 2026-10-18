@@ -1,3 +1,5 @@
+> For Windows/Linux packages and the current 0.2.0 release process, use [the multiplatform runbook](08-multiplatform-release.md).
+
 # Local Apple Silicon application builds
 
 `Fixoflow.app` is a self-contained PyInstaller application, with a native Mach-O

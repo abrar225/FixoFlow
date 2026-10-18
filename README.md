@@ -2,9 +2,9 @@
 
 # Fixoflow
 
-**Private, local-only voice dictation for Apple Silicon Macs.**
+**Private, local voice dictation for macOS, with Windows and Linux previews.**
 
-Speak anywhere you type, in any app. Your audio and transcript never leave the Mac.
+Speak anywhere you type, in any app. Your audio and transcript stay on your computer.
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-black)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
@@ -20,12 +20,14 @@ Speak anywhere you type, in any app. Your audio and transcript never leave the M
 
 ## Product release and platform status
 
-The initial release identity is **0.1.0**. The Mac app has separate configurable
-hold-to-talk and hands-free shortcuts, recent history on Overview, and release
-checking in Settings. The selected Windows target is **Windows 11 x64**; the
-local speech backend and shared-code preparation are present, but the Windows
-desktop host, native integrations, installer, and hardware acceptance remain.
-See the [task ownership, Windows plan, and signed-update runbook](docs/07-platform-and-release-plan.md).
+The current release-preparation version is **0.2.0**. Mac uses the native Cocoa
+host; Windows x64 uses WebView2; Ubuntu 24.04 X11 uses GTK/WebKit. All share the
+same design, history/dictionary and independent hold/toggle controls. Windows
+and Linux are previews with physical-device acceptance and signing still
+required. Windows 10 22H2 is a compatibility target, not a tested stable release.
+
+See the [current build, installation, footprint and launch runbook](docs/08-multiplatform-release.md).
+The [0.1.0 plan](docs/07-platform-and-release-plan.md) remains an historical record.
 
 ## How it works
 
@@ -36,10 +38,10 @@ flowchart LR
     C --> D{"Longer than 24 s?"}
     D -- Yes --> E["Slice at low-energy<br/>breathing pauses"]
     D -- No --> F["Single chunk"]
-    E --> G["mlx-whisper on Metal GPU<br/>base.en · prompt-conditioned"]
+    E --> G["Local Whisper<br/>MLX on Mac · CTranslate2 on CPU"]
     F --> G
     G --> H["Dictionary + mode formatting<br/>rule-based polish (offline)"]
-    H --> I["Clipboard first, then ⌘V<br/>into the app you started from"]
+    H --> I["Clipboard first, then paste<br/>into the app you started from"]
 ```
 
 Every transcript is stored in local SQLite history, so text is recoverable even when insertion fails.
@@ -97,7 +99,7 @@ The personal dictionary conditions the recognizer prompt and rewrites final text
 
 | Hub tab | What it shows |
 | :-- | :-- |
-| Insights | Daily streak with best-streak record and a week strip, words dictated today, lifetime words, dictations, average speaking pace, time saved, apps used, dictionary size — and the two learning counters: polish fixes (filler/spacing/punctuation cleanup) and fixes made by Fixoflow (learned terms and spoken-code replacements). Every number is aggregated from local SQLite; nothing leaves the Mac. |
+| Insights | Daily streak with best-streak record and a week strip, words dictated today, lifetime words, dictations, average speaking pace, time saved, apps used, dictionary size — and the two learning counters: polish fixes (filler/spacing/punctuation cleanup) and fixes made by Fixoflow (learned terms and spoken-code replacements). Every number is aggregated from local SQLite; everything stays local. |
 | Style | Four writing-mode styles — Natural, Concise, Professional, Verbatim — each with a preview of what it does. Stored as `output_style` and applied by the offline polisher; coding and raw modes are never touched. |
 
 Fixoflow appears in the Dock and app switcher like a regular app. The floating pill stays a nonactivating panel, so clicking it never steals focus, and quitting from the Dock stops dictation cleanly.

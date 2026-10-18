@@ -2,6 +2,7 @@ name: Desktop preview packages
 on:
   push:
     branches: ['codex/multiplatform-release']
+    paths: ['fixoflow/**', 'tests/**', 'pyproject.toml', 'packaging/Desktop.spec', 'packaging/desktop_entry.py', 'packaging/windows.iss', 'packaging/offline_hook.py', 'scripts/prepare_cpu_model.py', 'scripts/check_desktop_installer.py', 'scripts/package_linux.py', '.github/workflows/desktop-preview.yml']
   workflow_dispatch:
 permissions:
   contents: read
