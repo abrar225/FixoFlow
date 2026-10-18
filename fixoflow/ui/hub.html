@@ -116,7 +116,7 @@
         <button id="modeWriting" class="mode-option" aria-pressed="false" onclick="selectMode('writing')"><span class="mode-name">Writing</span><span class="mode-desc">Apply local punctuation and cleanup rules for messages and documents.</span></button>
         <button id="modeRaw" class="mode-option" aria-pressed="false" onclick="selectMode('raw')"><span class="mode-name">Raw transcript</span><span class="mode-desc">Use the speech engine’s transcript without additional polishing.</span></button>
       </div></div>
-      <div class="card-section"><div class="section-header">Speech model</div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
+      <div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
       <div class="card-section"><div class="section-header">A little introduction to your Mac</div><p id="permissionStatus" role="status">Checking permissions…</p>
         <div class="permission-cards">
           <div class="permission-card"><strong>Microphone</strong><span id="permissionMicrophone" class="permission-state">Checking…</span><p>Hear your voice when you start a dictation.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Open settings</button></div>
@@ -287,6 +287,7 @@
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
       document.getElementById('cfgCheckUpdates').checked = cfg.check_updates_on_launch === true;
       document.getElementById('cfgAutoInstall').checked = cfg.auto_install_updates === true;
+      document.getElementById('cfgCpuThreads').value=String(cfg.cpu_threads || 2);
       renderPillPosition();
       document.getElementById('guideSpeak').textContent = 'Hold ' + (cfg.hold_shortcut?.label || 'your shortcut') + ' and speak.';
       document.getElementById('guideFinish').textContent = 'Release to write, or use hands-free to toggle.';
@@ -536,7 +537,7 @@
     function saveSettings() {
       if (!configLoaded) { onSettingsResult(false, 'Settings are still loading. Reopen Settings and try again.'); return; }
       if (shortcutRecording) { onSettingsResult(false, 'Finish shortcut recording before saving.'); return; }
-      const candidate = {...currentConfig,model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,auto_install_updates:document.getElementById('cfgAutoInstall').checked};
+      const candidate = {...currentConfig,cpu_threads:Number(document.getElementById('cfgCpuThreads').value),model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,auto_install_updates:document.getElementById('cfgAutoInstall').checked};
       const sent = post('saveConfig', {config:candidate});
       if (sent) {
         document.getElementById('settingsResult').textContent = 'Applying preferences…';
@@ -558,6 +559,7 @@
       group.querySelectorAll('[role="radio"]')[next].focus();
     });
     function onDesktopPlatform(name) {
+      document.getElementById('cpuBudget').classList.remove('hidden');
       document.querySelector('.local-mark').textContent = 'Right here on '+name;
       for (const node of document.querySelectorAll('.section-header,.setting-desc,.subtitle')) {
         node.textContent = node.textContent.replaceAll('your Mac','your device').replaceAll('on your Mac','on your device');

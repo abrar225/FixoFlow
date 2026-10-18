@@ -1,4 +1,4 @@
-"""Windows/Linux x64: local CTranslate2 inference, CPU/int8 baseline.
+"""Windows/Linux x64: local CTranslate2 inference, CPU baseline.
 
 This backend reuses shared chunking, dictionary prompts and partial recovery.
 It is not a Windows desktop shell or a claim of Windows hardware validation.
@@ -35,8 +35,8 @@ class CPUWhisperEngine(STTEngine):
                 except ImportError as error:
                     raise TranscriptionError('Install the desktop speech extra before using this backend.') from error
                 factory=WhisperModel
-            self._model=factory(model_path,device='cpu',compute_type='int8',
-                cpu_threads=max(1,min(4,os.cpu_count() or 1)),num_workers=1,local_files_only=True)
+            self._model=factory(model_path,device='cpu',compute_type='float32',
+                cpu_threads=max(1,min(self.config.cpu_threads,os.cpu_count() or 1)),num_workers=1,local_files_only=True)
             self._loaded_path=model_path
         segments,_=self._model.transcribe(chunk,language=self.language,initial_prompt=prompt or None,
             condition_on_previous_text=False,vad_filter=False,beam_size=5)

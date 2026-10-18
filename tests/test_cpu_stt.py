@@ -19,7 +19,7 @@ def test_local_windows_decoder_contract_and_model_reuse(tmp_path):
     assert engine.transcribe(np.ones(30,dtype=np.float32))=='locally decoded'
     assert engine.transcribe(np.ones(30,dtype=np.float32))=='locally decoded'
     assert len(builds)==1 and builds[0][1]['local_files_only'] is True
-    assert builds[0][1]['device']=='cpu' and builds[0][1]['compute_type']=='int8'
+    assert builds[0][1]['device']=='cpu' and builds[0][1]['compute_type']=='float32'
     assert requests[0]['condition_on_previous_text'] is False
 
 

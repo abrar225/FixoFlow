@@ -36,7 +36,7 @@ include = ["fixoflow*"]
 
 [project.optional-dependencies]
 windows = ["faster-whisper>=1.1,<2; sys_platform == 'win32'", "pywebview>=5,<7; sys_platform == 'win32'"]
-linux = ["faster-whisper>=1.1,<2; sys_platform == 'linux'", "pywebview[gtk]>=5,<7; sys_platform == 'linux'"]
+linux = ["faster-whisper>=1.1,<2; sys_platform == 'linux'", "pywebview>=5,<7; sys_platform == 'linux'"]
 packaging = ["pyinstaller==6.20.0"]
 dev = ["pytest>=8,<10"]
 

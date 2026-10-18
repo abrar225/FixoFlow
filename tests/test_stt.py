@@ -1,10 +1,12 @@
 import numpy as np
 import pytest
+from types import SimpleNamespace
 from fixoflow.config import FixoflowConfig
 from fixoflow.stt import engine as module
 
 @pytest.fixture
 def engine(tmp_path, monkeypatch):
+    monkeypatch.setattr(module, 'mlx_whisper', SimpleNamespace(transcribe=lambda *a, **k: {}))
     model = tmp_path / 'local-model'
     model.mkdir()
     (model / 'config.json').write_text('{}')

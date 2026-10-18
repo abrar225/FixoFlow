@@ -31,6 +31,7 @@ OUTPUT_STYLES = ("natural", "concise", "professional", "verbatim")
 class FixoflowConfig:
     # Model configuration
     model_name: str = "mlx-community/whisper-base.en-mlx" if sys.platform == "darwin" else "bundled-base.en"
+    cpu_threads: int = 2  # Windows/Linux CPU budget; recognition settings stay unchanged.
     language: Optional[str] = "en"  # "en" for English, or None for auto-detect
     initial_prompt: str = "Clean, punctuated English speech."
 
@@ -148,6 +149,8 @@ class FixoflowConfig:
             raise ValueError("Fixoflow requires 16 kHz mono audio")
         if not 1 <= self.max_continuous_segment_sec <= 24:
             raise ValueError("Audio chunks must be between 1 and 24 seconds")
+        if type(self.cpu_threads) is not int or not 1 <= self.cpu_threads <= 4:
+            raise ValueError("CPU threads must be between 1 and 4")
         validate_pair(self.hold_shortcut, self.hands_free_shortcut)
         if not isinstance(self.model_name, str) or not self.model_name.strip():
             raise ValueError("Model must not be empty")

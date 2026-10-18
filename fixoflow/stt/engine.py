@@ -7,10 +7,9 @@ import sys
 from typing import Optional
 
 import numpy as np
-if sys.platform == 'darwin':
-    import mlx_whisper
-else:
-    mlx_whisper = None
+# Load native inference only when the first decode is requested. The dashboard,
+# shortcut recorder and history do not need the MLX/Numba runtime in memory.
+mlx_whisper = None
 
 
 def snapshot_download(*args, **kwargs):
@@ -103,8 +102,12 @@ class STTEngine:
         return ' '.join(transcriptions).strip()
 
     def _decode(self, chunk, model_path, prompt):
+        global mlx_whisper
         if mlx_whisper is None:
-            raise TranscriptionError('The MLX speech backend requires macOS. Use the Windows local backend.')
+            if sys.platform != 'darwin':
+                raise TranscriptionError('The MLX speech backend requires macOS.')
+            import mlx_whisper as backend
+            mlx_whisper = backend
         options = {}
         if self.language:
             options['language'] = self.language

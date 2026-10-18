@@ -26,6 +26,6 @@ if [[ -e "$DMG_PATH" ]]; then
     mkdir -p "$DIST_DIR/.previous-builds"
     mv "$DMG_PATH" "$DIST_DIR/.previous-builds/Fixoflow-$(date +%Y%m%d-%H%M%S).dmg"
 fi
-hdiutil create -volname Fixoflow -srcfolder "$STAGE_DIR" -format UDZO "$DMG_PATH"
+hdiutil create -volname Fixoflow -srcfolder "$STAGE_DIR" -format ULMO "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
 echo "Built: $DMG_PATH (local build; not notarized)"
