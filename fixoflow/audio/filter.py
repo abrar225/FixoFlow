@@ -1,8 +1,8 @@
 """
 Fixoflow Acoustic Pre-Filtering Module.
 Applies zero-phase Butterworth bandpass filtering (80 Hz - 7500 Hz)
-and peak normalization (-1.0 dB FS) to eliminate microphone rumble,
-background hiss, and clipping before Mel spectrogram extraction.
+and peak normalization (-1.0 dB FS) to attenuate out-of-band rumble
+and condition levels before Mel spectrogram extraction.
 """
 
 from typing import Optional
@@ -53,7 +53,8 @@ def apply_bandpass(
     if audio.dtype != np.float32:
         audio = audio.astype(np.float32)
 
-    sos = get_default_sos(sample_rate)
+    sos = (get_default_sos(sample_rate) if (low_cutoff, high_cutoff) == (80.0, 7500.0)
+           else create_bandpass_sos(sample_rate, low_cutoff, high_cutoff))
     filtered = signal.sosfiltfilt(sos, audio)
     return filtered.astype(np.float32)
 

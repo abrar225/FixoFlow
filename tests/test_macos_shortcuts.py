@@ -20,6 +20,7 @@ def adapter(hold='<fn>',hands_free='<mouse:4>'):
 def test_real_fn_flag_events_have_balanced_edges():
     d,c=adapter()
     event=Quartz.CGEventCreateKeyboardEvent(None,63,True)
+    Quartz.CGEventSetIntegerValueField(event,Quartz.kCGEventSourceUnixProcessID,0)
     Quartz.CGEventSetType(event,Quartz.kCGEventFlagsChanged)
     Quartz.CGEventSetFlags(event,Quartz.kCGEventFlagMaskSecondaryFn)
     assert d._keyboard_event(Quartz.kCGEventFlagsChanged,event,1) is None
@@ -41,6 +42,17 @@ def test_stale_listener_callbacks_cannot_control_a_new_session():
     d,c=adapter('a')
     d._feed_key(keyboard.KeyCode.from_vk(0,char='a'),True,0)
     assert not d.router.pressed;c.hold_press.assert_not_called()
+
+
+def test_injected_paste_bypasses_shortcuts_and_stale_suppression():
+    d,c=adapter('v');d._keyboard_consumed=True
+    d._feed_key(keyboard.KeyCode.from_vk(9,char='v'),True,1,injected=True)
+    assert not d.router.pressed
+    assert not d._keyboard_consumed
+    event=Quartz.CGEventCreateKeyboardEvent(None,9,True)
+    Quartz.CGEventSetIntegerValueField(event,Quartz.kCGEventSourceUnixProcessID,123)
+    assert d._keyboard_event(Quartz.kCGEventKeyDown,event,1) is event
+    c.hold_press.assert_not_called()
 
 
 def test_primary_clicks_inside_hub_do_not_activate_dictation():

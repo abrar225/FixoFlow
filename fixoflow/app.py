@@ -28,6 +28,7 @@ from fixoflow.platform.macos import (
     accessibility_trusted,
     input_monitoring_trusted,
     request_notification_authorization,
+    notify,
 )
 from fixoflow.ui.hub import HubManager
 from fixoflow.controls import shortcut_label
@@ -184,7 +185,7 @@ class MenuDelegate(NSObject):
 
     def applicationShouldTerminate_(self, application):
         if self.app_instance:
-            self.app_instance.stop()
+            if self.app_instance.stop() is False:return AppKit.NSTerminateCancel
         return AppKit.NSTerminateNow
 
     def applicationShouldTerminateAfterLastWindowClosed_(self, application):
@@ -343,11 +344,7 @@ class FixoflowApp:
         # waiting on that lock. Holding it while joining would deadlock.
         self.daemon.stop_listener()
         def update():
-            candidate.save()
-            self.config.__dict__.update(candidate.__dict__)
-            self.daemon.coordinator.recorder = AudioRecorder(self.config)
-            self.daemon.coordinator.stt = create_stt_engine(self.config)
-            self.daemon.coordinator.polisher = TextPolisher(self.config)
+            self.daemon.coordinator.apply_config(candidate)
             self.daemon.configure_shortcuts()
         try:
             self.daemon.controls.configure(update)
@@ -515,6 +512,9 @@ class FixoflowApp:
             self._signal_timer.invalidate()
 
     def stop(self):
+        if self.hub and not self.hub.close_model_packs():
+            self.hub.show()
+            return False
         self._running = False
         self.ns_app.stop_(None)
         if getattr(self, "updates", None):
@@ -523,6 +523,7 @@ class FixoflowApp:
             self.daemon.stop()
         if self.hub:
             self.hub.hide()
+        return True
 
     def restart(self):
         """Replace this process with a fresh instance.
@@ -531,10 +532,14 @@ class FixoflowApp:
         started processes, and the single-instance lock routes plain reopens
         back to this (pre-grant) process.
         """
+        if self.stop() is False:return
         command = relaunch_command()
-        subprocess.Popen(command, start_new_session=True)
+        try:subprocess.Popen(command, start_new_session=True)
+        except OSError:
+            logger.exception('Could not restart Fixoflow; shutdown completed safely')
+            notify('Fixo Flow','Could not restart automatically. Please open Fixo Flow again from Applications.')
+            return
         logger.info("Restarting Fixoflow with a fresh process")
-        self.stop()
         os._exit(0)
 
 

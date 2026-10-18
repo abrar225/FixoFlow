@@ -17,7 +17,7 @@ class DeferredExecutor:
 @pytest.fixture
 def interaction():
     coordinator=SimpleNamespace(state='IDLE',recorder=SimpleNamespace(is_recording=False),events=[])
-    def start():
+    def start(cancellation=None):
         coordinator.events.append('start');coordinator.state='RECORDING';coordinator.recorder.is_recording=True
     def finish(auto_paste):
         coordinator.events.append('stop');coordinator.state='IDLE';coordinator.recorder.is_recording=False
@@ -100,3 +100,34 @@ def test_left_and_right_modifiers_can_be_separate_bindings():
 
 def test_shortcut_labels_are_not_matching_identity():
     s=Shortcut(('ctrl_r',),'My preferred key');assert shortcut_label(s.as_dict())=='My preferred key';assert Shortcut.read(s.as_dict()).keys==('ctrl_r',)
+
+@pytest.mark.parametrize('release_order',[(1,2),(2,1)])
+def test_consumption_belongs_to_each_physical_pair(interaction, release_order):
+    r=router(interaction)
+    down={1:r.input(1,'ctrl_l',True),2:r.input(2,'space',True)}
+    assert down=={1:False,2:True}
+    for physical in release_order:
+        assert r.input(physical,'ctrl_l' if physical==1 else 'space',False) is down[physical]
+    interaction[2].drain()
+    assert interaction[1].events==['start','stop']
+
+def test_idle_escape_is_not_intercepted_and_active_escape_is_paired(interaction):
+    r=router(interaction)
+    assert not r.input(53,'esc',True)
+    assert not r.input(53,'esc',False)
+    assert not interaction[1].events
+    interaction[0].toggle();interaction[2].drain()
+    assert r.input(53,'esc',True)
+    assert r.input(53,'esc',False)
+    interaction[2].drain()
+    assert interaction[1].events==['start','cancel']
+
+def test_unrelated_repeat_and_reset_preserve_down_ownership(interaction):
+    r=router(interaction)
+    assert not r.input(9,'x',True)
+    r.input(1,'ctrl_l',True);r.input(2,'space',True)
+    assert not r.input(9,'x',True)
+    r.reset()
+    assert r.input(2,'space',False)
+    assert not r.input(1,'ctrl_l',False)
+    assert not r.input(9,'x',False)

@@ -91,6 +91,7 @@ class ShortcutRouter:
         self.controls = controls
         self.clock = clock
         self.pressed = {}
+        self._decisions = {}
         self.active = {'hold':False,'hands_free':False}
         self.capture = None
         self.quarantined = False
@@ -127,6 +128,17 @@ class ShortcutRouter:
         callback(binding.as_dict(),'Shortcut selected. Save preferences to apply it.')
 
     def input(self, physical, token, down, label=''):
+        # Consumption belongs to a physical down/up pair, never to a mode
+        # transition. A passed modifier-down must always have a passed up.
+        if down and physical in self._decisions:
+            return self._decisions[physical]
+        consumed = self._route_input(physical, token, down, label)
+        if down:
+            self._decisions[physical] = consumed
+            return consumed
+        return self._decisions.pop(physical, False)
+
+    def _route_input(self, physical, token, down, label=''):
         self.expire_capture()
         if down and physical in self.pressed:
             return self.capture is not None or self.quarantined or any(self.active.values())
@@ -167,7 +179,7 @@ class ShortcutRouter:
                     self.controls.hold_release()
                 consumed = True
         self.active = matched
-        if down and token == 'esc' and not consumed:
+        if down and token == 'esc' and not consumed and self.controls.state in {'RECORDING','PROCESSING'}:
             self.controls.cancel()
             return True
         return consumed

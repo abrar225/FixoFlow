@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+from dataclasses import dataclass
 import logging
 import os
 import queue
@@ -18,6 +19,13 @@ from fixoflow.audio.filter import clean_audio_pipeline
 from fixoflow.config import FixoflowConfig
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Capture:
+    path: Path
+    frames: int
+    sample_rate: int
 
 
 class RecordingError(RuntimeError):
@@ -52,6 +60,16 @@ class AudioRecorder:
     def is_recording(self) -> bool:
         with self._lock:
             return self._is_recording
+
+    @property
+    def needs_cleanup(self):
+        return self._stream is not None or self._writer is not None or self._output is not None
+
+    def retry_cleanup(self):
+        try:self.stop(load_audio=False)
+        except RecordingError:
+            if self.needs_cleanup:raise
+        return not self.needs_cleanup
 
     def _fail(self, error: BaseException) -> None:
         with self._lock:
@@ -172,7 +190,12 @@ class AudioRecorder:
             raise RecordingError(f"Could not start microphone: {error}", path) from error
         return path
 
-    def stop(self) -> tuple[np.ndarray, Path]:
+    def finalize_capture(self):
+        _, path = self.stop(load_audio=False)
+        with wave.open(str(path)) as capture:
+            return Capture(path, capture.getnframes(), capture.getframerate())
+
+    def stop(self, load_audio=True) -> tuple[np.ndarray, Path]:
         """Drain persisted capture; return full audio only after successful cleanup.
 
         Capture uses bounded buffering, but this compatibility API still loads
@@ -211,6 +234,7 @@ class AudioRecorder:
             raise RecordingError(f"Recording incomplete: {self._error}", path) from self._error
         if self._current_session_path is None:
             return np.array([], dtype=np.float32), path
+        if not load_audio:return np.array([], dtype=np.float32), path
         _, audio = wav.read(str(path))
         audio = audio.astype(np.float32) / 32767.0
         if audio.ndim > 1:

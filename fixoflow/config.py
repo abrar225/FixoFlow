@@ -1,6 +1,6 @@
 """
 Fixoflow Configuration System
-Persists settings, handles model selection, hotkeys, and zero-loss guarantees.
+Persists settings, model selection, shortcuts and recovery preferences.
 """
 from __future__ import annotations
 
@@ -33,7 +33,8 @@ class FixoflowConfig:
     model_name: str = "mlx-community/whisper-base.en-mlx" if sys.platform == "darwin" else "bundled-base.en"
     cpu_threads: int = 2  # Windows/Linux CPU budget; recognition settings stay unchanged.
     language: Optional[str] = "en"  # "en" for English, or None for auto-detect
-    initial_prompt: str = "Clean, punctuated English speech."
+    initial_prompt: str = ""
+    english_variant: str = "en-US"
 
     # Dictation mode: "auto" (app-detected), "coding" (agents/IDE), "writing", "raw"
     mode: str = "auto"
@@ -50,6 +51,7 @@ class FixoflowConfig:
     polishing_engine: str = "rules"
     # Writing-mode output style: "natural", "concise", "professional", "verbatim".
     output_style: str = "natural"
+    spoken_commands: bool = False
 
     # Separate device-local bindings; labels never determine key identity.
     hold_shortcut: dict = field(default_factory=lambda: Shortcut.from_text('<ctrl>+<space>').as_dict())
@@ -134,7 +136,14 @@ class FixoflowConfig:
         return normalized
 
     def validate(self) -> None:
-        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates"):
+        from fixoflow.languages import LANGUAGES, ENGLISH_VARIANTS
+        if self.language is not None and self.language not in LANGUAGES:
+            raise ValueError('Choose a supported recognition language.')
+        if self.english_variant not in ENGLISH_VARIANTS:
+            raise ValueError('Choose a supported English regional preference.')
+        if self.language != 'en' and self.model_name in {'bundled-base.en','mlx-community/whisper-base.en-mlx','mlx-community/whisper-small.en-mlx'}:
+            raise ValueError('Install and choose the Base multilingual pack for this language or auto detection.')
+        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"{name} must be a boolean")
         if self.mode not in {"auto", "coding", "writing", "raw"}:

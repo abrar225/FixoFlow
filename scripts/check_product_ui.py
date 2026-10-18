@@ -105,6 +105,34 @@ def check(hub):
     assert evaluate(view, "document.querySelector('#recentHistory b') === null")
     assert evaluate(view, "document.getElementById('permissionAccessibility').textContent") == 'Needed'
     assert evaluate(view, "document.getElementById('permissionMicrophone').textContent") == 'Not requested'
+    evaluate(view, "switchTab('settings')")
+    pump()
+    assert evaluate(view, "document.getElementById('cfgLanguage').options.length") == 100
+    assert evaluate(view, "document.getElementById('cfgLanguage').value") == 'en'
+    assert not evaluate(view, "document.getElementById('cfgSpokenCommands').checked")
+    evaluate(view, "document.getElementById('cfgLanguage').value='hi'; document.getElementById('cfgLanguage').dispatchEvent(new Event('change')); saveSettings();")
+    pump()
+    assert hub.config.language == 'hi' and hub.config.model_name == 'multilingual-base'
+    # Page through the real database, then search beyond the first page.
+    for i in range(55):hub.db.record_session('raw', f'Page item {i}', 'Editor', 1, 1)
+    evaluate(view, "document.getElementById('historySearch').value=''; switchTab('history')")
+    pump()
+    assert evaluate(view, "historyItems.length") == 50
+    assert not evaluate(view, "document.getElementById('historyMore').hidden")
+    evaluate(view, "document.getElementById('historyMore').click()")
+    pump()
+    assert evaluate(view, "historyItems.length") == 56
+    assert evaluate(view, "document.getElementById('historyMore').hidden")
+    for i in range(105):hub.db.upsert_word(f'page word {i}', f'Replacement {i}')
+    evaluate(view, "switchTab('dictionary')")
+    pump()
+    assert evaluate(view, "document.querySelectorAll('#dictionaryList .list-item').length") == 100
+    evaluate(view, "document.getElementById('dictionaryMore').click()")
+    pump()
+    assert evaluate(view, "document.querySelectorAll('#dictionaryList .list-item').length") == 106
+    evaluate(view, "onPermissionData({platform:'Windows',microphone:'unknown',accessibility:null,input:null})")
+    assert evaluate(view, "getComputedStyle(document.getElementById('permissionAccessibility').closest('.permission-card')).display") == 'none'
+    assert 'Windows' in evaluate(view, "document.getElementById('permissionStatus').textContent")
     # Check the actual content viewport at the minimum supported window size.
     hub._window.setContentSize_(AppKit.NSMakeSize(820, 600))
     pump()
@@ -115,6 +143,7 @@ def check(hub):
     print(json.dumps({'native_webkit': 'ok', 'panels': 6, 'local_font_and_logo': 'ok',
                       'dictionary': 'ok', 'history_search_and_escaping': 'ok',
                       'style_and_settings_bridge': 'ok', 'minimum_window': 'ok',
+                      'language_and_commands': 'ok', 'history_and_dictionary_paging':'ok', 'desktop_permission_visibility':'ok',
                       'microphone_opened': False, 'user_data_modified': False}))
     print('VERDICT: PASS', flush=True)
 
@@ -135,7 +164,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='fixoflow-ui-check-') as directory:
         FixoflowDB._instance = FixoflowDB(Path(directory) / 'check.sqlite')
         with patch.object(FixoflowConfig, 'load', return_value=FixoflowConfig()), \
-             patch('fixoflow.ui.controller.permission_snapshot', return_value={'accessibility':False,'input':False,'microphone':'not determined'}):
+             patch('fixoflow.ui.controller.permission_snapshot', return_value={'accessibility':False,'input':False,'microphone':'not determined'}), \
+             patch('fixoflow.model_packs.ModelPackManager', return_value=SimpleNamespace(snapshot=lambda: {'state':'ready','message':'Installed test pack'},close=lambda:True)):
             hub = HubManager()
             assert hub._window is not None and hub._webview is not None
             def apply(candidate):

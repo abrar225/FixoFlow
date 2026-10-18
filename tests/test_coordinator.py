@@ -19,13 +19,16 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(core, 'copy_to_clipboard', Mock(return_value=True))
     monkeypatch.setattr(core, 'activate_application', lambda bundle_id, timeout_sec=0.8: False)
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: ('Antigravity', 'test.antigravity'))
-    config = FixoflowConfig(cache_dir=str(tmp_path), mode='auto')
+    config = FixoflowConfig(cache_dir=str(tmp_path), mode='auto', spoken_commands=True)
     instance = core.FixoflowCoordinator(config, enable_overlay=False)
     instance.recorder = Mock()
-    instance.recorder.start.return_value = tmp_path / 'session.wav'
-    instance.recorder.stop.return_value = (np.ones(16000, dtype=np.float32), tmp_path / 'session.wav')
+    instance.recorder.needs_cleanup = False
+    instance.recorder.start.return_value = tmp_path / 'session_20261018_120000_123456.wav'
+    instance.recorder.stop.return_value = (np.ones(16000, dtype=np.float32), tmp_path / 'session_20261018_120000_123456.wav')
+    from fixoflow.audio.recorder import Capture
+    instance.recorder.finalize_capture.return_value=Capture(instance.recorder.start.return_value,16000,16000)
     instance.stt = Mock()
-    instance.stt.transcribe.return_value = 'camel case parse config'
+    instance.stt.transcribe_file.return_value = 'camel case parse config'
     instance.overlay = Mock()
     return instance
 
@@ -37,7 +40,7 @@ def test_coordinator_lifecycle(coordinator):
     assert coordinator.state == 'IDLE'
     assert text == 'parseConfig'
     assert coordinator.last_error == ''
-    assert 'Antigravity' in coordinator.stt.transcribe.call_args.kwargs['initial_prompt']
+    assert 'Coding' in coordinator.stt.transcribe_file.call_args.kwargs['initial_prompt']
     assert coordinator.db.get_history()[0]['final_text'] == 'parseConfig'
 
 
@@ -80,12 +83,12 @@ def test_focus_restore_returns_text_to_original_app(coordinator, monkeypatch):
     ])
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: next(responses))
     assert coordinator.stop_and_process() == 'parseConfig'
-    insert.assert_called_once_with('parseConfig')
+    insert.assert_called_once_with('parseConfig', expected_target='test.antigravity', cancelled=coordinator._cancel_requested.is_set)
     coordinator.overlay.show_success.assert_called_with('Paste sent')
 
 
 def test_paste_failure_is_copied_and_not_reported_as_success(coordinator, monkeypatch):
-    monkeypatch.setattr(core, 'insert_text_at_cursor', lambda *_: InsertionOutcome(False, True, 'permission'))
+    monkeypatch.setattr(core, 'insert_text_at_cursor', lambda *_, **kwargs: InsertionOutcome(False, True, 'permission'))
     coordinator.start_recording()
     assert coordinator.stop_and_process() == 'parseConfig'
     coordinator.overlay.show_success.assert_not_called()
@@ -107,7 +110,7 @@ def test_unidentified_target_copies_instead_of_guessing(coordinator, monkeypatch
 def test_decode_failure_saves_partial_and_never_pastes(coordinator, monkeypatch):
     insert = Mock()
     monkeypatch.setattr(core, 'insert_text_at_cursor', insert)
-    coordinator.stt.transcribe.side_effect = TranscriptionError('second chunk failed', partial_text='first words', failed_chunk_index=1)
+    coordinator.stt.transcribe_file.side_effect = TranscriptionError('second chunk failed', partial_text='first words', failed_chunk_index=1)
     coordinator.start_recording()
     assert coordinator.stop_and_process() == ''
     insert.assert_not_called()
@@ -129,6 +132,60 @@ def test_cancel_keeps_audio_without_asr_or_paste(coordinator, monkeypatch):
     coordinator.cancel_recording()
     assert coordinator.state == 'IDLE'
     coordinator.recorder.stop.assert_called_once()
-    coordinator.stt.transcribe.assert_not_called()
+    coordinator.stt.transcribe_file.assert_not_called()
     insert.assert_not_called()
     assert coordinator.db.get_history() == []
+
+
+def test_unrelated_preferences_preserve_warm_engine_and_recorder(coordinator,monkeypatch):
+    import dataclasses
+    candidate=dataclasses.replace(coordinator.config,sound_enabled=False)
+    monkeypatch.setattr(candidate,'save',Mock())
+    engine,recorder=coordinator.stt,coordinator.recorder
+    coordinator.apply_config(candidate)
+    assert coordinator.stt is engine and coordinator.recorder is recorder
+    engine.resolve_model_path.assert_not_called()
+    assert coordinator.config.sound_enabled is False
+
+
+def test_verbatim_bypasses_dictionary_and_code_commands(coordinator):
+    coordinator.config.output_style='verbatim'
+    coordinator.db.upsert_word('camel','changed')
+    coordinator.start_recording()
+    assert coordinator.stop_and_process(auto_paste=False)=='camel case parse config'
+
+
+def test_spoken_code_commands_require_opt_in(coordinator):
+    coordinator.config.spoken_commands=False
+    coordinator.start_recording()
+    assert coordinator.stop_and_process(auto_paste=False)=='camel case parse config'
+
+
+def test_cancellation_during_focus_restore_prevents_insertion(coordinator,monkeypatch):
+    insert=Mock();monkeypatch.setattr(core,'insert_text_at_cursor',insert)
+    coordinator.start_recording()
+    monkeypatch.setattr(core,'get_frontmost_app_info',lambda:('Other','other'))
+    def activate(*args):coordinator.request_cancel();return False
+    monkeypatch.setattr(core,'activate_application',activate)
+    coordinator.stop_and_process()
+    insert.assert_not_called()
+    assert 'Cancelled' in coordinator.last_error
+
+
+@pytest.mark.parametrize('shutdown',[False,True])
+def test_cancel_before_queued_start_is_not_reset(coordinator,monkeypatch,shutdown):
+    from fixoflow.controls import DictationControls
+    class Deferred:
+        def __init__(self):self.queue=[]
+        def submit(self,fn,*args):self.queue.append((fn,args))
+        def drain(self):
+            while self.queue:
+                fn,args=self.queue.pop(0);fn(*args)
+        def shutdown(self,wait=True):self.drain()
+    executor=Deferred();controls=DictationControls(coordinator,coordinator.config,executor=executor)
+    insert=Mock();monkeypatch.setattr(core,'insert_text_at_cursor',insert)
+    controls.hold_press();controls.hold_release()
+    if shutdown:controls.shutdown()
+    else:controls.cancel();executor.drain()
+    coordinator.stt.transcribe_file.assert_not_called();insert.assert_not_called()
+    assert coordinator._cancel_requested.is_set() and controls.state=='IDLE'

@@ -53,6 +53,8 @@ def test_adaptive_learner_code_mode_formatting():
         assert "--verbose" in res3
         assert "-s" in res3
 
+        db.upsert_word("claude code", "Claude Code")
+        db.upsert_word("antigravity", "Antigravity")
         # Test AI agent naming
         text4 = "ask claude code and antigravity to optimize this"
         res4 = learner.format_for_mode(text4, mode="coding", app_name="Cursor")
@@ -98,20 +100,23 @@ def test_deleting_history_rebuilds_analytics():
                          "time_saved_minutes": 0.0, "avg_wpm": 0.0}
 
 
-def test_seed_vocabulary_runs_once_and_respects_deletions():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db = FixoflowDB(Path(tmpdir) / "test.sqlite")
-        AdaptiveLearner(db)
-        assert any(entry["phrase"] == "github" for entry in db.get_dictionary())
-        db.delete_word("github")
-        AdaptiveLearner(db)
-        assert not any(entry["phrase"] == "github" for entry in db.get_dictionary())
+def test_learner_has_no_implicit_developer_dictionary_and_keeps_existing_terms(tmp_path):
+    db = FixoflowDB(tmp_path / "test.sqlite")
+    AdaptiveLearner(db)
+    assert db.get_dictionary() == []
+    db.upsert_word("github", "GitHub")
+    AdaptiveLearner(db)
+    assert db.get_dictionary()[0]["replacement"] == "GitHub"
+    db.delete_word("github")
+    AdaptiveLearner(db)
+    assert db.get_dictionary() == []
 
 
 def test_counted_learner_reports_dictionary_and_code_fixes():
     with tempfile.TemporaryDirectory() as tmpdir:
         db = FixoflowDB(Path(tmpdir) / "test.sqlite")
         learner = AdaptiveLearner(db)
+        db.upsert_word("claude code", "Claude Code")
         text, fixes = learner.format_for_mode_counted("ask claude code now", mode="writing", app_name="")
         assert "Claude Code" in text and fixes >= 1
         text, fixes = learner.format_for_mode_counted("pytest dash dash verbose", mode="coding", app_name="Terminal")
@@ -163,3 +168,20 @@ def test_today_and_week_activity_fill_missing_days():
         assert len(week) == 7 and week[-1]["is_today"] and week[-1]["active"]
         assert [day["active"] for day in week] == [False, False, False, False, True, False, True]
         assert week[-1]["words"] == 12 and week[-3]["words"] == 8
+
+def test_dictionary_is_one_pass_symbol_aware_and_has_complete_coverage(tmp_path):
+    db=FixoflowDB(tmp_path/'dictionary.sqlite');learner=AdaptiveLearner(db)
+    db.upsert_word('alpha','beta');db.upsert_word('beta','gamma');db.upsert_word('C++','CPP')
+    for i in range(250):db.upsert_word(f'word{i}',f'replacement{i}')
+    for _ in range(2):
+        assert learner.format_for_mode('alpha C++ word249 word0', 'writing','Mail')=='beta CPP replacement249 replacement0'
+    db.increment_word_usage('beta')
+    assert learner.format_for_mode('alpha', 'writing','Mail')=='beta'
+
+
+def test_longest_valid_dictionary_match_does_not_hide_shorter_term(tmp_path):
+    db=FixoflowDB(tmp_path/'dictionary.sqlite');learner=AdaptiveLearner(db)
+    db.upsert_word('new york','NY');db.upsert_word('new','fresh');db.upsert_word('yorker','Yorker')
+    assert learner.format_for_mode('new yorker and new york', 'writing','Mail')=='fresh Yorker and NY'
+    db.upsert_word('नाम','पहचान')
+    assert learner.format_for_mode('नामों नाम','writing','Mail')=='नामों पहचान'

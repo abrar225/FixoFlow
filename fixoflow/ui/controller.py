@@ -4,12 +4,26 @@ from fixoflow.config import FixoflowConfig
 from fixoflow.platform import permission_snapshot, request_all_permissions, copy_to_clipboard, open_permission_settings
 
 class HubController:
+    def close_model_packs(self):
+        manager=getattr(self,'model_packs',None)
+        if manager is None or manager.close():return True
+        self._eval_js("onSettingsResult(false,'Model download is stopping or needs cleanup. Please retry Quit in a moment.');")
+        return False
+
     def _publish_permissions(self):
         self._eval_js(f"onPermissionData({json.dumps(permission_snapshot())});")
 
     def handle_action(self, action: str, payload):
         """Processes IPC messages coming from hub.html UI."""
-        if action == "startShortcutCapture":
+        if action in {'getLanguageOptions','installModelPack','cancelModelPack'}:
+            from fixoflow.languages import options, ENGLISH_VARIANTS
+            from fixoflow.model_packs import ModelPackManager
+            if not hasattr(self,'model_packs'):self.model_packs=ModelPackManager()
+            if action=='installModelPack':self.model_packs.start()
+            if action=='cancelModelPack':self.model_packs.cancel()
+            data={'languages':options(),'variants':ENGLISH_VARIANTS,'pack':self.model_packs.snapshot()}
+            self._eval_js(f"onLanguageData({json.dumps(data)});")
+        elif action == "startShortcutCapture":
             field = payload.get('field')
             if field not in {'hold_shortcut','hands_free_shortcut'}:
                 return
@@ -95,25 +109,31 @@ class HubController:
 
         elif action == "getHistory":
             search = payload.get("search", "") if hasattr(payload, "get") else ""
-            items = self.db.get_history(limit=50, search=str(search or ""))
-            js = f"onHistoryData({json.dumps(items)});"
+            offset=max(0,int(payload.get("offset",0)))
+            items = self.db.get_history(limit=51, search=str(search or ""), offset=offset)
+            js = f"onHistoryData({json.dumps(items[:50])}, {json.dumps({'offset':offset,'has_more':len(items)>50})});"
             self._eval_js(js)
 
         elif action == "deleteHistory":
             sess_id = payload.get("id") if hasattr(payload, "get") else None
             if sess_id:
-                self.db.delete_history_item(str(sess_id))
+                try:self.db.delete_history_item(str(sess_id),cache_root=self.config.cache_dir)
+                except (OSError,ValueError) as error:
+                    self._eval_js(f"onHistoryResult({json.dumps(str(error))});")
+                    return
                 self.handle_action("getHistory", {})
                 self.handle_action("getDashboard", {})
 
         elif action == "clearHistory":
-            self.db.clear_all_history()
+            try:self.db.clear_all_history(cache_root=self.config.cache_dir)
+            except (OSError,ValueError) as error:self._eval_js(f"onHistoryResult({json.dumps(str(error))});")
             self.handle_action("getHistory", {})
             self.handle_action("getDashboard", {})
 
         elif action == "getDictionary":
-            words = self.db.get_dictionary(limit=100)
-            js = f"onDictionaryData({json.dumps(words)});"
+            offset=max(0,int(payload.get('offset',0)))
+            words = self.db.get_dictionary(limit=101,offset=offset,search=str(payload.get('search','')))
+            js = f"onDictionaryData({json.dumps(words[:100])}, {json.dumps({'offset':offset,'has_more':len(words)>100})});"
             self._eval_js(js)
 
         elif action == "addWord":
@@ -133,7 +153,7 @@ class HubController:
         elif action == "getConfig":
             from dataclasses import asdict
             from fixoflow.brain.polisher import clean_with_rules_counted
-            sample = "um basically I can't wait to share the idea period"
+            sample = "um basically I can't wait to share the idea."
             previews = {style: clean_with_rules_counted(sample, style=style)[0]
                         for style in ("natural", "concise", "professional", "verbatim")}
             self._eval_js(f"onStylePreviewData({json.dumps({'input': sample, 'outputs': previews})});")
@@ -146,7 +166,7 @@ class HubController:
             if cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates"}
+                    allowed = {"mode", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)

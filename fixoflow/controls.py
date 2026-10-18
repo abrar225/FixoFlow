@@ -20,15 +20,16 @@ class DictationControls:
         self._session_id = 0
         self._hold_session = None
         self._closed = False
+        self._cancel_requested = threading.Event()
 
     @property
     def state(self):
         with self._lock:
             return self._intent
 
-    def _start(self):
+    def _start(self, cancellation):
         try:
-            self.coordinator.start_recording()
+            self.coordinator.start_recording(cancellation=cancellation)
         except Exception:
             logger.exception('Could not start dictation')
         finally:
@@ -41,7 +42,7 @@ class DictationControls:
 
     def _finish(self, cancel=False):
         try:
-            if cancel:
+            if cancel or self._cancel_requested.is_set():
                 self.coordinator.cancel_recording()
             else:
                 self.coordinator.stop_and_process(auto_paste=True)
@@ -54,8 +55,9 @@ class DictationControls:
 
     def _begin_locked(self):
         self._session_id += 1
+        self._cancel_requested = threading.Event()
         self._intent = 'RECORDING'
-        self.executor.submit(self._start)
+        self.executor.submit(self._start, self._cancel_requested)
 
     def _end_locked(self, cancel=False):
         if self._intent == 'RECORDING':
@@ -98,6 +100,9 @@ class DictationControls:
             if self._closed:
                 return
             self._hold_session = None
+            self._cancel_requested.set()
+            if self._intent == 'PROCESSING' and hasattr(self.coordinator,'request_cancel'):
+                self.coordinator.request_cancel()
             self._end_locked(cancel=True)
         self.on_change()
 
@@ -114,8 +119,10 @@ class DictationControls:
         with self._lock:
             self._closed = True
             self._hold_down = False
+            self._cancel_requested.set()
         # Drain an in-flight start before closing capture. Queued finish keeps
         # ownership of its audio; shutdown must not abandon it midway.
+        if hasattr(self.coordinator,'request_cancel'):self.coordinator.request_cancel()
         self.executor.shutdown(wait=True)
         if self.coordinator.recorder.is_recording:
             self.coordinator.cancel_recording()

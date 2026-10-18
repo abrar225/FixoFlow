@@ -28,3 +28,13 @@ def test_incomplete_windows_model_never_constructs_or_downloads(tmp_path):
     engine=CPUWhisperEngine(FixoflowConfig(model_name=str(tmp_path)),model_factory=lambda *a,**k:called.append(True))
     with pytest.raises(TranscriptionError,match='No model was downloaded'):engine.transcribe(np.ones(30,dtype=np.float32))
     assert not called
+
+
+def test_custom_english_only_model_cannot_be_used_for_other_languages(tmp_path):
+    import json
+    for name in ('model.bin','tokenizer.json','vocabulary.txt'):(tmp_path/name).write_bytes(b'fixture')
+    (tmp_path/'config.json').write_text(json.dumps({'lang_ids':None}))
+    engine=CPUWhisperEngine(FixoflowConfig(model_name=str(tmp_path),language='hi'))
+    with pytest.raises(TranscriptionError,match='not compatible'):engine.resolve_model_path()
+    (tmp_path/'config.json').write_text(json.dumps({'lang_ids':list(range(50259,50358))}))
+    assert engine.resolve_model_path()==str(tmp_path)

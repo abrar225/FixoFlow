@@ -27,7 +27,7 @@ def test_polisher_zero_loss_guarantee():
 
 
 def test_writing_preserves_paragraphs():
-    result = TextPolisher(FixoflowConfig(mode="writing")).polish("hello new paragraph world")
+    result = TextPolisher(FixoflowConfig(mode="writing", spoken_commands=True)).polish("hello new paragraph world")
     assert result == "Hello\n\nWorld"
 
 
@@ -41,7 +41,7 @@ def test_polisher_never_calls_network(monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("network access")
     monkeypatch.setattr(urllib.request, "urlopen", forbidden)
-    polisher = TextPolisher(FixoflowConfig(mode="writing"))
+    polisher = TextPolisher(FixoflowConfig(mode="writing", spoken_commands=True))
     assert polisher.polish("hello period") == "Hello."
 
 
@@ -64,7 +64,14 @@ def test_verbatim_style_only_trims():
 
 
 def test_polish_counted_reports_fixes_for_the_session_record():
-    polisher = TextPolisher(FixoflowConfig(mode="writing"))
+    polisher = TextPolisher(FixoflowConfig(mode="writing", spoken_commands=True))
     text, fixes = polisher.polish_counted("um hello world period")
     assert text == "Hello world." and fixes >= 2
     assert polisher.polish("um hello world period") == text
+
+def test_literal_punctuation_words_survive_without_commands():
+    p=TextPolisher(FixoflowConfig(mode='writing'))
+    assert p.polish('The colon is part of the body')=='The colon is part of the body'
+    assert p.polish('This period was difficult')=='This period was difficult'
+    assert 'buy' in clean_with_rules_counted('bullet buy milk',spoken_commands=True)[0].lower()
+    assert 'apples' in clean_with_rules_counted('bullet point apples and bananas',spoken_commands=True)[0].lower()

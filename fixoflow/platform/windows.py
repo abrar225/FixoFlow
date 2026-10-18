@@ -41,9 +41,17 @@ def _identity(hwnd):
 def get_frontmost_app_info():
     hwnd=u.GetForegroundWindow(); identity=_identity(hwnd) if hwnd else None
     if not identity:return 'Unknown',''
-    title=c.create_unicode_buffer(min(4096,u.GetWindowTextLengthW(hwnd)+1))
-    u.GetWindowTextW(hwnd,title,len(title))
-    return title.value or 'Application',json.dumps(identity)
+    process=k.OpenProcess(0x1000,False,identity[1])
+    name='Application'
+    if process:
+        try:
+            size=w.DWORD(32768);buffer=c.create_unicode_buffer(size.value)
+            k.QueryFullProcessImageNameW.argtypes=[w.HANDLE,w.DWORD,w.LPWSTR,c.POINTER(w.DWORD)]
+            if k.QueryFullProcessImageNameW(process,0,buffer,c.byref(size)):
+                from pathlib import PureWindowsPath
+                name=PureWindowsPath(buffer.value).stem
+        finally:k.CloseHandle(process)
+    return name,json.dumps(identity)
 
 
 def activate_application(identity,timeout_sec=0.8):
@@ -95,17 +103,20 @@ u.SendInput.argtypes=[w.UINT,c.POINTER(INPUT),c.c_int]
 u.SendInput.restype=w.UINT
 
 
-def insert_text_at_cursor(text,delay_sec=0.05):
+def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None):
     if not copy_to_clipboard(text):return InsertionOutcome(False,False,'clipboard-failed')
-    target=get_frontmost_app_info()[1]
+    if cancelled and cancelled():return InsertionOutcome(False,True,'cancelled')
+    target=expected_target if expected_target is not None else get_frontmost_app_info()[1]
     deadline=time.monotonic()+0.8
     # Do not paste while the user's shortcut modifiers are physically held.
     while any(u.GetAsyncKeyState(v)&0x8000 for v in (0x10,0x11,0x12,0x5B,0x5C)):
+        if cancelled and cancelled():return InsertionOutcome(False,True,'cancelled')
         if time.monotonic()>deadline:return InsertionOutcome(False,True,'event-failed')
         time.sleep(0.01)
     time.sleep(delay_sec)
     if not target or get_frontmost_app_info()[1]!=target:return InsertionOutcome(False,True,'event-failed')
     events=(INPUT*4)(*[INPUT(type=1,ki=KEYBDINPUT(wVk=vk,dwFlags=flags)) for vk,flags in [(0x11,0),(0x56,0),(0x56,2),(0x11,2)]])
+    if cancelled and cancelled():return InsertionOutcome(False,True,'cancelled')
     sent=u.SendInput(4,events,c.sizeof(INPUT))
     if sent!=4:
         # Best-effort key-up after a partially accepted sequence; UIPI may reject all.
@@ -115,7 +126,7 @@ def insert_text_at_cursor(text,delay_sec=0.05):
 
 
 def permission_snapshot():
-    return {'accessibility':True,'input':True,'microphone':'not determined'}
+    return {'platform':'Windows','accessibility':None,'input':None,'microphone':'unknown'}
 def request_all_permissions():
     open_permission_settings('microphone'); return permission_snapshot()
 def open_permission_settings(section):

@@ -90,13 +90,13 @@
       <div class="heading-row"><h1 id="historyTitle" class="view-title">Your words, kept here.</h1><button class="action-btn delete" onclick="clearHistory()">Clear history</button></div>
       <p class="subtitle">Find, copy, and manage your recent transcripts.</p>
       <div class="search-bar"><input type="search" id="historySearch" placeholder="Search transcripts" aria-label="Search transcripts" oninput="filterHistory()"></div>
-      <div id="historyList" class="item-list"><div class="empty-state">Loading history…</div></div>
+      <p id="historyResult" role="status"></p><div id="historyList" class="item-list"><div class="empty-state">Loading history…</div></div><button id="historyMore" class="action-btn" hidden onclick="post('getHistory',{offset:historyOffset,search:document.getElementById('historySearch').value})">Load more transcripts</button>
     </section>
     <section id="viewDictionary" class="view-panel hidden" aria-labelledby="dictionaryTitle">
       <div class="heading-row"><h1 id="dictionaryTitle" class="view-title">Make it your language.</h1><button class="primary-btn" onclick="toggleAddWordModal()">Add word</button></div>
       <p class="subtitle">People, places, and words that matter to you. Keep them spelled your way.</p>
       <div id="addWordForm" class="card-section hidden"><div class="section-header">Add a dictionary entry</div><div class="word-fields"><label>Spoken phrase<input type="text" id="newPhrase" placeholder="maya desai" autocomplete="off"></label><label>Replace with<input type="text" id="newReplacement" placeholder="Maya Desai" autocomplete="off"></label><label>Category<select id="newCategory"><option value="ai">AI agent</option><option value="code">Code / tool</option><option value="acronym">Acronym</option><option value="general">General</option></select></label><div class="word-form-actions"><button class="action-btn" onclick="toggleAddWordModal()">Cancel</button><button class="primary-btn" onclick="saveNewWord()">Add entry</button></div></div><p id="dictionaryResult" role="status"></p></div>
-      <div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div>
+      <div class="search-bar"><input id="dictionarySearch" type="search" aria-label="Search dictionary" placeholder="Search all words" oninput="post('getDictionary',{search:this.value})"></div><div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div><button id="dictionaryMore" class="action-btn" hidden onclick="post('getDictionary',{offset:dictionaryOffset,search:document.getElementById('dictionarySearch').value})">Load more words</button>
     </section>
     <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
       <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
@@ -116,7 +116,7 @@
         <button id="modeWriting" class="mode-option" aria-pressed="false" onclick="selectMode('writing')"><span class="mode-name">Writing</span><span class="mode-desc">Apply local punctuation and cleanup rules for messages and documents.</span></button>
         <button id="modeRaw" class="mode-option" aria-pressed="false" onclick="selectMode('raw')"><span class="mode-name">Raw transcript</span><span class="mode-desc">Use the speech engine’s transcript without additional polishing.</span></button>
       </div></div>
-      <div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
+      <div class="card-section"><div class="section-header">Language &amp; recognition</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgLanguage">Dictation language</label><span class="setting-desc">English is the default. Other languages require the optional Base multilingual pack. Multilingual support is experimental. Accuracy varies; Hindi testing has shown substantial errors.</span></div><select id="cfgLanguage"><option value="en">English</option></select></div><div class="setting-row"><label for="cfgEnglishVariant">English regional preference</label><select id="cfgEnglishVariant"><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="en-IN">English (India)</option></select></div><p class="setting-desc">Regional spelling is a recognition hint, not an accent-specific model or a guarantee of every regional spelling. Chinese prefers Simplified characters; Hindi prefers Devanagari. Mixed-language accuracy requires testing.</p><p id="modelPackStatus" role="status">Base multilingual pack · not installed</p><button class="action-btn" onclick="post('installModelPack')">Install multilingual pack · about 150 MB</button><button class="action-btn" onclick="post('cancelModelPack')">Cancel download</button><div class="setting-row"><div class="setting-copy"><label for="cfgSpokenCommands">Spoken formatting commands</label><span class="setting-desc">Off preserves literal words such as period, colon and camel case. English commands only. Verbatim bypasses formatting and dictionary corrections.</span></div><input id="cfgSpokenCommands" type="checkbox"></div></div><div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
       <div class="card-section"><div class="section-header">A little introduction to your Mac</div><p id="permissionStatus" role="status">Checking permissions…</p>
         <div class="permission-cards">
           <div class="permission-card"><strong>Microphone</strong><span id="permissionMicrophone" class="permission-state">Checking…</span><p>Hear your voice when you start a dictation.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Open settings</button></div>
@@ -218,12 +218,19 @@
       }
       if (!list.childElementCount) empty(list, emptyMessage);
     }
-    function onHistoryData(items) {
+    let historyItems=[],historyOffset=0,dictionaryOffset=0;
+    function onHistoryData(items, page={offset:0,has_more:false}) {
+      historyOffset=page.offset+items.length;
+      historyItems=page.offset ? [...historyItems,...items] : items;
+      document.getElementById('historyMore').hidden=!page.has_more;
+      items=historyItems;
       renderTranscripts(items,document.getElementById('historyList'),document.getElementById('historySearch').value ? 'No matching transcripts. Try another search.' : 'Your completed dictations appear here. Start with the floating bar, then click it again to finish.');
     }
-    function onDictionaryData(words) {
+    function onDictionaryData(words, page={offset:0,has_more:false}) {
+      dictionaryOffset=page.offset+words.length;
+      document.getElementById('dictionaryMore').hidden=!page.has_more;
       const list = document.getElementById('dictionaryList');
-      list.replaceChildren();
+      if (!page.offset) list.replaceChildren();
       for (const word of words || []) {
         const row = element('div', 'list-item');
         const content = element('div', 'dictionary-entry');
@@ -254,7 +261,12 @@
         node.textContent = value;
         node.classList.toggle('allowed', value === 'Allowed');
       }
+      if (status.platform) {
+        document.getElementById('permissionStatus').textContent = status.platform==='Windows' ? 'Allow desktop microphone access in Windows Settings. Paste cannot cross administrator privilege boundaries.' : 'Global shortcuts and automatic paste require X11. Wayland supports manual controls and clipboard output.';
+        for (const id of ['permissionAccessibility','permissionInput']) document.getElementById(id).closest('.permission-card').hidden=true;
+      } else {
       document.getElementById('permissionStatus').textContent = Object.values(values).every(value => value === 'Allowed') ? 'All set. Your Mac is ready for your voice.' : 'Each permission has a purpose. You control them in System Settings.';
+      }
     }
     function onControlStatus(data) {
       const state = data.state || 'IDLE';
@@ -284,6 +296,10 @@
       }
       model.value = modelName;
       document.getElementById('cfgAlwaysShow').checked = cfg.always_show_overlay !== false;
+      document.getElementById('cfgSpokenCommands').checked = cfg.spoken_commands === true;
+      document.getElementById('cfgLanguage').value=cfg.language || 'auto';
+      document.getElementById('cfgEnglishVariant').value=cfg.english_variant || 'en-US';
+      post('getLanguageOptions');
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
       document.getElementById('cfgCheckUpdates').checked = cfg.check_updates_on_launch === true;
       document.getElementById('cfgAutoInstall').checked = cfg.auto_install_updates === true;
@@ -531,13 +547,14 @@
     }
     function deleteWord(phrase) { post('deleteWord', { phrase }); }
     function filterHistory() { post('getHistory', {search:document.getElementById('historySearch').value}); }
-    function deleteHistoryItem(id) { post('deleteHistory', { id }); }
-    function clearHistory() { if (confirm('Clear all dictation history?')) post('clearHistory'); }
+    function deleteHistoryItem(id) { if (confirm('Delete this transcript and its linked recording from this device?')) post('deleteHistory', { id }); }
+    function onHistoryResult(message) { document.getElementById('historyResult').textContent=message; }
+    function clearHistory() { if (confirm('Delete all History transcripts and their linked audio from this device?')) post('clearHistory'); }
     function copyText(text) { post('copyText', {text}); }
     function saveSettings() {
       if (!configLoaded) { onSettingsResult(false, 'Settings are still loading. Reopen Settings and try again.'); return; }
       if (shortcutRecording) { onSettingsResult(false, 'Finish shortcut recording before saving.'); return; }
-      const candidate = {...currentConfig,cpu_threads:Number(document.getElementById('cfgCpuThreads').value),model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,auto_install_updates:document.getElementById('cfgAutoInstall').checked};
+      const candidate = {...currentConfig,language:document.getElementById('cfgLanguage').value==='auto'?null:document.getElementById('cfgLanguage').value,english_variant:document.getElementById('cfgEnglishVariant').value,spoken_commands:document.getElementById('cfgSpokenCommands').checked,cpu_threads:Number(document.getElementById('cfgCpuThreads').value),model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,auto_install_updates:document.getElementById('cfgAutoInstall').checked};
       const sent = post('saveConfig', {config:candidate});
       if (sent) {
         document.getElementById('settingsResult').textContent = 'Applying preferences…';
@@ -557,6 +574,27 @@
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? radios.length-1 : (radios.indexOf(radio) + delta + radios.length) % radios.length;
       radios[next].click();
       group.querySelectorAll('[role="radio"]')[next].focus();
+    });
+    function onLanguageData(data) {
+      const language=document.getElementById('cfgLanguage');
+      const previous=language.value || (currentConfig.language===null?'auto':currentConfig.language || 'en');
+      language.replaceChildren();
+      for (const item of [{value:'auto',label:'Auto detect · multilingual pack'},...data.languages]) {
+        const option=element('option','',item.label);option.value=item.value;language.append(option);
+      }
+      language.value=previous;
+      document.getElementById('modelPackStatus').textContent=data.pack.message;
+      const model=document.getElementById('cfgModel');
+      if (data.pack.state==='ready' && ![...model.options].some(o=>o.value==='multilingual-base')) {
+        const option=element('option','','Base multilingual · installed');option.value='multilingual-base';model.append(option);
+      }
+      if (data.pack.state==='downloading') setTimeout(()=>post('getLanguageOptions'),1000);
+    }
+    document.getElementById('cfgLanguage').addEventListener('change',()=>{
+      if (document.getElementById('cfgLanguage').value!=='en') {
+        const model=document.getElementById('cfgModel');
+        if ([...model.options].some(o=>o.value==='multilingual-base')) model.value='multilingual-base';
+      }
     });
     function onDesktopPlatform(name) {
       document.getElementById('cpuBudget').classList.remove('hidden');

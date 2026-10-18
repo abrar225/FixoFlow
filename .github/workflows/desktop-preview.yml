@@ -19,7 +19,7 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install -e ".[windows,packaging,dev]"
       - name: Test portable and Windows integration contracts
-        run: python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_desktop.py tests/test_coordinator.py -q
+        run: python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_languages.py tests/test_session_deletion.py tests/test_stt.py tests/test_desktop.py tests/test_coordinator.py -q
       - name: Stage pinned local speech model
         run: python scripts/prepare_cpu_model.py --output build/model
       - name: Freeze native application
@@ -65,7 +65,7 @@ jobs:
           /usr/bin/python3 -m venv --system-site-packages .venv
           .venv/bin/python -m pip install -e ".[linux,packaging,dev]"
       - name: Test shared contracts
-        run: .venv/bin/python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_desktop.py tests/test_coordinator.py -q
+        run: .venv/bin/python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_languages.py tests/test_session_deletion.py tests/test_stt.py tests/test_desktop.py tests/test_coordinator.py -q
       - name: Stage pinned local speech model
         run: .venv/bin/python scripts/prepare_cpu_model.py --output build/model
       - name: Freeze native application

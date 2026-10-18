@@ -90,7 +90,9 @@ class DesktopApplication:
             # UI/model resolution check never activates input, audio or network.
             self.coordinator.stt.resolve_model_path()
             import numpy as np
-            self.coordinator.stt.transcribe(np.zeros(16000,dtype=np.float32))
+            # Nonzero diagnostic tone reaches the actual decoder; exact silence
+            # is deliberately short-circuited by the shared inference owner.
+            self.coordinator.stt.transcribe((.01*np.sin(2*np.pi*440*np.arange(16000)/16000)).astype(np.float32))
             assert result['bridge']=='function' and result['views']==6,result
             self.check_passed=True
             evidence={'ui':'ok','platform':sys.platform,'version':__version__,'microphone_opened':False,'input_started':False,'local_inference':'executed'}
@@ -109,6 +111,7 @@ class DesktopApplication:
         self.restarting=True;self.hub.window.destroy()
 
     def closing(self):
+        if not self.hub.close_model_packs():return False
         self._closed.set()
         # Shutdown is allowed to drain processing; never abandon audio on exit.
         self.inputs.stop();self.controls.shutdown();self.updates.close()
@@ -136,18 +139,13 @@ class DesktopApplication:
         if self.inputs.router.quarantined and self.inputs.router.pressed:raise RuntimeError('Release captured input before saving.')
         self.inputs.stop()
         def update():
-            candidate.save();self.config.__dict__.update(asdict(candidate))
-            from fixoflow.audio.recorder import AudioRecorder
-            from fixoflow.stt.engine import create_stt_engine
-            from fixoflow.brain.polisher import TextPolisher
-            self.coordinator.recorder=AudioRecorder(self.config);self.coordinator.stt=create_stt_engine(self.config);self.coordinator.polisher=TextPolisher(self.config)
-            self.coordinator.recorder.on_level_callback=self.audio_level
+            self.coordinator.apply_config(candidate)
             self.inputs.reconfigure();self.hub.config=self.config
         try:self.controls.configure(update)
         finally:self.enable_shortcut()
         self.position_pill()
         if candidate.always_show_overlay:self.pill.show()
-        else:self.pill.hide()
+        elif self.controls.state == 'IDLE':self.pill.hide()
 
     def audio_level(self,level):
         # Audio callback never waits for WebView or paints the screen.
@@ -186,6 +184,8 @@ class DesktopApplication:
                 except Exception:pass
             serialized=json.dumps(status)
             if serialized!=previous:
+                if status['state'] in {'RECORDING','PROCESSING'} or self.config.always_show_overlay:self.pill.show()
+                elif status['state']=='IDLE':self.pill.hide()
                 previous=serialized;self.hub._eval_js('onControlStatus('+serialized+');')
                 try:self.pill.evaluate_js('updateControl('+json.dumps({'state':{'IDLE':'idle','RECORDING':'listening','PROCESSING':'processing'}[status['state']],'message':status['detail'] or ('Listening…' if status['state']=='RECORDING' else 'Transcribing…' if status['state']=='PROCESSING' else 'Ready to dictate')})+');')
                 except Exception:pass

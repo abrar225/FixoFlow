@@ -37,8 +37,8 @@ if __name__ == "__main__":
             import numpy as np
             from fixoflow.stt.engine import create_stt_engine
             from fixoflow.config import FixoflowConfig
-            result = create_stt_engine(FixoflowConfig()).transcribe(np.zeros(16000,dtype=np.float32))
-            print(json.dumps({"synthetic_silence_text": result, "shared_engine_inference": "executed"}))
+            result = create_stt_engine(FixoflowConfig()).transcribe((.01*np.sin(2*np.pi*440*np.arange(16000)/16000)).astype(np.float32))
+            print(json.dumps({"synthetic_tone_text": result, "shared_engine_inference": "executed"}))
         print(json.dumps({"status": "ok", "bundle": str(root), "model": str(model),
                           "ui_resources": "present", "native_dependencies": "imported",
                           "offline": True}))

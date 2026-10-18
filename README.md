@@ -20,7 +20,7 @@ Speak anywhere you type, in any app. Your audio and transcript stay on your comp
 
 ## Product release and platform status
 
-The current release-preparation version is **0.2.0**. Mac uses the native Cocoa
+The current development preview is **0.3.0** (public downloads remain 0.2.0 until new packages pass release checks). Mac uses the native Cocoa
 host; Windows x64 uses WebView2; Ubuntu 24.04 X11 uses GTK/WebKit. All share the
 same design, history/dictionary and independent hold/toggle controls. Windows
 and Linux are previews with physical-device acceptance and signing still
@@ -29,12 +29,28 @@ required. Windows 10 22H2 is a compatibility target, not a tested stable release
 See the [current build, installation, footprint and launch runbook](docs/08-multiplatform-release.md).
 The [0.1.0 plan](docs/07-platform-and-release-plan.md) remains an historical record.
 
+## Language and reliability preview
+
+English remains the default. Settings can explicitly install a separate pinned
+Base multilingual pack (about 150 MB) without replacing the bundled English model.
+The 99-language selector includes Hindi, Chinese, Japanese and other Whisper
+languages. All multilingual options are **experimental**, not an accuracy claim;
+Hindi has substantial measured errors. US/UK/India English are spelling hints
+using the same recognition model. Simplified Chinese and Hindi script are prompt
+preferences, not guaranteed script conversion. No cloud processing is enabled.
+See [implementation status and measured limitations](docs/11-reliability-and-multilingual-preview.md).
+
+Spoken formatting commands are off by default; Verbatim preserves recognizer
+wording. Explicit History deletion removes linked owned audio as well as text.
+Cancelled/incomplete recordings remain for recovery; automatic retention and a
+recovery inbox are still pending.
+
 ## How it works
 
 ```mermaid
 flowchart LR
     A["Two configurable shortcuts<br/>hold-to-talk · hands-free toggle"] --> B["16 kHz mono capture<br/>WAV flushed to disk during recording"]
-    B --> C["Butterworth bandpass<br/>80 Hz – 7.5 kHz + normalize"]
+    B --> C["Bounded audio windows<br/>Butterworth bandpass<br/>80 Hz – 7.5 kHz + normalize"]
     C --> D{"Longer than 24 s?"}
     D -- Yes --> E["Slice at low-energy<br/>breathing pauses"]
     D -- No --> F["Single chunk"]

@@ -67,7 +67,7 @@ PUNCTUATION_REPLACEMENTS = [
     (r"\bsemicolon\b", ";"),
     (r"\b(new line|newline)\b", "\n"),
     (r"\b(new paragraph|next paragraph)\b", "\n\n"),
-    (r"\b(bullet point|bullet)\s*(one|1|\w+)?\b", r"\n• "),
+    (r"\b(bullet point|bullet)\s*(?:(?:one|two|three|four|five|six|seven|eight|nine|ten|[0-9]+)\b\s*)?\b", r"\n• "),
 ]
 
 
@@ -101,7 +101,7 @@ def _expand_contractions(text: str) -> Tuple[str, int]:
     return text, changes
 
 
-def clean_with_rules_counted(text: str, style: str = "natural") -> Tuple[str, int]:
+def clean_with_rules_counted(text: str, style: str = "natural", spoken_commands: bool = False) -> Tuple[str, int]:
     """Rule-based cleanup returning ``(cleaned_text, fixes_applied)``."""
     if style == "verbatim":
         return text.strip(), 0
@@ -121,7 +121,7 @@ def clean_with_rules_counted(text: str, style: str = "natural") -> Tuple[str, in
         apply_patterns(CONCISE_FILLERS)
 
     # Replace spoken punctuation cues
-    for pattern, repl in PUNCTUATION_REPLACEMENTS:
+    for pattern, repl in (PUNCTUATION_REPLACEMENTS if spoken_commands else []):
         cleaned, count = re.subn(pattern, repl, cleaned, flags=re.IGNORECASE)
         fixes += count
 
@@ -151,7 +151,7 @@ def clean_with_rules_counted(text: str, style: str = "natural") -> Tuple[str, in
 
 def clean_with_rules(text: str) -> str:
     """Fast, 100% offline rule-based cleanup and punctuation formatting."""
-    cleaned, _ = clean_with_rules_counted(text, style="natural")
+    cleaned, _ = clean_with_rules_counted(text, style="natural", spoken_commands=True)
     return cleaned
 
 
@@ -173,11 +173,11 @@ class TextPolisher:
         if not raw_text.strip():
             return "", 0
 
-        if self.engine == "none" or (mode or self.config.mode) == "raw":
+        if self.engine == "none" or (mode or self.config.mode) == "raw" or self.config.language != "en":
             return raw_text.strip(), 0
 
         # Code identifiers and symbols must survive unchanged after explicit
         # dictionary/spoken-code formatting. Prose cleanup belongs to writing mode.
         if (mode or self.config.mode) == "coding":
             return raw_text.strip(), 0
-        return clean_with_rules_counted(raw_text, style=self.config.output_style)
+        return clean_with_rules_counted(raw_text, style=self.config.output_style, spoken_commands=self.config.spoken_commands)

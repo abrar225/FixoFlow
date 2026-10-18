@@ -21,3 +21,6 @@
 .shortcut-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,1fr);gap:16px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--row)}
 .shortcut-card strong{font-size:14px;font-weight:550}.shortcut-card p{margin-top:5px;font-size:11px;color:var(--muted)}.shortcut-card .shortcut-recorder{text-align:center;letter-spacing:0;overflow-wrap:anywhere}.shortcut-recorder.recording{background:var(--canvas);border-color:var(--plum)}.update-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;margin-bottom:20px;border-radius:16px;background:var(--mint);font-size:12px}.history-day{font-size:11px;color:var(--muted);padding:9px 2px 0}.switch input:disabled+span{opacity:.4}.shortcut-label{overflow-wrap:anywhere}.item-text{max-width:75ch}
 @media(max-width:900px){.shortcut-card{grid-template-columns:1fr}.topbar{align-items:flex-start}.shortcut-label{max-width:42ch}}
+
+/* Native capability states and pagination must override component display rules. */
+[hidden] { display: none !important; }

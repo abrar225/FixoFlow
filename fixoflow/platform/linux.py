@@ -64,14 +64,16 @@ def copy_to_clipboard(text):
     except (OSError,subprocess.SubprocessError):return False
 
 
-def insert_text_at_cursor(text,delay_sec=0.05):
+def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None):
     if not copy_to_clipboard(text):return InsertionOutcome(False,False,'clipboard-failed')
+    if cancelled and cancelled():return InsertionOutcome(False,True,'cancelled')
     if os.environ.get('XDG_SESSION_TYPE')=='wayland':return InsertionOutcome(False,True,'permission')
     try:
         from pynput.keyboard import Controller,Key
-        target=get_frontmost_app_info()[1];time.sleep(delay_sec)
+        target=expected_target if expected_target is not None else get_frontmost_app_info()[1];time.sleep(delay_sec)
         if not target or get_frontmost_app_info()[1]!=target:return InsertionOutcome(False,True,'event-failed')
         keyboard=Controller()
+        if cancelled and cancelled():return InsertionOutcome(False,True,'cancelled')
         with keyboard.pressed(Key.ctrl):keyboard.press('v');keyboard.release('v')
         return InsertionOutcome(True,True,'inserted')
     except Exception:return InsertionOutcome(False,True,'event-failed')
@@ -79,7 +81,7 @@ def insert_text_at_cursor(text,delay_sec=0.05):
 
 def permission_snapshot():
     x11=os.environ.get('XDG_SESSION_TYPE')!='wayland' and bool(os.environ.get('DISPLAY'))
-    return {'accessibility':x11,'input':x11,'microphone':'not determined'}
+    return {'platform':'Linux','accessibility':x11,'input':x11,'microphone':'unknown'}
 def request_all_permissions():return permission_snapshot()
 def open_permission_settings(section):return None
 def notify(title,body):

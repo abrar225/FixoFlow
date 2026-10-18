@@ -57,6 +57,7 @@ class DesktopInput:
             specials.update({0x70+i:f'f{i+1}' for i in range(24)})
             def keyboard_filter(message,data):
                 if message not in (0x100,0x101,0x104,0x105):return True
+                if data.flags & 0x10:return True  # LLKHF_INJECTED: never trigger on simulated paste.
                 vk=int(data.vkCode);token=specials.get(vk)
                 if not token:
                     char=native.MapVirtualKeyExW(vk,2,native.GetKeyboardLayout(0))&0x7FFFFFFF
@@ -73,7 +74,8 @@ class DesktopInput:
             key_listener=keyboard.Listener(win32_event_filter=keyboard_filter)
             mouse_listener=mouse.Listener(win32_event_filter=mouse_filter)
         else:
-            def key_event(key,down):
+            def key_event(key,down,injected=False):
+                if injected:return
                 name=getattr(key,'name',None)
                 if name:token=name+'_l' if name in {'ctrl','alt','shift','cmd'} else name
                 else:
@@ -83,7 +85,7 @@ class DesktopInput:
             def click(x,y,button,down):
                 number={'left':0,'right':1,'middle':2,'button8':3,'button9':4}.get(button.name)
                 if number is not None:self._feed(('mouse',number),f'mouse:{number}',down,generation)
-            key_listener=keyboard.Listener(on_press=lambda key:key_event(key,True),on_release=lambda key:key_event(key,False))
+            key_listener=keyboard.Listener(on_press=lambda key,injected=False:key_event(key,True,injected),on_release=lambda key,injected=False:key_event(key,False,injected))
             mouse_listener=mouse.Listener(on_click=click)
         self._listeners=[key_listener,mouse_listener]
         try:
@@ -102,4 +104,7 @@ class DesktopInput:
             self.router.reset()
 
     def reconfigure(self):
-        with self._lock:self.router=ShortcutRouter(self.config.hold_shortcut,self.config.hands_free_shortcut,self.controls)
+        with self._lock:
+            decisions=self.router._decisions
+            self.router=ShortcutRouter(self.config.hold_shortcut,self.config.hands_free_shortcut,self.controls)
+            self.router._decisions=decisions

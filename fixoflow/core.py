@@ -58,13 +58,30 @@ class FixoflowCoordinator:
         self._target_app_name = ""
         self._target_bundle_id = ""
         self.last_error = ""
+        self._cancel_requested = threading.Event()
+
+    def apply_config(self, candidate):
+        """Stage changed resources before saving; keep warm inference otherwise."""
+        candidate.validate()
+        if self.state != 'IDLE':
+            raise RuntimeError('Finish dictation before changing settings.')
+        replacement = None
+        if any(getattr(candidate, key) != getattr(self.config, key) for key in ('model_name', 'cpu_threads', 'language')):
+            replacement = create_stt_engine(candidate)
+            replacement.resolve_model_path()  # local-only validation, no inference/download
+        candidate.save()
+        self.config.__dict__.update(candidate.__dict__)
+        if replacement is not None:
+            self.stt = replacement
+            self.stt.config = self.config
+        self.polisher = TextPolisher(self.config)
 
     @property
     def state(self) -> str:
         with self._lock:
             return self._state
 
-    def start_recording(self) -> None:
+    def start_recording(self, cancellation=None) -> None:
         with self._lock:
             if self._state != "IDLE":
                 return
@@ -73,6 +90,7 @@ class FixoflowCoordinator:
             self._target_app_name = app_name
             self._target_bundle_id = bundle_id
             self.last_error = ""
+            self._cancel_requested = cancellation if cancellation is not None else threading.Event()
 
         if self.config.sound_enabled:
             play_sound("Pop")
@@ -81,6 +99,8 @@ class FixoflowCoordinator:
             self.recorder.on_level_callback = self.overlay.update_audio_level
 
         try:
+            if self.recorder.needs_cleanup:
+                self.recorder.retry_cleanup()
             session_file = self.recorder.start()
         except Exception as e:
             with self._lock:
@@ -90,6 +110,8 @@ class FixoflowCoordinator:
                 self.overlay.show_error("Microphone unavailable")
             logger.exception("Could not start recording")
             return
+        try:self.db.register_session_artifact(session_file,self.config.cache_dir)
+        except (OSError,ValueError):logger.exception('Could not register recording ownership')
         logger.info("Fixoflow recording started. Target app: %s (Session: %s)", self._target_app_name, session_file.name)
 
     def stop_and_process(self, auto_paste: bool = True) -> str:
@@ -110,8 +132,9 @@ class FixoflowCoordinator:
 
         try:
             # 1. Stop audio capture and obtain persisted wav buffer
-            audio, session_path = self.recorder.stop()
-            if len(audio) == 0:
+            capture = self.recorder.finalize_capture()
+            session_path = capture.path
+            if capture.frames == 0:
                 self.last_error = "No audio recorded"
                 logger.warning("Empty audio recorded; skipping transcription.")
                 if self.overlay:
@@ -120,7 +143,7 @@ class FixoflowCoordinator:
 
             # 2. Transcribe with prompt conditioning and pause slicing
             prompt = self.learner.get_dynamic_prompt_conditioning(target_app, self.config.mode)
-            raw_text = self.stt.transcribe(audio, initial_prompt=prompt)
+            raw_text = self.stt.transcribe_file(session_path, initial_prompt=prompt, cancelled=self._cancel_requested.is_set)
             if not raw_text:
                 self.last_error = "No speech detected"
                 logger.info("No speech detected.")
@@ -133,7 +156,8 @@ class FixoflowCoordinator:
             # 3. Apply mode formatting, dictionary replacements and polishing
             fixes_vocab = fixes_polish = 0
             try:
-                formatted_text, fixes_vocab = self.learner.format_for_mode_counted(raw_text, mode=self.config.mode, app_name=target_app)
+                formatted_text, fixes_vocab = ((raw_text.strip(), 0) if self.config.output_style == "verbatim"
+                    else self.learner.format_for_mode_counted(raw_text, mode=self.config.mode, app_name=target_app, spoken_commands=self.config.spoken_commands))
                 effective_mode = self.learner.effective_mode(self.config.mode, target_app)
                 final_text, fixes_polish = self.polisher.polish_counted(formatted_text, app_context=target_app, mode=effective_mode)
                 if not final_text.strip():
@@ -150,7 +174,7 @@ class FixoflowCoordinator:
 
             # 4. Record the session in SQLite
             try:
-                duration_sec = len(audio) / self.config.sample_rate
+                duration_sec = capture.frames / capture.sample_rate
                 self.db.record_session(
                     asr_text=raw_text,
                     final_text=final_text,
@@ -169,6 +193,9 @@ class FixoflowCoordinator:
             self.last_error = ""
             inserted = False
             notice = ""
+            if self._cancel_requested.is_set():
+                self.last_error="Transcription cancelled; recording retained for recovery."
+                return ""
             if auto_paste and final_text:
                 inserted, notice = self._deliver_text(final_text)
 
@@ -205,6 +232,10 @@ class FixoflowCoordinator:
         recoverable without opening History.
         """
         target_bundle = self._target_bundle_id
+        if self._cancel_requested.is_set():
+            copy_to_clipboard(text)
+            self.last_error = 'Cancelled before paste; transcript saved in History.'
+            return False, 'Cancelled · open History'
         if not target_bundle:
             copied = copy_to_clipboard(text)
             self.last_error = ("Target application was not identified; transcript copied to clipboard and saved in History" if copied else "Target application was not identified; transcript saved in History")
@@ -217,6 +248,10 @@ class FixoflowCoordinator:
             # original application so the transcript still lands at its cursor.
             if activate_application(target_bundle):
                 current_bundle = get_frontmost_app_info()[1]
+        if self._cancel_requested.is_set():
+            copy_to_clipboard(text)
+            self.last_error = 'Cancelled before paste; transcript saved in History.'
+            return False, 'Cancelled · open History'
         if current_bundle != target_bundle:
             copied = copy_to_clipboard(text)
             self.last_error = ("Focus moved to another app; transcript is on the clipboard and in History"
@@ -224,9 +259,12 @@ class FixoflowCoordinator:
             notify("Fixoflow", self.last_error)
             return False, "Saved · open History"
 
-        outcome = insert_text_at_cursor(text)
+        outcome = insert_text_at_cursor(text, expected_target=target_bundle, cancelled=self._cancel_requested.is_set)
         if outcome.inserted:
             return True, ""
+        if outcome.reason == 'cancelled':
+            self.last_error = 'Cancelled before paste; transcript saved in History.'
+            return False, 'Cancelled · open History'
         if outcome.reason == "permission":
             self.last_error = "Copied to clipboard — enable Accessibility in Settings to paste automatically"
         elif outcome.reason == "event-failed":
@@ -238,8 +276,7 @@ class FixoflowCoordinator:
                        else "Copied · paste manually" if outcome.reason == "event-failed"
                        else "Saved · open History")
 
-    @staticmethod
-    def _persist_transcript(session_path, text: str, status: str, raw_text: str = "") -> None:
+    def _persist_transcript(self, session_path, text: str, status: str, raw_text: str = "") -> None:
         """Keep decoded words recoverable even when formatting/history/paste fails."""
         destination = Path(session_path).with_suffix(".transcript.json")
         temporary = destination.with_suffix(".json.tmp")
@@ -248,6 +285,11 @@ class FixoflowCoordinator:
             output.flush()
             os.fsync(output.fileno())
         os.replace(temporary, destination)
+        try:self.db.register_session_artifact(destination,self.config.cache_dir)
+        except (OSError,ValueError):logger.exception("Could not register transcript ownership")
+
+    def request_cancel(self):
+        self._cancel_requested.set()
 
     def cancel_recording(self) -> None:
         """Finish disk capture without transcribing or inserting; retain audio."""
@@ -256,7 +298,7 @@ class FixoflowCoordinator:
                 return
             self._state = "PROCESSING"
         try:
-            self.recorder.stop()
+            self.recorder.stop(load_audio=False)
             if self.overlay:
                 self.overlay.show_success("Recording saved")
         except Exception as error:

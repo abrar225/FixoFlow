@@ -72,6 +72,7 @@ class FixoflowDB:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_app ON history (app_name)")
 
+            cursor.execute("CREATE TABLE IF NOT EXISTS session_artifacts (path TEXT PRIMARY KEY, root TEXT NOT NULL, identity TEXT NOT NULL)")
             # Additive migration for databases created before fix tracking.
             history_columns = {row[1] for row in cursor.execute("PRAGMA table_info(history)")}
             if "fixes_polish" not in history_columns:
@@ -190,7 +191,7 @@ class FixoflowDB:
                 """
             )
 
-    def get_history(self, limit: int = 50, search: str = "", app: str = "") -> List[Dict[str, Any]]:
+    def get_history(self, limit: int = 50, search: str = "", app: str = "", offset: int = 0) -> List[Dict[str, Any]]:
         """Fetch recent history with optional text search and app filtering."""
         query = "SELECT * FROM history WHERE 1=1"
         params: list = []
@@ -203,21 +204,55 @@ class FixoflowDB:
             query += " AND app_name = ?"
             params.append(app)
 
-        query += " ORDER BY timestamp DESC LIMIT ?"
-        params.append(limit)
+        query += " ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?"
+        params.extend((limit,offset))
 
         with self._connect() as conn:
             return [dict(row) for row in conn.execute(query, params).fetchall()]
 
-    def delete_history_item(self, session_id: str) -> None:
+    def register_session_artifact(self, path, root):
+        import json
+        from .artifacts import identity, session_files
+        path=Path(path)
+        audio=path if path.suffix=='.wav' else path.with_suffix('').with_suffix('.wav')
+        if path not in session_files(audio,root):raise ValueError('Unknown recording artifact')
         with self._connect() as conn:
-            conn.execute("DELETE FROM history WHERE id = ?", (session_id,))
-        self.rebuild_analytics()
+            conn.execute('INSERT OR REPLACE INTO session_artifacts VALUES (?,?,?)',(str(path.absolute()),str(Path(root).resolve()),json.dumps(identity(path))))
 
-    def clear_all_history(self) -> None:
+    def delete_history_item(self, session_id: str, cache_root=None, rebuild=True) -> None:
+        import json
+        from .artifacts import session_files, validate_legacy, identity, unlink_owned
         with self._connect() as conn:
-            conn.execute("DELETE FROM history")
+            row=conn.execute('SELECT * FROM history WHERE id=?',(session_id,)).fetchone()
+            if row and row['audio_path']:
+                audio=Path(row['audio_path']).absolute()
+                shared=conn.execute('SELECT count(*) FROM history WHERE audio_path=? AND id!=?',(row['audio_path'],session_id)).fetchone()[0]
+                if not shared:
+                    records={r['path']:dict(r) for r in conn.execute('SELECT * FROM session_artifacts WHERE path IN (?,?)',(str(audio),str(audio.with_suffix('.transcript.json'))))}
+                    roots={record['root'] for record in records.values()}
+                    if len(roots)>1:raise ValueError('Recording ownership roots disagree; deletion stopped.')
+                    root=next(iter(roots)) if roots else cache_root
+                    if root is None:raise ValueError('Recording ownership needs verification; History was preserved.')
+                    files=session_files(audio,root)
+                    if any(f.exists() and str(f) not in records for f in files):
+                        files=validate_legacy(audio,root,row['asr_text'])
+                        for file in files:
+                            if file.exists():records.setdefault(str(file),{'identity':json.dumps(identity(file))})
+                    for file in files:
+                        if str(file) in records:unlink_owned(file,json.loads(records[str(file)]['identity']))
+                    conn.execute('DELETE FROM session_artifacts WHERE path IN (?,?)',(str(files[0]),str(files[1])))
+            conn.execute("DELETE FROM history WHERE id = ?", (session_id,))
+        if rebuild:self.rebuild_analytics()
+
+    def clear_all_history(self, cache_root=None) -> None:
+        with self._connect() as conn:
+            ids=[row[0] for row in conn.execute('SELECT id FROM history')]
+        failures=[]
+        for session_id in ids:
+            try:self.delete_history_item(session_id,cache_root,rebuild=False)
+            except (OSError,ValueError) as error:failures.append(str(error))
         self.rebuild_analytics()
+        if failures:raise ValueError(f'{len(failures)} sessions could not be fully deleted. Retry after resolving the file issue. '+failures[0])
 
     # ------------------------------------------------------------------
     # Dictionary / vocabulary
@@ -249,25 +284,6 @@ class FixoflowDB:
                 (phrase_clean, repl_clean, category, auto_learned, now),
             )
 
-    def seed_word(self, phrase: str, replacement: str, category: str = "general") -> None:
-        """Insert a built-in entry only when the phrase is not present.
-
-        User deletions of built-in terms stay deleted.
-        """
-        phrase_clean = phrase.strip()
-        if not phrase_clean:
-            return
-        now = datetime.datetime.now().isoformat()
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO dictionary (phrase, replacement, category, frequency, auto_learned, last_used)
-                VALUES (?, ?, ?, 1, 0, ?)
-                ON CONFLICT(phrase) DO NOTHING
-                """,
-                (phrase_clean, replacement.strip(), category, now),
-            )
-
     def increment_word_usage(self, phrase: str) -> None:
         now = datetime.datetime.now().isoformat()
         with self._connect() as conn:
@@ -276,10 +292,12 @@ class FixoflowDB:
                 (now, phrase.strip()),
             )
 
-    def get_dictionary(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_dictionary(self, limit: Optional[int] = 100, offset: int = 0, search: str = "") -> List[Dict[str, Any]]:
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         with self._connect() as conn:
             cursor = conn.execute(
-                "SELECT * FROM dictionary ORDER BY frequency DESC, last_used DESC LIMIT ?", (limit,)
+                "SELECT * FROM dictionary WHERE phrase LIKE ? ESCAPE '\\' OR replacement LIKE ? ESCAPE '\\' ORDER BY frequency DESC, last_used DESC, phrase" + (" LIMIT ? OFFSET ?" if limit is not None else ""),
+                (f'%{escaped}%',f'%{escaped}%') + (() if limit is None else (limit,offset))
             )
             return [dict(row) for row in cursor.fetchall()]
 

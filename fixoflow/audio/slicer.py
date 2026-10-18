@@ -1,7 +1,7 @@
 """
 Fixoflow Audio Slicer
-Splits long continuous audio into optimal overlapping segments at natural pause boundaries.
-Prevents the 30-second Whisper window truncation bug observed in WisprType and Wispr Flow.
+Splits long audio into bounded adjacent segments using minimum-energy splits.
+Retaining all samples does not guarantee perfect word continuity at a boundary.
 """
 from __future__ import annotations
 
@@ -94,5 +94,5 @@ def slice_audio_for_transcription(
         logger.debug("Sliced chunk: %.2fs to %.2fs (length %.2fs)", current_offset / sample_rate, split_sample / sample_rate, len(chunk) / sample_rate)
         current_offset = split_sample
 
-    logger.info("Sliced %.2fs of audio into %d seamless chunks with 0%% data loss.", total_sec, len(slices))
+    logger.info("Sliced %.2fs of audio into %d seamless chunks with all samples retained.", total_sec, len(slices))
     return slices

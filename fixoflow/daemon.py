@@ -48,17 +48,23 @@ class FixoflowDaemon:
         vk = getattr(key,'vk',None)
         return f'vk:{vk}' if vk is not None else None
 
-    def _feed_key(self, key, down, generation):
+    def _feed_key(self, key, down, generation, injected=False):
         token = self._key_token(key)
         with self._lock:
             if generation != self._generation:
                 return
             self._keyboard_consumed = False
+            # Synthetic paste events must reach the editor without activating
+            # or being swallowed by a shortcut that happens to use Cmd+V.
+            if injected:
+                return
             if token is not None:
                 self._keyboard_consumed = self.router.input(self._physical_key(key), token, down)
 
     def _keyboard_event(self, event_type, event, generation):
         if generation != self._generation:
+            return event
+        if Quartz.CGEventGetIntegerValueField(event, Quartz.kCGEventSourceUnixProcessID):
             return event
         # The Fn/Globe hardware key has no pynput Key member on macOS.
         if event_type == Quartz.kCGEventFlagsChanged and Quartz.CGEventGetIntegerValueField(event, Quartz.kCGKeyboardEventKeycode) == 63:
@@ -84,7 +90,9 @@ class FixoflowDaemon:
     def configure_shortcuts(self):
         with self._lock:
             self.router.reset()
+            decisions=self.router._decisions
             self.router = ShortcutRouter(self.config.hold_shortcut,self.config.hands_free_shortcut,self.controls)
+            self.router._decisions=decisions
 
     def begin_capture(self, callback):
         with self._lock:
@@ -114,7 +122,7 @@ class FixoflowDaemon:
         if self._retired_listeners:
             raise RuntimeError('The previous input listener is still stopping. Retry in a moment.')
         generation = self._generation
-        self._listener = keyboard.Listener(on_press=lambda key:self._feed_key(key,True,generation),on_release=lambda key:self._feed_key(key,False,generation),darwin_intercept=lambda kind,event:self._keyboard_event(kind,event,generation))
+        self._listener = keyboard.Listener(on_press=lambda key,injected=False:self._feed_key(key,True,generation,injected),on_release=lambda key,injected=False:self._feed_key(key,False,generation,injected),darwin_intercept=lambda kind,event:self._keyboard_event(kind,event,generation))
         self._mouse_listener = mouse.Listener(darwin_intercept=lambda kind,event:self._mouse_event(kind,event,generation))
         try:
             self._listener.start()

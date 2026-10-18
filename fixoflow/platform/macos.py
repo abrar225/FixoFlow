@@ -184,7 +184,7 @@ def copy_to_clipboard(text: str) -> bool:
         return False
 
 
-def insert_text_at_cursor(text: str, delay_sec: float = 0.05) -> InsertionOutcome:
+def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=None, cancelled=None) -> InsertionOutcome:
     """Copy text and post Cmd+V into the frontmost application.
 
     The clipboard write always happens first: even if Accessibility is not
@@ -194,6 +194,7 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05) -> InsertionOutcom
     """
     if not copy_to_clipboard(text):
         return InsertionOutcome(False, False, "clipboard-failed")
+    if cancelled and cancelled():return InsertionOutcome(False, True, 'cancelled')
 
     if not accessibility_trusted():
         # Never raise the system prompt from an insertion attempt. Prompting is
@@ -202,15 +203,26 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05) -> InsertionOutcom
         logger.warning("Accessibility permission is required to paste automatically")
         return InsertionOutcome(False, True, "permission")
 
+    target = expected_target if expected_target is not None else get_frontmost_app_info()[1]
+    deadline = time.monotonic() + 0.8
+    modifiers = Quartz.kCGEventFlagMaskCommand | Quartz.kCGEventFlagMaskControl | Quartz.kCGEventFlagMaskAlternate | Quartz.kCGEventFlagMaskShift
+    while Quartz.CGEventSourceFlagsState(Quartz.kCGEventSourceStateCombinedSessionState) & modifiers:
+        if cancelled and cancelled():return InsertionOutcome(False, True, 'cancelled')
+        if time.monotonic() > deadline:return InsertionOutcome(False, True, 'event-failed')
+        time.sleep(0.01)
     time.sleep(delay_sec)
+    if not target or get_frontmost_app_info()[1] != target:
+        return InsertionOutcome(False, True, 'focus-changed')
     try:
         event_down = Quartz.CGEventCreateKeyboardEvent(None, KEY_CODE_V, True)
         Quartz.CGEventSetFlags(event_down, Quartz.kCGEventFlagMaskCommand)
-        Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_down)
-
         event_up = Quartz.CGEventCreateKeyboardEvent(None, KEY_CODE_V, False)
         Quartz.CGEventSetFlags(event_up, 0)
-        Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_up)
+        if cancelled and cancelled():return InsertionOutcome(False, True, 'cancelled')
+        # Dispatch commits at the first post. Always release once committed,
+        # including cancellation arriving between the down and up events.
+        try:Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_down)
+        finally:Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_up)
         logger.info("Pasted text (%d characters) at cursor", len(text))
         return InsertionOutcome(True, True, "inserted")
     except Exception as error:

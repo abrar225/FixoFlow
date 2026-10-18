@@ -35,6 +35,8 @@ def test_successful_insertion_posts_command_v(monkeypatch):
     monkeypatch.setattr(macos, 'accessibility_trusted', lambda prompt=False: True)
     monkeypatch.setattr(macos, 'copy_to_clipboard', lambda _: True)
     monkeypatch.setattr(macos.time, 'sleep', lambda _: None)
+    monkeypatch.setattr(macos, 'get_frontmost_app_info', lambda: ('Editor','test.editor'))
+    monkeypatch.setattr(macos.Quartz, 'CGEventSourceFlagsState', lambda _: 0)
     keys = []
     monkeypatch.setattr(macos.Quartz, 'CGEventCreateKeyboardEvent',
                         lambda system, keycode, down: keys.append((keycode, down)) or Mock())
@@ -47,3 +49,29 @@ def test_successful_insertion_posts_command_v(monkeypatch):
     assert keys == [(macos.KEY_CODE_V, True), (macos.KEY_CODE_V, False)]
     assert flags == [macos.Quartz.kCGEventFlagMaskCommand, 0]
     assert len(posted) == 2
+
+
+def test_focus_change_during_paste_delay_never_posts(monkeypatch):
+    monkeypatch.setattr(macos,'copy_to_clipboard',lambda _:True)
+    monkeypatch.setattr(macos,'accessibility_trusted',lambda prompt=False:True)
+    monkeypatch.setattr(macos.Quartz,'CGEventSourceFlagsState',lambda _:0)
+    monkeypatch.setattr(macos.time,'sleep',lambda _:None)
+    monkeypatch.setattr(macos,'get_frontmost_app_info',lambda:('Other','other.app'))
+    event=Mock();monkeypatch.setattr(macos.Quartz,'CGEventPost',event)
+    result=macos.insert_text_at_cursor('safe',expected_target='original.app')
+    assert not result.inserted and result.copied and result.reason=='focus-changed'
+    event.assert_not_called()
+
+
+def test_cancel_during_paste_delay_keeps_clipboard_without_post(monkeypatch):
+    import threading
+    cancellation=threading.Event()
+    monkeypatch.setattr(macos,'copy_to_clipboard',lambda _:True)
+    monkeypatch.setattr(macos,'accessibility_trusted',lambda prompt=False:True)
+    monkeypatch.setattr(macos.Quartz,'CGEventSourceFlagsState',lambda _:0)
+    monkeypatch.setattr(macos,'get_frontmost_app_info',lambda:('Editor','editor'))
+    monkeypatch.setattr(macos.time,'sleep',lambda _:cancellation.set())
+    post=Mock();monkeypatch.setattr(macos.Quartz,'CGEventPost',post)
+    result=macos.insert_text_at_cursor('saved',expected_target='editor',cancelled=cancellation.is_set)
+    assert result==macos.InsertionOutcome(False,True,'cancelled')
+    post.assert_not_called()
