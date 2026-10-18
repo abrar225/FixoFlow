@@ -206,7 +206,8 @@ class FixoflowCoordinator:
         """
         target_bundle = self._target_bundle_id
         if not target_bundle:
-            self.last_error = "Target application was not identified; transcript saved in History"
+            copied = copy_to_clipboard(text)
+            self.last_error = ("Target application was not identified; transcript copied to clipboard and saved in History" if copied else "Target application was not identified; transcript saved in History")
             notify("Fixoflow", self.last_error)
             return False, "Saved · open History"
 

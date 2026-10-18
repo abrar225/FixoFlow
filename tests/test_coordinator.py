@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 from fixoflow.config import FixoflowConfig
-from fixoflow.platform.macos import InsertionOutcome
+from fixoflow.platform.contracts import InsertionOutcome
 from fixoflow.storage.db import FixoflowDB
 from fixoflow.stt.engine import TranscriptionError
 import fixoflow.core as core
@@ -16,6 +16,7 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(core.FixoflowDB, 'get_instance', lambda: db)
     monkeypatch.setattr(core, 'play_sound', lambda *_: None)
     monkeypatch.setattr(core, 'notify', lambda *_: None)
+    monkeypatch.setattr(core, 'copy_to_clipboard', Mock(return_value=True))
     monkeypatch.setattr(core, 'activate_application', lambda bundle_id, timeout_sec=0.8: False)
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: ('Antigravity', 'test.antigravity'))
     config = FixoflowConfig(cache_dir=str(tmp_path), mode='auto')
@@ -97,9 +98,10 @@ def test_unidentified_target_copies_instead_of_guessing(coordinator, monkeypatch
     monkeypatch.setattr(core, 'insert_text_at_cursor', insert)
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: ('Unknown', ''))
     coordinator.start_recording()
-    coordinator.stop_and_process()
+    text = coordinator.stop_and_process()
     insert.assert_not_called()
     assert 'not identified' in coordinator.last_error
+    core.copy_to_clipboard.assert_called_once_with(text)
 
 
 def test_decode_failure_saves_partial_and_never_pastes(coordinator, monkeypatch):

@@ -28,4 +28,5 @@ if [[ -e "$DMG_PATH" ]]; then
 fi
 hdiutil create -volname Fixoflow -srcfolder "$STAGE_DIR" -format ULMO "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
+python3 "$SCRIPT_DIR/write_mac_artifact_manifest.py"
 echo "Built: $DMG_PATH (local build; not notarized)"

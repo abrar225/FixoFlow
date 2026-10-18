@@ -46,8 +46,10 @@ class Bridge:
 class DesktopApplication:
     def __init__(self,config,background=False,self_check=False,report=None):
         import webview
+        self._audio_level=0.0
         self.config=config;self.hub=DesktopHub(config);self._closed=threading.Event();self._loaded=threading.Event();self._error='';self._self_check=self_check;self.check_passed=False;self.report=report
         self.coordinator=FixoflowCoordinator(config,enable_overlay=False)
+        self.coordinator.recorder.on_level_callback=self.audio_level
         self.controls=DictationControls(self.coordinator,config)
         self.inputs=DesktopInput(config,self.controls)
         self.updates=UpdateService(on_change=lambda status:self.hub._eval_js('onUpdateData('+json.dumps(status)+');'))
@@ -85,9 +87,11 @@ class DesktopApplication:
             result=self.hub.window.evaluate_js("({views:document.querySelectorAll('.view-panel').length,logo:!!document.querySelector('img'),bridge:typeof window.pywebview.api.post})")
             # UI/model resolution check never activates input, audio or network.
             self.coordinator.stt.resolve_model_path()
+            import numpy as np
+            self.coordinator.stt.transcribe(np.zeros(16000,dtype=np.float32))
             assert result['bridge']=='function' and result['views']==6,result
             self.check_passed=True
-            evidence={'ui':'ok','platform':sys.platform,'version':__version__,'microphone_opened':False,'input_started':False}
+            evidence={'ui':'ok','platform':sys.platform,'version':__version__,'microphone_opened':False,'input_started':False,'local_inference':'executed'}
             if self.report:self.report.write_text(json.dumps(evidence))
             if sys.stdout:print(json.dumps(evidence),flush=True)
             self.hub.window.destroy()
@@ -129,12 +133,17 @@ class DesktopApplication:
             from fixoflow.stt.engine import create_stt_engine
             from fixoflow.brain.polisher import TextPolisher
             self.coordinator.recorder=AudioRecorder(self.config);self.coordinator.stt=create_stt_engine(self.config);self.coordinator.polisher=TextPolisher(self.config)
+            self.coordinator.recorder.on_level_callback=self.audio_level
             self.inputs.reconfigure();self.hub.config=self.config
         try:self.controls.configure(update)
         finally:self.enable_shortcut()
         self.position_pill()
         if candidate.always_show_overlay:self.pill.show()
         else:self.pill.hide()
+
+    def audio_level(self,level):
+        # Audio callback never waits for WebView or paints the screen.
+        self._audio_level=float(level)
 
     def position_pill(self):
         import webview
@@ -160,6 +169,9 @@ class DesktopApplication:
         while not self._closed.wait(0.2):
             if not self._loaded.is_set():continue
             self.inputs.expire_capture();status=self.status()
+            if status['state']=='RECORDING':
+                try:self.pill.evaluate_js('setAudioLevel('+json.dumps(self._audio_level)+');')
+                except Exception:pass
             serialized=json.dumps(status)
             if serialized!=previous:
                 previous=serialized;self.hub._eval_js('onControlStatus('+serialized+');')
