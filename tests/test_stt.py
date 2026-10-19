@@ -137,3 +137,15 @@ def test_exact_silence_does_not_call_recognizer(engine,monkeypatch):
 def test_custom_english_only_model_is_rejected_for_non_english(engine):
     engine.language='hi'
     with pytest.raises(module.TranscriptionError,match='not compatible'):engine.resolve_model_path()
+
+
+@pytest.mark.parametrize('region',['en-US','en-GB','en-IN'])
+def test_english_decode_request_never_contains_locale_instructions(engine,monkeypatch,region):
+    engine.config.english_variant=region
+    requests=[]
+    def decode(audio,**options):
+        requests.append(options)
+        return {'text':'Recognized speech.'}
+    monkeypatch.setattr(module.mlx_whisper,'transcribe',decode)
+    assert engine.transcribe(np.ones(16000,np.float32))=='Recognized speech.'
+    assert 'initial_prompt' not in requests[0]

@@ -7,8 +7,9 @@ is production ready. The original 33 findings remain available in
 
 ## Approved behavior
 
-- English remains the default; US, UK and India are regional spelling hints
-  using the same model, not separate accent models.
+- English remains the default. US, UK and India use the shared English
+  recognizer with no forced regional spelling. User approved removing spelling
+  instructions after a diagnostic showed invented text.
 - Offline dictation remains the default and only processing mode implemented.
   No microphone audio, transcripts, API keys or identifiers are uploaded.
 - Base multilingual is a separate optional download, never a replacement for
@@ -79,7 +80,8 @@ running native model call; shutdown may still wait for that call.
 **Management and neutral defaults: G08,G16.** History and dictionary have
 backend pagination/search and Load more controls. Search treats SQL wildcard
 characters literally. New users no longer receive a developer/AI vocabulary
-seed. Existing dictionary entries are preserved; users may remove them normally.
+seed. Only approved dictionary terms condition recognition; generated app/style
+  instructions have been removed. Existing dictionary entries are preserved; users may remove them normally.
 
 **Multilingual provisioning: G02, experimental foundation.** Local model
 compatibility is validated before saving a language/model change. Downloads use
@@ -94,7 +96,7 @@ automatic scavenger for previous-process leftovers.
 
 ## Executed verification
 
-- Local full suite: **188 passed, 2 skipped** after the final source fixes. The two
+- Local full suite: **192 passed, 2 skipped** after the final source fixes. The two
   skips require native Windows/Linux execution. Tests include queued-start
   cancellation, paste-delay cancellation, truncated WAV partial recovery,
   bounded windows/tail coverage, pack corruption/cache invalidation, blocked
@@ -112,6 +114,41 @@ automatic scavenger for previous-process leftovers.
   establish executed platform or physical-device acceptance.
 - Diagnostic self-check now uses a nonzero tone: exact silence is deliberately
   skipped by the engine and therefore cannot prove decoder execution.
+
+## Long-session allocation and prompt checks
+
+A controlled DSP/allocation diagnostic replayed equivalent 16 kHz mono PCM16
+files through the former whole-file workflow and the new bounded-window
+workflow. The generated 440 Hz tone and mocked decoder isolate preprocessing;
+this does not measure speech quality or full application memory. Each case ran
+in a fresh process, with filesystem cache uncontrolled. Peak includes imports
+and file preparation; CPU/elapsed cover processing only.
+
+- One minute: whole-file peak 132,448,256 bytes, elapsed 0.01637 s, CPU 0.01544 s;
+  windows 113,688,576 bytes, elapsed 0.01433 s, CPU 0.01434 s.
+- Ten minutes: whole-file peak 468,631,552 bytes (446.9 MiB), elapsed 0.16444 s,
+  CPU 0.16406 s; windows 122,290,176 bytes (116.6 MiB), elapsed 0.13009 s,
+  CPU 0.13007 s. Both delivered all 9,600,000 frames to the mocked decoder.
+- Full ASR/UI/process-family CPU, GPU, token cost and peak memory were not
+  measured by this allocation test. Single runs do not establish latency
+  guarantees, and changed pause positions/window normalization still need
+  representative speech testing.
+
+A separate repeated-English diagnostic exposed invented repetitions and echoed
+spelling instructions. Isolating/removing the generated locale instruction
+restored all expected words in that run. User approved removing English locale
+instructions for US/UK/India; no regional spelling is now forced. Generated
+coding/app instructions were removed too; only approved dictionary terms
+condition ASR. Regression tests inspect actual decoder requests, not only the
+language-label helper.
+
+A retained fresh-process follow-up used eight repetitions of one locally
+synthesized sentence. The recreated old locale hint produced 1 normalized word
+error in 80 reference words; corrected source produced 0/80. The earlier
+hallucinated run was more severe, so severity is not deterministic. This narrow
+probe establishes neither universal English accuracy nor a fix for all model
+hallucinations. Raw follow-up audio/outputs and the allocation script/results
+are retained in the local audit evidence bundle.
 
 ## Hindi model evaluation
 

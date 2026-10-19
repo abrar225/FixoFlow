@@ -140,12 +140,10 @@ class AdaptiveLearner:
 
         return text, fixes
 
-    def get_dynamic_prompt_conditioning(self, app_name: str, mode: str = "auto") -> str:
-        """Synthesize the Whisper initial prompt from approved vocabulary."""
+    def get_vocabulary_prompt(self) -> str:
+        """Only approved terms condition ASR; app/style instructions are not speech."""
         top_terms = self.db.get_vocabulary_prompt_terms(limit=25)
         terms = list(dict.fromkeys(top_terms))
         terms_str = ", ".join(terms[:25])
 
-        if mode == "coding" or (mode == "auto" and self.is_coding_context(app_name)):
-            return f"Coding and AI prompt context: {terms_str}. Clean, precise code symbols and terminology."
-        return f"Vocabulary: {terms_str}." if terms_str else ""
+        return terms_str

@@ -40,7 +40,7 @@ def test_coordinator_lifecycle(coordinator):
     assert coordinator.state == 'IDLE'
     assert text == 'parseConfig'
     assert coordinator.last_error == ''
-    assert 'Coding' in coordinator.stt.transcribe_file.call_args.kwargs['initial_prompt']
+    assert coordinator.stt.transcribe_file.call_args.kwargs['initial_prompt'] == ''
     assert coordinator.db.get_history()[0]['final_text'] == 'parseConfig'
 
 

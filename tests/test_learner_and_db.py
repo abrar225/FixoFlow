@@ -70,7 +70,7 @@ def test_dynamic_prompt_conditioning():
 
         # Add custom technical vocabulary
         db.upsert_word("superfast api", "SuperFastAPI", category="code")
-        prompt = learner.get_dynamic_prompt_conditioning("Terminal", mode="coding")
+        prompt = learner.get_vocabulary_prompt()
         assert "SuperFastAPI" in prompt
 
 
@@ -185,3 +185,10 @@ def test_longest_valid_dictionary_match_does_not_hide_shorter_term(tmp_path):
     assert learner.format_for_mode('new yorker and new york', 'writing','Mail')=='fresh Yorker and NY'
     db.upsert_word('नाम','पहचान')
     assert learner.format_for_mode('नामों नाम','writing','Mail')=='नामों पहचान'
+
+
+def test_vocabulary_prompt_does_not_invent_app_or_format_instructions(tmp_path):
+    db=FixoflowDB(tmp_path/'dictionary.sqlite');learner=AdaptiveLearner(db)
+    assert learner.get_vocabulary_prompt()==''
+    db.upsert_word('maya desai','Maya Desai')
+    assert learner.get_vocabulary_prompt()=='Maya Desai'

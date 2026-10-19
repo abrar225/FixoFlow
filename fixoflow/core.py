@@ -142,7 +142,7 @@ class FixoflowCoordinator:
                 return ""
 
             # 2. Transcribe with prompt conditioning and pause slicing
-            prompt = self.learner.get_dynamic_prompt_conditioning(target_app, self.config.mode)
+            prompt = self.learner.get_vocabulary_prompt()
             raw_text = self.stt.transcribe_file(session_path, initial_prompt=prompt, cancelled=self._cancel_requested.is_set)
             if not raw_text:
                 self.last_error = "No speech detected"

@@ -16,7 +16,9 @@ def language_prompt(language, english_variant="en-US"):
     if language == 'ja':
         return '日本語の文字起こしです。翻訳せず、元の言語で記録します。'
     if language == 'en':
-        return {'en-US':'English transcription. Prefer US English spelling.', 'en-GB':'English transcription. Prefer British English spelling.', 'en-IN':'English transcription. Prefer Indian English spelling.'}[english_variant]
+        # Whisper conditions on transcript-like text; locale instructions can
+        # be echoed as invented speech. All English varieties share a model.
+        return ''
     return ''  # No English prose injected into other languages/auto detection.
 
 

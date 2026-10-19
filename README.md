@@ -35,8 +35,7 @@ English remains the default. Settings can explicitly install a separate pinned
 Base multilingual pack (about 150 MB) without replacing the bundled English model.
 The 99-language selector includes Hindi, Chinese, Japanese and other Whisper
 languages. All multilingual options are **experimental**, not an accuracy claim;
-Hindi has substantial measured errors. US/UK/India English are spelling hints
-using the same recognition model. Simplified Chinese and Hindi script are prompt
+Hindi has substantial measured errors. US/UK/India English share the same recognition model; no regional spelling is forced. Simplified Chinese and Hindi script are prompt
 preferences, not guaranteed script conversion. No cloud processing is enabled.
 See [implementation status and measured limitations](docs/11-reliability-and-multilingual-preview.md).
 
