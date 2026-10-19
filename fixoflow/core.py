@@ -64,7 +64,8 @@ class FixoflowCoordinator:
         """Stage changed resources before saving; keep warm inference otherwise."""
         candidate.validate()
         if self.state != 'IDLE':
-            raise RuntimeError('Finish dictation before changing settings.')
+            from fixoflow.settings import SettingsBusy
+            raise SettingsBusy('Finish dictation before changing settings.')
         replacement = None
         if any(getattr(candidate, key) != getattr(self.config, key) for key in ('model_name', 'cpu_threads', 'language')):
             replacement = create_stt_engine(candidate)

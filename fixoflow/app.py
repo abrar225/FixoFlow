@@ -141,6 +141,11 @@ class MenuDelegate(NSObject):
         self.openHub_(None)
         return True
 
+    def applicationDidFinishLaunching_(self, notification):
+        from fixoflow.startup import launched_at_login
+        if self.app_instance:
+            self.app_instance._login_launch = launched_at_login()
+
     def reopen_(self, notification):
         self.openHub_(None)
 
@@ -198,6 +203,9 @@ class MenuDelegate(NSObject):
 class FixoflowApp:
     def __init__(self):
         self.config = FixoflowConfig.load()
+        from fixoflow.startup import StartupService
+        self.startup = StartupService()
+        self._login_launch = False
         self.ns_app = AppKit.NSApplication.sharedApplication()
         # A regular app: Fixoflow keeps a Dock icon and joins the app switcher,
         # while the floating pill stays a nonactivating panel.
@@ -217,6 +225,8 @@ class FixoflowApp:
         )
         self.hub.config = self.config
         self.hub.on_config_change = self.apply_config
+        self.hub.on_startup_status = self.startup.snapshot
+        self.hub.on_open_startup_settings = self.startup.open_settings
         self.hub.on_enable_shortcut = self.enable_shortcut
         self.hub.on_show_overlay = self.show_overlay
         self.hub.on_control_status = self.control_status
@@ -329,27 +339,31 @@ class FixoflowApp:
         if url:
             AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_(url))
 
-    def apply_config(self, candidate):
+    def apply_config(self, candidate, *, startup_requested=False):
+        from fixoflow.settings import SettingsBusy
         candidate.validate()
         if candidate.auto_install_updates and self.updates.signed_updater is None:
             raise ValueError('Automatic installation needs a signed update feed. Manual update checks are available.')
         if self.daemon.controls.state != 'IDLE':
-            raise RuntimeError('Finish the current dictation before changing settings.')
+            raise SettingsBusy('Waiting until dictation finishes…')
         if self.daemon.router.quarantined and self.daemon.router.pressed:
-            raise RuntimeError('Release the captured keys or mouse button before saving.')
-        from fixoflow.audio.recorder import AudioRecorder
-        from fixoflow.stt.engine import create_stt_engine
-        from fixoflow.brain.polisher import TextPolisher
+            raise SettingsBusy('Release the captured keys or mouse button to apply changes.')
+        bindings_changed = any(getattr(candidate, key) != getattr(self.config, key)
+                               for key in ('hold_shortcut', 'hands_free_shortcut'))
         # Stop input before taking the session lock: an input callback may be
         # waiting on that lock. Holding it while joining would deadlock.
-        self.daemon.stop_listener()
+        if bindings_changed:
+            self.daemon.stop_listener()
         def update():
-            self.daemon.coordinator.apply_config(candidate)
-            self.daemon.configure_shortcuts()
+            self.startup.commit(self.config, candidate,
+                lambda: self.daemon.coordinator.apply_config(candidate), explicit=startup_requested)
+            if bindings_changed:
+                self.daemon.configure_shortcuts()
         try:
             self.daemon.controls.configure(update)
         finally:
-            self.enable_shortcut()
+            if bindings_changed:
+                self.enable_shortcut()
         self.daemon.coordinator.overlay.configure(self.config)
         self._update_menu_mode_checks()
         self.updates.set_automatic(self.config.auto_install_updates)
@@ -460,10 +474,11 @@ class FixoflowApp:
             return
         if zone == self.config.overlay_position:
             return
+        from dataclasses import replace
+        replace(self.config, overlay_position=zone).save()
         self.config.overlay_position = zone
-        self.config.save()
         self.hub.config = self.config
-        self.hub.handle_action("getConfig", {})
+        self.hub._eval_js(f"onPillPositionData({json.dumps(zone)});")
         logger.info("Floating pill placed at: %s", zone)
 
     def set_mode(self, mode: str):
@@ -479,6 +494,11 @@ class FixoflowApp:
     def run(self, show_hub_on_launch: bool = True):
         self._running = True
         self.ns_app.finishLaunching()
+        try:
+            self.startup.initialize(self.config)
+        except Exception as error:
+            self.startup.error = str(error)
+            logger.warning('Login registration: %s', error)
         logger.info("Launching Fixoflow Native macOS App...")
 
         def signal_handler(sig, frame):
@@ -495,7 +515,7 @@ class FixoflowApp:
 
         self.daemon.coordinator.overlay.show_idle()
 
-        if show_hub_on_launch:
+        if show_hub_on_launch and not self._login_launch:
             self.hub.show()
         if self.config.check_updates_on_launch:
             self.updates.check(manual=False)

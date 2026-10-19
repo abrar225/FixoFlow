@@ -78,10 +78,11 @@ def check(hub):
     evaluate(view, "switchTab('style'); document.querySelector('#styleGrid [aria-checked=true]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));")
     assert evaluate(view, "document.querySelector('#styleGrid [aria-checked=true] .style-name').textContent") == 'Concise'
     assert evaluate(view, "document.getElementById('stylePreview').textContent") == "I can't wait to share the idea."
-    evaluate(view, "selectOutputStyle('professional'); saveStyle();")
+    evaluate(view, "selectOutputStyle('professional');")
     pump()
+    pump(1.1)
     assert hub.config.output_style == 'professional'
-    assert 'Preferences applied' in evaluate(view, "document.getElementById('styleResult').textContent")
+    assert 'Saved automatically' in evaluate(view, "document.getElementById('styleResult').textContent")
     evaluate(view, "switchTab('settings'); selectPillPosition('top-center'); startShortcutRecording('hold_shortcut');")
     pump()
     hub._check_router.input(('keyboard',62),'ctrl_r',True)
@@ -93,8 +94,7 @@ def check(hub):
     hub._check_router.input(('mouse',4),'mouse:4',True)
     hub._check_router.input(('mouse',4),'mouse:4',False)
     pump()
-    evaluate(view, "saveSettings();")
-    pump()
+    pump(1.1)
     assert hub.config.overlay_position == 'top-center', evaluate(view, "document.getElementById('settingsResult').textContent")
     assert hub.config.hold_shortcut['keys'] == ['ctrl_r']
     assert hub.config.hands_free_shortcut['keys'] == ['mouse:4']
@@ -110,9 +110,43 @@ def check(hub):
     assert evaluate(view, "document.getElementById('cfgLanguage').options.length") == 100
     assert evaluate(view, "document.getElementById('cfgLanguage').value") == 'en'
     assert not evaluate(view, "document.getElementById('cfgSpokenCommands').checked")
-    evaluate(view, "document.getElementById('cfgLanguage').value='hi'; document.getElementById('cfgLanguage').dispatchEvent(new Event('change')); saveSettings();")
+    evaluate(view, "document.getElementById('cfgLanguage').value='hi'; document.getElementById('cfgLanguage').dispatchEvent(new Event('change'));")
     pump()
+    pump(1.1)
     assert hub.config.language == 'hi' and hub.config.model_name == 'multilingual-base'
+    # A late acknowledgement cannot replace a newer style selection.
+    evaluate(view, "window.realPreferenceResult=onPreferencesResult; window.delayedPreferenceResult=null; onPreferencesResult=result=>{window.delayedPreferenceResult=result}; selectOutputStyle('natural');")
+    pump(1.1)
+    assert hub.config.output_style == 'natural'
+    evaluate(view, "selectOutputStyle('concise'); onPreferencesResult=window.realPreferenceResult; onPreferencesResult(window.delayedPreferenceResult);")
+    assert evaluate(view, "styleSelection") == 'concise'
+    pump(1.1)
+    assert hub.config.output_style == 'concise'
+    # Coalesced changes wait for active dictation; no manual save is involved.
+    evaluate(view, "onControlStatus({state:'RECORDING',shortcut_active:false}); document.getElementById('cfgSounds').checked=false; document.getElementById('cfgSounds').dispatchEvent(new Event('change'));")
+    pump(1.1)
+    assert hub.config.sound_enabled
+    assert 'Waiting' in evaluate(view, "document.getElementById('settingsResult').textContent")
+    evaluate(view, "onControlStatus({state:'IDLE',shortcut_active:false});")
+    pump(.8)
+    assert not hub.config.sound_enabled
+    assert not hub.preferences_pending
+    evaluate(view, "document.getElementById('cfgStartAtLogin').checked=false; document.getElementById('cfgStartAtLogin').dispatchEvent(new Event('change'));")
+    pump(1.1)
+    assert not hub.config.start_at_login
+    assert evaluate(view, "document.querySelectorAll('.save-button').length") == 0
+    # A failed apply is visible, retains the choice and supports explicit retry.
+    apply_preferences=hub.on_config_change
+    hub.on_config_change=lambda candidate: (_ for _ in ()).throw(OSError('Test disk unavailable'))
+    evaluate(view, "selectOutputStyle('professional');")
+    pump(1.1)
+    assert hub.config.output_style == 'concise'
+    assert 'Not saved' in evaluate(view, "document.getElementById('styleResult').textContent")
+    assert not evaluate(view, "document.querySelector('[data-settings-retry]').hidden")
+    hub.on_config_change=apply_preferences
+    evaluate(view, "retryPreferences();")
+    pump(.2)
+    assert hub.config.output_style == 'professional' and not hub.preferences_pending
     # Page through the real database, then search beyond the first page.
     for i in range(55):hub.db.record_session('raw', f'Page item {i}', 'Editor', 1, 1)
     evaluate(view, "document.getElementById('historySearch').value=''; switchTab('history')")
@@ -142,7 +176,7 @@ def check(hub):
         assert evaluate(view, "document.querySelector('.content-area').scrollWidth <= document.querySelector('.content-area').clientWidth"), tab
     print(json.dumps({'native_webkit': 'ok', 'panels': 6, 'local_font_and_logo': 'ok',
                       'dictionary': 'ok', 'history_search_and_escaping': 'ok',
-                      'style_and_settings_bridge': 'ok', 'minimum_window': 'ok',
+                      'debounced_autosave_busy_retry_and_late_ack': 'ok', 'startup_toggle_isolated': 'ok', 'minimum_window': 'ok',
                       'language_and_commands': 'ok', 'history_and_dictionary_paging':'ok', 'desktop_permission_visibility':'ok',
                       'microphone_opened': False, 'user_data_modified': False}))
     print('VERDICT: PASS', flush=True)
@@ -168,9 +202,11 @@ def main():
              patch('fixoflow.model_packs.ModelPackManager', return_value=SimpleNamespace(snapshot=lambda: {'state':'ready','message':'Installed test pack'},close=lambda:True)):
             hub = HubManager()
             assert hub._window is not None and hub._webview is not None
-            def apply(candidate):
+            def apply(candidate, **kwargs):
+                candidate.validate()
                 hub.config = candidate
             hub.on_config_change = apply
+            hub.on_startup_status = lambda: {'supported':True,'enabled':hub.config.start_at_login,'approval':False,'message':'Isolated startup preview'}
             controls = SimpleNamespace(state='IDLE')
             hub._check_router = ShortcutRouter(hub.config.hold_shortcut,hub.config.hands_free_shortcut,controls)
             def capture(field):

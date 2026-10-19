@@ -5,6 +5,9 @@ from fixoflow.platform import permission_snapshot, request_all_permissions, copy
 
 class HubController:
     def close_model_packs(self):
+        if getattr(self, 'preferences_pending', False):
+            self._eval_js("flushPreferences(); onSettingsResult(true,'Preferences are still saving. Please retry Quit after they finish.');")
+            return False
         manager=getattr(self,'model_packs',None)
         if manager is None or manager.close():return True
         self._eval_js("onSettingsResult(false,'Model download is stopping or needs cleanup. Please retry Quit in a moment.');")
@@ -15,7 +18,21 @@ class HubController:
 
     def handle_action(self, action: str, payload):
         """Processes IPC messages coming from hub.html UI."""
-        if action in {'getLanguageOptions','installModelPack','cancelModelPack'}:
+        if action == 'preferencesPending':
+            self.preferences_pending = payload.get('pending') is True
+        elif action in {'getStartupStatus','openStartupSettings'}:
+            if action == 'openStartupSettings':
+                callback = getattr(self, 'on_open_startup_settings', None)
+                if callback:
+                    try:
+                        callback()
+                    except Exception as error:
+                        self._eval_js(f"document.getElementById('startupStatus').textContent={json.dumps(str(error))};")
+                        return
+            callback = getattr(self, 'on_startup_status', None)
+            if callback:
+                self._eval_js(f"onStartupData({json.dumps(callback())});")
+        elif action in {'getLanguageOptions','installModelPack','cancelModelPack'}:
             from fixoflow.languages import options, ENGLISH_VARIANTS
             from fixoflow.model_packs import ModelPackManager
             if not hasattr(self,'model_packs'):self.model_packs=ModelPackManager()
@@ -160,21 +177,46 @@ class HubController:
             js = f"onConfigData({json.dumps(asdict(self.config))});"
             self._eval_js(js)
             self._publish_permissions()
+            startup = getattr(self, 'on_startup_status', None)
+            if startup:
+                self._eval_js(f"onStartupData({json.dumps(startup())});")
 
-        elif action == "saveConfig":
+        elif action in {"saveConfig", "autosaveConfig"}:
+            from fixoflow.settings import SettingsBusy
+            automatic = action == 'autosaveConfig'
+            request_id = payload.get('request_id')
+            def reply(status, message):
+                if automatic:
+                    self._eval_js(f"onPreferencesResult({json.dumps({'request_id':request_id,'status':status,'message':message})});")
+                else:
+                    self._eval_js(f"onSettingsResult({str(status == 'saved').lower()}, {json.dumps(message)});")
             cfg_dict = payload.get("config") if hasattr(payload, "get") else {}
-            if cfg_dict:
+            if isinstance(cfg_dict, dict) and cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant"}
+                    allowed = {"mode", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)
                     candidate.validate()
                     if self.on_config_change is None:
                         raise RuntimeError("Open the full Fixoflow application to change dictation settings.")
-                    self.on_config_change(candidate)
-                    self._eval_js("onSettingsResult(true, 'Preferences applied.');")
-                    self.handle_action("getConfig", {})
+                    status = self.on_control_status() if self.on_control_status else {}
+                    if status.get('state', 'IDLE') != 'IDLE':
+                        raise SettingsBusy('Waiting until dictation finishes…')
+                    if 'start_at_login' in cfg_dict:
+                        self.on_config_change(candidate, startup_requested=True)
+                    else:
+                        self.on_config_change(candidate)
+                    reply('saved', 'Saved automatically.' if automatic else 'Preferences applied.')
+                    if not automatic:
+                        self.handle_action("getConfig", {})
+                    startup = getattr(self, 'on_startup_status', None)
+                    if startup:
+                        self._eval_js(f"onStartupData({json.dumps(startup())});")
+                except SettingsBusy as error:
+                    reply('waiting', str(error))
                 except Exception as e:
-                    self._eval_js(f"onSettingsResult(false, {json.dumps(str(e))});")
+                    reply('error', str(e))
+            else:
+                reply('error', 'No valid preference changes were received.')

@@ -20,7 +20,7 @@ jobs:
       - name: Install portable test dependencies
         run: python -m pip install pytest numpy scipy
       - name: Test shared contracts without native UI or a speech model
-        run: python -m pytest tests/test_config.py tests/test_controls.py tests/test_updates.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_languages.py tests/test_session_deletion.py tests/test_stt.py -q
+        run: python -m pytest tests/test_config.py tests/test_startup.py tests/test_controls.py tests/test_updates.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_languages.py tests/test_session_deletion.py tests/test_stt.py -q
       - name: Test the Windows decoder contract
         if: runner.os != 'macOS'
         run: python -m pytest tests/test_cpu_stt.py -q

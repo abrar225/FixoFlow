@@ -110,7 +110,8 @@ class DictationControls:
         """Exclude new gestures while applying settings to an idle session."""
         with self._lock:
             if self._intent != 'IDLE' or self._closed:
-                raise RuntimeError('Finish the current dictation before changing settings.')
+                from fixoflow.settings import SettingsBusy
+                raise SettingsBusy('Finish the current dictation before changing settings.')
             update()
             self._hold_down = False
             self._hold_session = None

@@ -3,11 +3,11 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from fixoflow.config import FixoflowConfig
-from fixoflow.ui import hub
+from fixoflow.ui.controller import HubController
 
 
 def manager():
-    ui = hub.HubManager.__new__(hub.HubManager)
+    ui = HubController.__new__(HubController)
     ui.config = FixoflowConfig(initial_prompt='Keep the selected prompt')
     ui._eval_js = Mock()
     ui.on_control_status = lambda: {'state':'IDLE','shortcut_active':False}
@@ -148,3 +148,37 @@ def test_permission_refresh_does_not_reload_unsaved_preferences(monkeypatch):
     ui.handle_action('getPermissions', {})
     assert ui._eval_js.call_count == 1
     assert ui._eval_js.call_args.args[0].startswith('onPermissionData(')
+
+
+def test_autosave_replies_with_identity_without_reloading_newer_draft():
+    ui=manager();ui.on_config_change=Mock()
+    ui.handle_action('autosaveConfig',{'request_id':7,'config':{'sound_enabled':False}})
+    ui.on_config_change.assert_called_once()
+    scripts=[call.args[0] for call in ui._eval_js.call_args_list]
+    assert not any(s.startswith('onConfigData(') for s in scripts)
+    result=json.loads(scripts[0][len('onPreferencesResult('):-2])
+    assert result=={'request_id':7,'status':'saved','message':'Saved automatically.'}
+
+
+def test_busy_autosave_defers_instead_of_changing_recording():
+    ui=manager();ui.on_config_change=Mock();ui.on_control_status=lambda:{'state':'PROCESSING'}
+    ui.handle_action('autosaveConfig',{'request_id':8,'config':{'sound_enabled':False}})
+    ui.on_config_change.assert_not_called()
+    result=json.loads(ui._eval_js.call_args.args[0][len('onPreferencesResult('):-2])
+    assert result['request_id']==8 and result['status']=='waiting'
+
+
+def test_startup_changes_are_explicit_but_internal_setup_marker_cannot_be_set():
+    ui=manager();ui.on_config_change=Mock()
+    ui.handle_action('autosaveConfig',{'request_id':9,'config':{'start_at_login':False,'login_setup_done':True}})
+    args,kwargs=ui.on_config_change.call_args
+    assert kwargs=={'startup_requested':True}
+    assert not args[0].start_at_login and not args[0].login_setup_done
+
+
+def test_pending_preferences_block_quit_until_acknowledged():
+    ui=manager()
+    ui.handle_action('preferencesPending',{'pending':True})
+    assert ui.close_model_packs() is False
+    ui.handle_action('preferencesPending',{'pending':False})
+    assert ui.close_model_packs() is True

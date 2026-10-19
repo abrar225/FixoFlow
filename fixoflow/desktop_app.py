@@ -35,7 +35,7 @@ class DesktopHub(HubController):
 
 
 class Bridge:
-    def __init__(self,callback):self._callback=callback;self._lock=threading.RLock()
+    def __init__(self,callback,lock=None):self._callback=callback;self._lock=lock if lock is not None else threading.RLock()
     def post(self,body):
         if not isinstance(body,dict) or not isinstance(body.get('action'),str):return False
         # One mutation at a time, just as Cocoa dispatches the bridge serially.
@@ -47,21 +47,26 @@ class Bridge:
 class DesktopApplication:
     def __init__(self,config,background=False,self_check=False,report=None):
         import webview
+        self._actions=threading.RLock()
         self._audio_level=0.0
         self._captures=queue.SimpleQueue()
         self.config=config;self.hub=DesktopHub(config);self._closed=threading.Event();self._loaded=threading.Event();self._error='';self._self_check=self_check;self.check_passed=False;self.report=report;self.restarting=False
+        from fixoflow.startup import StartupService
+        self.startup=StartupService()
         self.coordinator=FixoflowCoordinator(config,enable_overlay=False)
         self.coordinator.recorder.on_level_callback=self.audio_level
         self.controls=DictationControls(self.coordinator,config)
         self.inputs=DesktopInput(config,self.controls)
         self.updates=UpdateService(on_change=lambda status:self.hub._eval_js('onUpdateData('+json.dumps(status)+');'))
         ui=Path(__file__).parent/'ui'
-        self.hub.window=webview.create_window('Fixo Flow',str(ui/'hub.html'),js_api=Bridge(self.hub.handle_action),width=1040,height=740,min_size=(820,620),hidden=False,minimized=background)
-        self.pill=webview.create_window('Fixo Flow dictation',str(ui/'overlay.html'),js_api=Bridge(self.pill_action),width=600,height=96,hidden=True,frameless=True,focus=False,on_top=True,resizable=False,background_color='#eee9fb',easy_drag=False)
+        self.hub.window=webview.create_window('Fixo Flow',str(ui/'hub.html'),js_api=Bridge(self.hub.handle_action,self._actions),width=1040,height=740,min_size=(820,620),hidden=False,minimized=background)
+        self.pill=webview.create_window('Fixo Flow dictation',str(ui/'overlay.html'),js_api=Bridge(self.pill_action,self._actions),width=600,height=96,hidden=True,frameless=True,focus=False,on_top=True,resizable=False,background_color='#eee9fb',easy_drag=False)
         self.pill.events.loaded+=self.position_pill
         self.hub.window.events.loaded+=self.loaded
         self.hub.window.events.closing+=self.closing
         self.hub.on_config_change=self.apply_config
+        self.hub.on_startup_status=self.startup.snapshot
+        self.hub.on_open_startup_settings=self.startup.open_settings
         self.hub.on_enable_shortcut=self.enable_shortcut
         self.hub.on_show_overlay=self.pill.show
         self.hub.on_control_status=self.status
@@ -74,7 +79,8 @@ class DesktopApplication:
         self.hub.on_restart=self.restart
 
     def loaded(self):
-        try:self._load_content()
+        try:
+            with self._actions:self._load_content()
         except Exception:
             logging.getLogger(__name__).exception('Desktop content initialization failed')
             if self._self_check:self.hub.window.destroy()
@@ -100,6 +106,11 @@ class DesktopApplication:
             if sys.stdout:print(json.dumps(evidence),flush=True)
             self.hub.window.destroy()
         else:
+            try:self.startup.initialize(self.config)
+            except Exception as error:
+                self.startup.error=str(error)
+                logging.getLogger(__name__).warning('Login registration: %s',error)
+            self.hub._eval_js('onStartupData('+json.dumps(self.startup.snapshot())+');')
             self.enable_shortcut()
             if self.config.always_show_overlay:self.pill.show()
             if self.config.check_updates_on_launch:self.updates.check()
@@ -132,17 +143,21 @@ class DesktopApplication:
         if error:raise RuntimeError(error)
         self.inputs.begin_capture(lambda binding,message:self._captures.put({'field':field,'binding':binding,'message':message}))
 
-    def apply_config(self,candidate):
+    def apply_config(self,candidate,*,startup_requested=False):
+        from fixoflow.settings import SettingsBusy
         candidate.validate()
         if candidate.auto_install_updates:raise ValueError('Signed automatic installation is not configured for this preview.')
-        if self.controls.state!='IDLE':raise RuntimeError('Finish dictation before saving settings.')
-        if self.inputs.router.quarantined and self.inputs.router.pressed:raise RuntimeError('Release captured input before saving.')
-        self.inputs.stop()
+        if self.controls.state!='IDLE':raise SettingsBusy('Waiting until dictation finishes…')
+        if self.inputs.router.quarantined and self.inputs.router.pressed:raise SettingsBusy('Release captured input to apply changes.')
+        bindings_changed=any(getattr(candidate,key)!=getattr(self.config,key) for key in ('hold_shortcut','hands_free_shortcut'))
+        if bindings_changed:self.inputs.stop()
         def update():
-            self.coordinator.apply_config(candidate)
-            self.inputs.reconfigure();self.hub.config=self.config
+            self.startup.commit(self.config,candidate,lambda:self.coordinator.apply_config(candidate),explicit=startup_requested)
+            if bindings_changed:self.inputs.reconfigure()
+            self.hub.config=self.config
         try:self.controls.configure(update)
-        finally:self.enable_shortcut()
+        finally:
+            if bindings_changed:self.enable_shortcut()
         self.position_pill()
         if candidate.always_show_overlay:self.pill.show()
         elif self.controls.state == 'IDLE':self.pill.hide()
@@ -166,8 +181,11 @@ class DesktopApplication:
         elif action=='dragEnd':
             import webview
             screen=webview.screens[0];x=payload.get('x',screen.width/2);y=payload.get('y',screen.height)
-            self.config.overlay_position='top-center' if y<screen.height/2 else 'bottom-left' if x<screen.width/3 else 'bottom-right' if x>2*screen.width/3 else 'bottom-center'
-            self.config.save();self.position_pill()
+            from dataclasses import replace
+            zone='top-center' if y<screen.height/2 else 'bottom-left' if x<screen.width/3 else 'bottom-right' if x>2*screen.width/3 else 'bottom-center'
+            candidate=replace(self.config,overlay_position=zone)
+            candidate.save();self.config.overlay_position=zone;self.position_pill()
+            self.hub._eval_js('onPillPositionData('+json.dumps(zone)+');')
         elif action=='ready':self.position_pill()
 
     def poll(self):

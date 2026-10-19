@@ -18,7 +18,7 @@ a = Analysis(
            (str(model), "models/whisper")]
           + collect_data_files("mlx_whisper") + collect_data_files("mlx"),
     hiddenimports=["AppKit", "Foundation", "WebKit", "ApplicationServices", "Quartz",
-                   "AVFoundation", "UserNotifications",
+                   "AVFoundation", "UserNotifications", "ServiceManagement",
                    "pynput.keyboard._darwin", "pynput.mouse._darwin"]
                   + collect_submodules("tiktoken_ext") + collect_submodules("mlx")
                   + collect_submodules("scipy._external.array_api_compat"),

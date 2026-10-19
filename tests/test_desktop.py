@@ -98,3 +98,32 @@ def test_capture_callback_does_not_wait_for_native_ui():
     callback({'keys':['space']},'selected')
     application.hub._eval_js.assert_not_called()
     assert application._captures.get_nowait()['field']=='hold_shortcut'
+
+
+def test_hub_and_pill_bridges_share_one_mutation_owner():
+    lock=threading.RLock();active=[];seen=[]
+    def callback(action,payload):
+        assert not active
+        active.append(action);time.sleep(.01);seen.append(action);active.clear()
+    hub=Bridge(callback,lock);pill=Bridge(callback,lock)
+    workers=[threading.Thread(target=bridge.post,args=({'action':name},)) for bridge,name in ((hub,'settings'),(pill,'position'))]
+    for worker in workers:worker.start()
+    for worker in workers:worker.join()
+    assert sorted(seen)==['position','settings']
+
+
+def test_unrelated_preferences_keep_desktop_input_running():
+    from dataclasses import replace
+    from fixoflow.desktop_app import DesktopApplication
+    application=DesktopApplication.__new__(DesktopApplication)
+    application.config=FixoflowConfig()
+    application.controls=Mock(state='IDLE')
+    application.controls.configure.side_effect=lambda update:update()
+    application.inputs=Mock();application.inputs.router.quarantined=False
+    application.startup=Mock();application.startup.commit.side_effect=lambda config,candidate,apply,**kw:apply()
+    application.coordinator=Mock();application.hub=Mock();application.pill=Mock()
+    application.position_pill=Mock();application.enable_shortcut=Mock()
+    application.apply_config(replace(application.config,sound_enabled=False))
+    application.inputs.stop.assert_not_called();application.inputs.reconfigure.assert_not_called()
+    application.enable_shortcut.assert_not_called()
+    application.coordinator.apply_config.assert_called_once()

@@ -16,6 +16,7 @@ if __name__ == "__main__":
     if "--packaging-check" in sys.argv:
         import AppKit
         import WebKit
+        import ServiceManagement
         import sounddevice
         import mlx.core
         import mlx_whisper

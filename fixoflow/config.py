@@ -58,6 +58,8 @@ class FixoflowConfig:
     hands_free_shortcut: dict = field(default_factory=lambda: Shortcut.from_text('<alt>+<space>').as_dict())
     check_updates_on_launch: bool = True
     auto_install_updates: bool = False
+    start_at_login: bool = True
+    login_setup_done: bool = False  # Internal: do not override later OS changes.
     always_show_overlay: bool = True
     # Floating pill snap zone: "top-center", "bottom-left", "bottom-center"
     # or "bottom-right".
@@ -143,7 +145,7 @@ class FixoflowConfig:
             raise ValueError('Choose a supported English regional preference.')
         if self.language != 'en' and self.model_name in {'bundled-base.en','mlx-community/whisper-base.en-mlx','mlx-community/whisper-small.en-mlx'}:
             raise ValueError('Install and choose the Base multilingual pack for this language or auto detection.')
-        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands"):
+        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "start_at_login", "login_setup_done"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"{name} must be a boolean")
         if self.mode not in {"auto", "coding", "writing", "raw"}:

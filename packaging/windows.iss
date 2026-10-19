@@ -31,3 +31,15 @@ Name: "{autodesktop}\Fixo Flow"; Filename: "{app}\Fixoflow.exe"; Tasks: desktopi
 Name: desktopicon; Description: "Create a desktop shortcut"; Flags: unchecked
 [Run]
 Filename: "{app}\Fixoflow.exe"; Description: "Open Fixo Flow"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Command: String;
+begin
+  if CurUninstallStep = usUninstall then
+    if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'FixoFlow', Command) then
+      if (Command = '"' + ExpandConstant('{app}\Fixoflow.exe') + '" --background') or
+         (Command = ExpandConstant('{app}\Fixoflow.exe') + ' --background') then
+        RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'FixoFlow');
+end;

@@ -84,7 +84,7 @@
       <p class="subtitle">Pick how Fixo Flow shapes the transcript before it lands. Styles apply in writing mode — coding and raw modes always stay untouched.</p>
       <div class="style-grid" id="styleGrid" role="radiogroup" aria-label="Output style"></div>
       <div class="card-section"><div class="section-header">From your voice to your words</div><div class="style-input"><span>You say</span><p id="styleInput">Loading example…</p></div><div class="style-preview"><div class="style-preview-label">What “<span id="stylePreviewName">Natural</span>” does to your dictation</div><p id="stylePreview" role="status">Loading example…</p></div></div>
-      <div class="save-row"><p id="styleResult" data-settings-result role="status" aria-live="polite">Changes apply when you save.</p><button id="saveStyle" class="primary-btn save-button" data-default-label="Save style" onclick="saveStyle()">Save style</button></div>
+      <div class="save-row"><p id="styleResult" data-settings-result role="status" aria-live="polite">Changes save automatically after a short pause.</p><button class="action-btn" data-settings-retry hidden onclick="retryPreferences()">Retry saving</button></div>
     </section>
     <section id="viewHistory" class="view-panel hidden" aria-labelledby="historyTitle">
       <div class="heading-row"><h1 id="historyTitle" class="view-title">Your words, kept here.</h1><button class="action-btn delete" onclick="clearHistory()">Clear history</button></div>
@@ -100,6 +100,7 @@
     </section>
     <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
       <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
+      <div class="card-section"><div class="section-header">Startup</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgStartAtLogin">Start Fixo Flow when I sign in</label><span class="setting-desc">Start quietly with dictation controls available. The main window stays closed or minimized.</span><span id="startupStatus" class="setting-desc" role="status">Checking startup registration…</span><button id="manageStartup" class="action-btn" hidden onclick="post('openStartupSettings')">Manage in system settings</button></div><label class="switch"><input id="cfgStartAtLogin" type="checkbox" checked disabled><span aria-hidden="true"></span></label></div></div>
       <div class="card-section"><div class="section-header">Controls</div><div class="setting-group">
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show the floating pill at all times</label><span class="setting-desc">Keep the compact dictation pill visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgSounds">Recording sounds</label><span class="setting-desc">Play a sound when a recording starts and stops.</span></div><label class="switch"><input id="cfgSounds" type="checkbox" checked><span aria-hidden="true"></span></label></div>
@@ -107,7 +108,7 @@
         <div class="setting-row"><div class="setting-copy field-stack"><span class="setting-title">Your shortcuts</span><span class="setting-desc">Choose a key, a combination, or a mouse button for each action. Record the two actions separately.</span>
           <div class="shortcut-card"><div><strong id="holdShortcutTitle">Hold to talk</strong><p>Press and hold to speak. Release to write.</p></div><button type="button" id="holdShortcutRecorder" class="shortcut-recorder shortcut-capture-area" aria-labelledby="holdShortcutTitle holdShortcutLabel" onclick="startShortcutRecording('hold_shortcut')"><span id="holdShortcutLabel">Loading…</span></button></div>
           <div class="shortcut-card"><div><strong id="handsFreeShortcutTitle">Hands-free</strong><p>Press once to start. Press again to finish.</p></div><button type="button" id="handsFreeShortcutRecorder" class="shortcut-recorder shortcut-capture-area" aria-labelledby="handsFreeShortcutTitle handsFreeShortcutLabel" onclick="startShortcutRecording('hands_free_shortcut')"><span id="handsFreeShortcutLabel">Loading…</span></button></div>
-          <div id="shortcutCaptureControls" class="hidden"><button type="button" class="action-btn" onclick="stopShortcutRecording()">Cancel shortcut recording</button></div><p id="shortcutResult" class="warning" role="status">Click a shortcut, then press and release your choice. Escape cancels. Changes apply when you save.</p><p class="warning">Fn/Globe, standalone modifiers, letters, and exposed mouse buttons are supported. Caps Lock can toggle hands-free, but cannot act as a held key. System-reserved keys may be unavailable. Primary mouse clicks trigger dictation only outside this window.</p>
+          <div id="shortcutCaptureControls" class="hidden"><button type="button" class="action-btn" onclick="stopShortcutRecording()">Cancel shortcut recording</button></div><p id="shortcutResult" class="warning" role="status">Click a shortcut, then press and release your choice. Escape cancels. Changes save automatically after a short pause.</p><p class="warning">Fn/Globe, standalone modifiers, letters, and exposed mouse buttons are supported. Caps Lock can toggle hands-free, but cannot act as a held key. System-reserved keys may be unavailable. Primary mouse clicks trigger dictation only outside this window.</p>
         </div></div>
       </div></div>
       <div class="card-section"><div class="section-header">Dictation mode</div><p class="section-description">Choose how local formatting handles your transcript.</p><div class="mode-grid">
@@ -130,7 +131,7 @@
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAutoInstall">Automatically download signed updates</label><span id="autoUpdateHelp" class="setting-desc">Available when the signed update feed is configured.</span></div><label class="switch"><input id="cfgAutoInstall" type="checkbox" disabled><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><span id="updateStatus" role="status">Checking update configuration…</span><span id="updateVersion" class="setting-desc"></span></div><button id="checkUpdatesButton" class="action-btn" onclick="post('checkUpdates')">Check for updates</button></div>
       </div></div>
-      <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes apply when you save.</p><button id="savePreferences" class="primary-btn save-button" data-default-label="Save preferences" onclick="saveSettings()">Save preferences</button></div>
+      <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes save automatically after a short pause.</p><button class="action-btn" data-settings-retry hidden onclick="retryPreferences()">Retry saving</button></div>
     </section>
   </main>
   <script>
@@ -138,6 +139,12 @@
     let lastRuntimeState = null;
     let currentConfig = {};
     let configLoaded = false;
+    let savedConfig = {};
+    let pendingSettings = {};
+    let settingsRequest = null;
+    let settingsSequence = 0;
+    let settingsTimer = null;
+    let settingsFailed = false;
     function post(action, payload = {}) {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fixoflow) {
         window.webkit.messageHandlers.fixoflow.postMessage({ action, ...payload });
@@ -247,10 +254,6 @@
         result.textContent = message;
         result.dataset.result = ok ? 'success' : 'error';
       }
-      for (const button of document.querySelectorAll('.save-button')) {
-        button.disabled = false;
-        button.textContent = button.dataset.defaultLabel || button.textContent;
-      }
     }
     function onPermissionData(status) {
       const permission = value => value === true ? 'Allowed' : value === false ? 'Needed' : 'Unknown';
@@ -284,6 +287,10 @@
       document.getElementById('runtimeDetail').textContent = data.detail || (ready ? 'Your keyboard shortcut and floating bar are ready.' : 'Use the floating bar, or check permissions in Settings to enable your shortcut.');
     }
     function onConfigData(cfg) {
+      // Native refreshes (for example dragging the pill) never replace a draft.
+      const protectedDraft = {...(settingsRequest?.config || {}), ...pendingSettings};
+      savedConfig = {...cfg};
+      cfg = {...cfg, ...protectedDraft};
       currentConfig = {...cfg};
       configLoaded = true;
       renderShortcutRecorder();
@@ -300,6 +307,7 @@
       document.getElementById('cfgLanguage').value=cfg.language || 'auto';
       document.getElementById('cfgEnglishVariant').value=cfg.english_variant || 'en-US';
       post('getLanguageOptions');
+      document.getElementById('cfgStartAtLogin').checked = cfg.start_at_login !== false;
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
       document.getElementById('cfgCheckUpdates').checked = cfg.check_updates_on_launch === true;
       document.getElementById('cfgAutoInstall').checked = cfg.auto_install_updates === true;
@@ -312,10 +320,94 @@
       renderStyleOptions();
       selectMode(cfg.mode || 'auto', false);
     }
+    function preferenceValues() {
+      return {mode:currentConfig.mode, hold_shortcut:currentConfig.hold_shortcut,
+        hands_free_shortcut:currentConfig.hands_free_shortcut,output_style:currentConfig.output_style,
+        overlay_position:currentConfig.overlay_position,
+        language:document.getElementById('cfgLanguage').value==='auto'?null:(document.getElementById('cfgLanguage').value || currentConfig.language),
+        english_variant:document.getElementById('cfgEnglishVariant').value,
+        spoken_commands:document.getElementById('cfgSpokenCommands').checked,
+        cpu_threads:Number(document.getElementById('cfgCpuThreads').value),
+        model_name:document.getElementById('cfgModel').value,
+        always_show_overlay:document.getElementById('cfgAlwaysShow').checked,
+        sound_enabled:document.getElementById('cfgSounds').checked,
+        start_at_login:document.getElementById('cfgStartAtLogin').checked,
+        check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,
+        auto_install_updates:document.getElementById('cfgAutoInstall').checked};
+    }
+    const sameSetting = (a,b) => JSON.stringify(a) === JSON.stringify(b);
     function markUnsaved() {
-      for (const result of document.querySelectorAll('[data-settings-result]')) {
-        result.textContent = 'Changes apply when you save.';
-        delete result.dataset.result;
+      if (!configLoaded) return;
+      const values = preferenceValues();
+      for (const [key,value] of Object.entries(values)) {
+        const baseline = settingsRequest && key in settingsRequest.config ? settingsRequest.config[key] : savedConfig[key];
+        if (!sameSetting(value,baseline)) pendingSettings[key]=value;
+        else delete pendingSettings[key];
+      }
+      currentConfig = {...currentConfig,...values};
+      settingsFailed = false;
+      for (const button of document.querySelectorAll('[data-settings-retry]')) button.hidden=true;
+      post('preferencesPending',{pending:!!settingsRequest || !!Object.keys(pendingSettings).length});
+      clearTimeout(settingsTimer);
+      if (!Object.keys(pendingSettings).length) {
+        if (!settingsRequest) onSettingsResult(true,'All changes saved.');
+        return;
+      }
+      onSettingsResult(true,'Changes pending…');
+      settingsTimer=setTimeout(flushPreferences,800);
+    }
+    function flushPreferences() {
+      clearTimeout(settingsTimer);
+      if (settingsRequest || !configLoaded || settingsFailed) return;
+      if (!Object.keys(pendingSettings).length) {
+        post('preferencesPending',{pending:false});
+        onSettingsResult(true,'All changes saved.');
+        for (const button of document.querySelectorAll('[data-settings-retry]')) button.hidden=true;
+        return;
+      }
+      if (shortcutRecording || (lastRuntimeState && lastRuntimeState!=='IDLE')) {
+        onSettingsResult(true,shortcutRecording ? 'Finish choosing your shortcut to save.' : 'Waiting until dictation finishes…');
+        settingsTimer=setTimeout(flushPreferences,500);
+        return;
+      }
+      settingsRequest={request_id:++settingsSequence,config:{...pendingSettings}};
+      pendingSettings={};
+      onSettingsResult(true,'Saving…');
+      if (!post('autosaveConfig',settingsRequest)) {
+        onPreferencesResult({request_id:settingsRequest.request_id,status:'error',message:'Open Fixo Flow to save preferences.'});
+      }
+    }
+    function onPreferencesResult(result) {
+      if (!settingsRequest || result.request_id!==settingsRequest.request_id) return;
+      const sent=settingsRequest.config;
+      settingsRequest=null;
+      if (result.status==='saved') {
+        savedConfig={...savedConfig,...sent};
+        onSettingsResult(true,Object.keys(pendingSettings).length ? 'Changes pending…' : 'Saved automatically.');
+        if (Object.keys(pendingSettings).length) settingsTimer=setTimeout(flushPreferences,800);
+      } else {
+        pendingSettings={...sent,...pendingSettings};
+        if (result.status==='waiting') {
+          onSettingsResult(true,result.message);
+          settingsTimer=setTimeout(flushPreferences,500);
+        } else {
+          settingsFailed=true;
+          onSettingsResult(false,'Not saved: '+result.message+' Change the selection or retry.');
+        }
+      }
+      post('preferencesPending',{pending:!settingsFailed && (!!settingsRequest || !!Object.keys(pendingSettings).length)});
+      for (const button of document.querySelectorAll('[data-settings-retry]')) button.hidden=!settingsFailed;
+    }
+    function retryPreferences() { settingsFailed=false;post('preferencesPending',{pending:true});flushPreferences(); }
+    function onStartupData(data) {
+      const input=document.getElementById('cfgStartAtLogin');
+      input.disabled=!data.supported;
+      document.getElementById('startupStatus').textContent=data.message;
+      document.getElementById('manageStartup').hidden=!data.manage;
+      if (!('start_at_login' in pendingSettings) && !(settingsRequest && 'start_at_login' in settingsRequest.config)) {
+        input.checked=data.enabled || data.approval;
+        savedConfig.start_at_login=input.checked;
+        currentConfig.start_at_login=input.checked;
       }
     }
     function selectMode(mode, changed = true) {
@@ -355,8 +447,9 @@
     }
     function onShortcutCaptured(data) {
       if (!SHORTCUT_FIELDS[data.field]) return;
-      if (data.binding) { currentConfig[data.field] = data.binding; markUnsaved(); }
+      if (data.binding) currentConfig[data.field] = data.binding;
       shortcutRecording = null;
+      if (data.binding) markUnsaved();
       renderShortcutRecorder();
       document.getElementById('shortcutResult').textContent = data.message;
     }
@@ -393,6 +486,13 @@
         button.setAttribute('aria-checked', String(active));
         button.tabIndex = active ? 0 : -1;
       }
+    }
+    function onPillPositionData(zone) {
+      delete pendingSettings.overlay_position;
+      savedConfig.overlay_position=zone;
+      currentConfig.overlay_position=zone;
+      renderPillPosition();
+      post('preferencesPending',{pending:!settingsFailed && (!!settingsRequest || !!Object.keys(pendingSettings).length)});
     }
     function selectPillPosition(zone) { currentConfig.overlay_position = zone; renderPillPosition(); markUnsaved(); }
 
@@ -437,16 +537,6 @@
       renderStyleOptions();
       markUnsaved();
     }
-    function saveStyle() {
-      if (!configLoaded) { post('getConfig'); return; }
-      const button = document.getElementById('saveStyle');
-      const sent = post('saveConfig', {config:{output_style:currentConfig.output_style}});
-      if (sent) {
-        button.disabled = true;
-        button.textContent = 'Applying…';
-      } else onSettingsResult(false, 'Open Fixo Flow to apply this style.');
-    }
-
     /* ---- insights ------------------------------------------------------------ */
     function reducedMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     function countUp(node, target, decimals = 0, duration = 700) {
@@ -551,18 +641,6 @@
     function onHistoryResult(message) { document.getElementById('historyResult').textContent=message; }
     function clearHistory() { if (confirm('Delete all History transcripts and their linked audio from this device?')) post('clearHistory'); }
     function copyText(text) { post('copyText', {text}); }
-    function saveSettings() {
-      if (!configLoaded) { onSettingsResult(false, 'Settings are still loading. Reopen Settings and try again.'); return; }
-      if (shortcutRecording) { onSettingsResult(false, 'Finish shortcut recording before saving.'); return; }
-      const candidate = {...currentConfig,language:document.getElementById('cfgLanguage').value==='auto'?null:document.getElementById('cfgLanguage').value,english_variant:document.getElementById('cfgEnglishVariant').value,spoken_commands:document.getElementById('cfgSpokenCommands').checked,cpu_threads:Number(document.getElementById('cfgCpuThreads').value),model_name:document.getElementById('cfgModel').value,always_show_overlay:document.getElementById('cfgAlwaysShow').checked,sound_enabled:document.getElementById('cfgSounds').checked,check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,auto_install_updates:document.getElementById('cfgAutoInstall').checked};
-      const sent = post('saveConfig', {config:candidate});
-      if (sent) {
-        document.getElementById('settingsResult').textContent = 'Applying preferences…';
-        document.getElementById('settingsResult').removeAttribute('data-result');
-        document.getElementById('savePreferences').disabled = true;
-        document.getElementById('savePreferences').textContent = 'Applying…';
-      } else onSettingsResult(false, 'Open Fixo Flow to apply these preferences.');
-    }
     document.addEventListener('keydown', event => {
       const radio = event.target.closest('[role="radio"]');
       if (!radio || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) return;
@@ -595,6 +673,7 @@
         const model=document.getElementById('cfgModel');
         if ([...model.options].some(o=>o.value==='multilingual-base')) model.value='multilingual-base';
       }
+      markUnsaved();
     });
     function onDesktopPlatform(name) {
       document.getElementById('cpuBudget').classList.remove('hidden');
@@ -613,13 +692,13 @@
     }
     window.addEventListener('pywebviewready', () => { post('getConfig');post('getUpdateStatus');switchTab('dashboard'); });
     window.onload = () => {
-      document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('input', markUnsaved));
+      document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('change', markUnsaved));
       post('getConfig');
       post('getUpdateStatus');
       switchTab('dashboard');
     };
     window.addEventListener('blur', () => { if (shortcutRecording) stopShortcutRecording(); });
-    window.addEventListener('focus', () => { post('getPermissions'); post('getControlStatus'); });
+    window.addEventListener('focus', () => { post('getPermissions'); post('getControlStatus'); post('getStartupStatus'); });
   </script>
 </body>
 </html>
