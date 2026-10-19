@@ -60,3 +60,22 @@ native installer jobs in run `39262018113`. Website origin remains fixoflow.tech
 Post-deployment verification is retained under `dist/proprietary-release/`.
 Publisher signing, Apple notarization and physical-device acceptance remain
 separate requirements; privately distributed does not mean publicly trusted.
+
+## Published verification — 19 October 2026
+
+Version 0.3.3 is deployed on fixoflow.tech. Anonymous HTTP checks passed for all
+five product pages, robots.txt, sitemap.xml and the published update feed. All
+three complete public installer downloads matched the staged byte lengths and
+SHA-256 hashes. The installed Mac app's manual check displayed “Fixo Flow 0.3.3
+is up to date.” The live navigation, download tabs and footer were also inspected
+in the browser. Third-party notices remain bundled.
+
+Hostinger's static deployment replaces the document root, including existing
+downloads. For this transfer, the small static export was deployed first, then
+the exact compiled installers were restored directly from private build storage
+and verified on the server. The narrowly scoped authenticated transfer helper
+was removed; a subsequent Hostinger file listing confirmed its absence. Cache
+was cleared after the installers were restored. Future releases must include the
+installers in the complete export, or restore and verify them after the static
+deployment before announcing the release. Never assume an existing downloads
+directory survives deployment.
