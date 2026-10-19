@@ -152,9 +152,40 @@ romanization cannot recover words the recognizer missed.
 - Independent read-only review found three issues (Linux publication ownership,
   cross-window mutation serialization and blocking file lock); all were fixed
   and covered by regression checks. Final review found no remaining blockers.
-- Cross-platform CI, installed-app verification and artifact status are recorded
-  below as they complete; local checks alone do not establish Windows/Linux OS
-  session startup behavior.
+- Final Mac 0.3.1 source: `480854c`. The self-contained bundle is installed at
+  `/Applications/Fixoflow.app`; signature/resource/offline-model checks passed.
+  It uses the existing local signing identity and is not notarized. Settings,
+  History, recordings and dictionary were preserved.
+- Installed native acceptance: the app started, showed 0.3.1, registered with
+  macOS, and its startup toggle saved off without restarting. The entry
+  disappeared from System Settings → Open at Login. Turning it on saved and
+  restored the system entry; it was left **on**. This establishes actual
+  registration/unregistration, not a full logout/login cycle.
+- The Mac DMG was rebuilt and `hdiutil verify` passed. Preview filename:
+  `Fixoflow-0.3.1-macos-arm64.dmg`, 239,978,505 bytes. SHA-256:
+  `978c2769ae35f0ca111994bd94c106eeb6f8267dd3c5f0bb3ec9f2624788a479`.
+- Portable CI passed for `480854c` on macOS, Windows and Ubuntu:
+  [run 39208171622](https://github.com/abrar225/FixoFlow/actions/runs/39208171622).
+- Native package CI passed on the same source:
+  [run 39208171717](https://github.com/abrar225/FixoFlow/actions/runs/39208171717).
+  Windows: **177 passed, 6 platform-specific skips**; Linux: **181 passed,
+  2 platform-specific skips**. Both passed frozen UI/bundled decode, installer
+  generation, installation and installed-app checks. Windows registration was
+  tested against an isolated real HKCU key; Linux entry tests used temporary
+  directories. These are not interactive user-session reboot tests.
+- Preview archives (GitHub sign-in may be required):
+  [Windows x64 installer](https://github.com/abrar225/FixoFlow/actions/runs/39208171717/artifacts/12167095209),
+  [Linux x64 Debian installer](https://github.com/abrar225/FixoFlow/actions/runs/39208171717/artifacts/12166068715).
+  They are CI preview artifacts, not public releases or website updates. Signing
+  and broader physical-device acceptance gates from the prior release record
+  remain open.
+- Temporary 0.3.1 rebuild bundles were removed after final installed verification;
+  the previous 0.2.0 rollback bundle was retained.
+- The first Linux frozen UI run exposed a lock held across a synchronous
+  WebView callback. Mutation ownership was narrowed to the startup/configuration
+  write; callbacks run outside it. A cross-thread regression verifies that
+  content loading does not block bridge callbacks. The corrected frozen UI
+  check passed on the final native Linux runner.
 OS status may lag a successful registration change. The service keeps the requested checkbox while polling for up to 10 seconds, then reports any unconfirmed system state. This prevents a stale response immediately reverting a fresh toggle.
 
 Actual logout/reboot behavior requires interactive OS-session acceptance;
