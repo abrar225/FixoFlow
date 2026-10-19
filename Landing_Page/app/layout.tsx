@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { PRODUCT } from "@/lib/product";
 export const metadata: Metadata = {
-  metadataBase: new URL("https://fixoflow.app"),
+  metadataBase: new URL(PRODUCT.origin),
   title: {
     default: "Fixo Flow | A little freedom from your keyboard",
     template: "%s | Fixo Flow",

@@ -19,6 +19,10 @@ const questions = [
     "The bundled speech model runs on your computer, so dictation can work offline. Downloading the app and optional release checks need an internet connection. Startup checks can be disabled in Settings. The current bundled model is designed for English.",
   ],
   [
+    "Which languages are available?",
+    "This release supports English. US, UK and India English preferences share the same recognizer; they do not force regional spelling. Multilingual dictation, including Hindi and Roman Hinglish, is coming soon and remains in accuracy research.",
+  ],
+  [
     "What happens to my recordings?",
     "Fixo Flow keeps recordings, transcripts, dictionary entries, and preferences locally on your computer. Audio files are stored in the app’s local audio cache; they do not disappear just because you close the app. See the Privacy page for the storage locations.",
   ],

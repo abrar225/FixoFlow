@@ -10,7 +10,8 @@ import {
 import { AppIcon, DownloadLink } from "@/components/brand";
 import { PlatformDownloads } from "@/components/platform-downloads";
 import { PRODUCT } from "@/lib/product";
-export const metadata: Metadata = { title: "Download Fixo Flow" };
+import releases from "@/lib/releases.generated.json";
+export const metadata: Metadata = { alternates: { canonical: "/download/" }, title: "Download Fixo Flow" };
 const permissions = [
   {
     title: "Microphone",
@@ -74,6 +75,15 @@ export default function DownloadPage() {
         </div>
       </section>
       <PlatformDownloads />
+      <section className="download-help shell" id="release-notes">
+        <h2>What's new<br />in {releases.version}.</h2>
+        <div>
+          <p>Start quietly when you sign in, choose separate hold-to-talk and hands-free shortcuts, and let Settings save automatically after a short pause.</p>
+          <p>Clear spoken sequences become numbered lists in Writing mode and Automatic messaging mode. Your personal dictionary guides name spellings and corrects exact recurring mistakes. Strict Verbatim preserves the recognizer's text.</p>
+          <p>This release focuses on English. Multilingual dictation is coming soon. No additional language models are bundled or downloaded for it.</p>
+          <a className="text-link" href={`${PRODUCT.repository}/blob/9561054bc3329301cef19bfae0eec72c4aabcb46/docs/13-english-quality-and-multilingual-research.md`} target="_blank" rel="noopener noreferrer">Read the quality findings <ArrowUpRight size={16} /></a>
+        </div>
+      </section>
       <section className="install-section shell" id="setup">
         <div className="section-heading">
           <div>
@@ -85,8 +95,9 @@ export default function DownloadPage() {
             </h2>
           </div>
           <p>
-            Fixo Flow is an experimental, locally signed app. The current build
-            is not Apple notarized, so macOS may show a security notice.
+            {releases.platforms.find(platform => platform.id === "macos")?.publicTrustVerified
+              ? "This is an early release. Review the Mac permissions below before your first dictation."
+              : "Fixo Flow is an experimental, locally signed app. The current build is not Apple notarized, so macOS may show a security notice."}
           </p>
         </div>
         <ol className="install-steps">
@@ -177,7 +188,7 @@ export default function DownloadPage() {
           </p>
           <a
             className="text-link"
-            href={`${PRODUCT.repository}/blob/main/docs/packaging.md`}
+            href={`${PRODUCT.repository}/blob/19c8bf8/docs/08-multiplatform-release.md`}
             target="_blank"
             rel="noopener noreferrer"
           >

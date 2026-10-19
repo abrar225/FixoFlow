@@ -6,7 +6,7 @@ import {
 } from "@/components/product-sections";
 import { VoiceDemo } from "@/components/voice-demo";
 import { MotionScene } from "@/components/motion-scene";
-export const metadata: Metadata = { title: "Why Fixo Flow" };
+export const metadata: Metadata = { alternates: { canonical: "/features/" }, title: "Why Fixo Flow" };
 export default function FeaturesPage() {
   return (
     <MotionScene>

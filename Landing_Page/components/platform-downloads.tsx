@@ -15,7 +15,7 @@ export function PlatformDownloads() {
   const current = releases.platforms.find(p => p.id === selected)!;
   const steps = current.id === "windows" ? [
     ["Check the essentials.", "Use an x64 Windows PC with WebView2 and the Microsoft Visual C++ runtime installed. Windows 11 is the target; Windows 10 22H2 remains a compatibility target."],
-    ["Run the setup file.", "Open the downloaded setup and install for your user account. This preview is unsigned; only proceed with software you trust."],
+    ["Check the release status.", current.publicTrustVerified ? "The publisher signature was verified before staging. A new signed release can still receive SmartScreen reputation warnings. Keep Windows protection enabled." : "This preview is unsigned. Windows SmartScreen or Smart App Control may warn or block it. A verified publisher release is still in preparation; do not disable Windows protection to install it."],
     ["Give your voice a place to land.", "Open Fixo Flow, allow desktop microphone access, configure your two shortcuts in Settings, then click a text field and dictate."]
   ] : current.id === "linux" ? [
     ["Choose an X11 desktop.", "Use Ubuntu 24.04 x64 in an X11 session for global shortcuts and automatic paste. Other distributions and Wayland need further work."],
@@ -27,7 +27,7 @@ export function PlatformDownloads() {
     ["Make it yours.", "Restart the app, configure hold-to-talk and hands-free shortcuts, then click a text field and speak."]
   ];
   return <section className="platform-downloads shell" id="choose-system" aria-labelledby="platform-title">
-    <div className="section-heading"><div><p className="section-caption">A place for every voice</p><h2 id="platform-title">Choose your computer.</h2></div><p>Fixo Flow {releases.version}. English recognition runs locally. Each package includes its speech model.</p></div>
+    <div className="section-heading"><div><p className="section-caption">Fixo Flow {releases.version} · English preview</p><h2 id="platform-title">Choose your computer.</h2></div><p>English recognition runs locally. Each package includes its speech model. Multilingual dictation, including Hindi and Hinglish, is coming soon and is not available in this release.</p></div>
     <div className="platform-choices" role="group" aria-label="Operating system">
       {releases.platforms.map(platform => <button key={platform.id} type="button" className={`platform-choice ${selected === platform.id ? "selected" : ""}`} aria-pressed={selected === platform.id} onClick={() => setSelected(platform.id)}>
         {platform.id === "macos" ? <AppleLogo size={26} /> : <Monitor size={26} aria-hidden="true" />}
@@ -40,6 +40,7 @@ export function PlatformDownloads() {
       <div><h3>{current.name} · {current.architecture}</h3><p>{current.requirements}</p><p>{current.notes}</p><p className="platform-size">{current.bytes ? `${Math.ceil(current.bytes / 1024 / 1024)} MiB download · ` : ""}Processing speed and memory depend on your hardware. A dedicated GPU is optional.</p></div>
       {current.available && current.filename ? <a className="button" href={`/downloads/${current.filename}`} download><Download size={18} /> Download for {current.name}</a> : <span className="platform-pending">Installer not available yet</span>}
     </div>
+    {!current.publicTrustVerified && (current.id === "windows" || current.id === "macos") && <p className="platform-footnote">{current.id === "windows" ? "Why does Windows say “protected your PC”? This installer does not yet carry a trusted publisher signature. The warning concerns publisher identity and reputation, not your computer’s RAM or processor. Signing is required for our public release; even a newly signed release can initially receive reputation warnings." : "This Mac build is locally signed for development and has not been notarized by Apple. Public distribution with Developer ID and Apple notarization is still in preparation. Keep Gatekeeper enabled."}</p>}
     <div className="platform-install-guide"><h3>Get started on {current.name}</h3><ol>{steps.map(([title,text]) => <li key={title}><strong>{title}</strong><p>{text}</p></li>)}</ol>{current.id === "windows" && <p>Runtime help: <a href="https://developer.microsoft.com/microsoft-edge/webview2/" target="_blank" rel="noopener noreferrer">Microsoft WebView2</a> · <a href="https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist" target="_blank" rel="noopener noreferrer">Visual C++ runtime</a></p>}</div>
     <p className="platform-footnote">Windows and Linux packages are early previews. Native UI checks do not replace microphone, keyboard, and insertion testing on physical devices. For older PCs, start with the two-thread CPU setting. Linux single-key shortcuts may also reach the foreground app; modifier combinations are recommended. Smaller downloads and lower RAM are separate goals; no accuracy or speed guarantee is implied.</p>
   </section>;

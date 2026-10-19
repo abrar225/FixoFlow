@@ -3,7 +3,7 @@ import { ArrowUpRight, ClipboardCheck, Keyboard, Mic } from "lucide-react";
 import Link from "next/link";
 import { GettingStarted, ClosingCta } from "@/components/product-sections";
 import { MotionScene } from "@/components/motion-scene";
-export const metadata: Metadata = { title: "How it works" };
+export const metadata: Metadata = { alternates: { canonical: "/how-it-works/" }, title: "How it works" };
 export default function HowItWorksPage() {
   return (
     <MotionScene>

@@ -9,7 +9,7 @@ import {
 import { PrivacyStory, ClosingCta } from "@/components/product-sections";
 import { MotionScene } from "@/components/motion-scene";
 import { PRODUCT } from "@/lib/product";
-export const metadata: Metadata = { title: "Privacy" };
+export const metadata: Metadata = { alternates: { canonical: "/privacy/" }, title: "Privacy" };
 const storage = [
   {
     title: "Your preferences",

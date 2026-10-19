@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ArrowDown, AudioLines } from "lucide-react";
 import { DownloadLink } from "@/components/brand";
 import { VoiceDemo } from "@/components/voice-demo";
@@ -9,6 +10,8 @@ import {
   PrivacyStory,
 } from "@/components/product-sections";
 import { FaqAccordion } from "@/components/faq-accordion";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default function HomePage() {
   return (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Brand } from "./brand";
 import { PRODUCT } from "@/lib/product";
+import releases from "@/lib/releases.generated.json";
 export function Footer() {
   return (
     <footer className="site-footer">
@@ -33,7 +34,7 @@ export function Footer() {
           let it flow<span>↗</span>
         </div>
         <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} Fixo Flow contributors</span>
+          <span>© {new Date().getFullYear()} Fixo Flow contributors · v{releases.version} preview</span>
           <span>
             Made to be yours. Shared under the{" "}
             <a
