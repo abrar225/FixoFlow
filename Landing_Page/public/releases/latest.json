@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "version": "0.3.3",
+  "published": true,
+  "url": "https://fixoflow.tech/download/",
+  "notes": "Fixo Flow is free to use. This release uses public website downloads and update checks. English dictation runs locally. Multilingual dictation is coming soon."
+}
