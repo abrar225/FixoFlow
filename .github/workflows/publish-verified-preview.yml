@@ -1,0 +1,43 @@
+name: Publish verified preview installers
+on:
+  push:
+    branches: ['codex/multiplatform-release']
+    paths: ['.github/workflows/publish-verified-preview.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Require successful matching native build
+        run: |
+          gh api repos/$GH_REPO/actions/runs/39211980222 > run.json
+          jq -e '.conclusion == "success" and .head_sha == "9561054bc3329301cef19bfae0eec72c4aabcb46"' run.json
+          gh release view v0.3.2 --json isPrerelease,tagName | jq -e '.isPrerelease == true and .tagName == "v0.3.2"'
+          test "$(gh api repos/$GH_REPO/git/ref/tags/v0.3.2 --jq .object.sha)" = 9561054bc3329301cef19bfae0eec72c4aabcb46
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 39211980222
+          name: windows-preview
+          path: windows
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 39211980222
+          name: linux-preview
+          path: linux
+      - name: Verify exact installer bytes and native self-checks
+        run: |
+          echo '43a04c48bc6c5067b94ce8c74289ea36f5fad2b686ce5fe9dcc55c3d8c591250  windows/dist/Fixoflow-0.3.2-windows-x64-setup.exe' | sha256sum -c -
+          echo 'cbb57ead8d93abf2ac2b8b021bf6b69fc915ff80e4a820e6e73055ab755db13c  linux/dist/Fixoflow-0.3.2-linux-x64.deb' | sha256sum -c -
+          jq -e '.version == "0.3.2" and .platform == "win32" and .ui == "ok" and .local_inference == "executed"' windows/build/self-check.json
+          jq -e '.version == "0.3.2" and .platform == "linux" and .ui == "ok" and .local_inference == "executed"' linux/build/self-check.json
+      - name: Publish immutable preview files
+        run: gh release upload v0.3.2 windows/dist/Fixoflow-0.3.2-windows-x64-setup.exe linux/dist/Fixoflow-0.3.2-linux-x64.deb
