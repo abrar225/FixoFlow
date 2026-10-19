@@ -127,3 +127,21 @@ def test_unrelated_preferences_keep_desktop_input_running():
     application.inputs.stop.assert_not_called();application.inputs.reconfigure.assert_not_called()
     application.enable_shortcut.assert_not_called()
     application.coordinator.apply_config.assert_called_once()
+
+
+def test_content_loading_does_not_hold_bridge_mutation_lock():
+    from fixoflow.desktop_app import DesktopApplication
+    application=DesktopApplication.__new__(DesktopApplication)
+    application._self_check=True;application._actions=threading.RLock()
+    observed=[]
+    def content():
+        completed=threading.Event()
+        def bridge_callback():
+            with application._actions:completed.set()
+        worker=threading.Thread(target=bridge_callback)
+        worker.start()
+        observed.append(completed.wait(.5))
+        worker.join(timeout=.5)
+    application._load_content=content
+    application.loaded()
+    assert observed==[True]

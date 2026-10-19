@@ -80,7 +80,15 @@ class DesktopApplication:
 
     def loaded(self):
         try:
-            with self._actions:self._load_content()
+            if not self._self_check:
+                # Registration changes configuration once. Release mutation
+                # ownership before waiting on WebView/JS bridge callbacks.
+                with self._actions:
+                    try:self.startup.initialize(self.config)
+                    except Exception as error:
+                        self.startup.error=str(error)
+                        logging.getLogger(__name__).warning('Login registration: %s',error)
+            self._load_content()
         except Exception:
             logging.getLogger(__name__).exception('Desktop content initialization failed')
             if self._self_check:self.hub.window.destroy()
@@ -106,10 +114,6 @@ class DesktopApplication:
             if sys.stdout:print(json.dumps(evidence),flush=True)
             self.hub.window.destroy()
         else:
-            try:self.startup.initialize(self.config)
-            except Exception as error:
-                self.startup.error=str(error)
-                logging.getLogger(__name__).warning('Login registration: %s',error)
             self.hub._eval_js('onStartupData('+json.dumps(self.startup.snapshot())+');')
             self.enable_shortcut()
             if self.config.always_show_overlay:self.pill.show()

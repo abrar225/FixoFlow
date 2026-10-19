@@ -140,7 +140,7 @@ romanization cannot recover words the recognizer missed.
 
 ## Verification record
 
-- Full local suite: **210 passed, 3 skipped** (native Windows/Linux-only checks).
+- Full local suite: **213 passed, 3 skipped** (native Windows/Linux-only checks).
 - Native Cocoa/WebKit check: all six panels, actual bridge, rapid/debounced saves,
   late acknowledgements, dictation waiting, explicit retry, startup toggle,
   font/logo and minimum viewport passed with an isolated database and no user
@@ -155,5 +155,7 @@ romanization cannot recover words the recognizer missed.
 - Cross-platform CI, installed-app verification and artifact status are recorded
   below as they complete; local checks alone do not establish Windows/Linux OS
   session startup behavior.
+OS status may lag a successful registration change. The service keeps the requested checkbox while polling for up to 10 seconds, then reports any unconfirmed system state. This prevents a stale response immediately reverting a fresh toggle.
+
 Actual logout/reboot behavior requires interactive OS-session acceptance;
 simulated events and isolated registration tests cannot establish that coverage.

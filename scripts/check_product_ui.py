@@ -147,6 +147,11 @@ def check(hub):
     evaluate(view, "retryPreferences();")
     pump(.2)
     assert hub.config.output_style == 'professional' and not hub.preferences_pending
+    # OS status may briefly lag a just-applied startup request.
+    evaluate(view, "onStartupData({supported:true,enabled:true,approval:false,pending:true,requested:false,message:'Waiting for system confirmation'});")
+    assert not evaluate(view, "document.getElementById('cfgStartAtLogin').checked")
+    pump(.7)
+    assert not evaluate(view, "document.getElementById('cfgStartAtLogin').checked")
     # Page through the real database, then search beyond the first page.
     for i in range(55):hub.db.record_session('raw', f'Page item {i}', 'Editor', 1, 1)
     evaluate(view, "document.getElementById('historySearch').value=''; switchTab('history')")

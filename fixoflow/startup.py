@@ -12,6 +12,7 @@ import subprocess
 import stat
 import sys
 import tempfile
+import time
 
 
 class MacLogin:
@@ -167,6 +168,8 @@ class StartupService:
     def __init__(self, backend=None):
         self.backend = backend
         self.error = ''
+        self._pending = None
+        self._pending_since = 0.0
         if backend is not None or not getattr(sys, 'frozen', False):
             return
         executable = Path(sys.executable).resolve()
@@ -196,7 +199,18 @@ class StartupService:
                        'Starts quietly after you sign in.' if enabled else 'Automatic startup is off.')
             if sys.platform == 'win32' and self.backend:
                 message = ('Registered for login. Windows Startup Apps can still disable this entry.' if enabled else message)
+            pending = False
+            if self._pending is not None:
+                if enabled == self._pending or (approval and self._pending):
+                    self._pending = None
+                elif time.monotonic() - self._pending_since < 10:
+                    pending = True
+                    message = 'Waiting for the system to confirm the startup setting…'
+                else:
+                    self._pending = None
+                    message = 'The system has not confirmed the change. Check your system startup settings.'
             return {'supported':self.backend is not None, 'enabled':enabled, 'approval':approval,
+                    'pending':pending, 'requested':self._pending,
                     'manage':self.backend is not None and sys.platform in {'darwin','win32'},
                     'message':self.error or (message if self.backend else 'Startup is available in the installed application.')}
         except Exception as error:
@@ -222,6 +236,9 @@ class StartupService:
         candidate = replace(config, login_setup_done=True)
         candidate.save()
         config.login_setup_done = True
+        if config.start_at_login:
+            self._pending = True
+            self._pending_since = time.monotonic()
 
     def commit(self, config, candidate, apply, explicit=False):
         """Compensate registration if preference persistence/application fails."""
@@ -236,6 +253,8 @@ class StartupService:
         try:
             result = apply()
             self.error = ''
+            self._pending = candidate.start_at_login
+            self._pending_since = time.monotonic()
             return result
         except Exception as error:
             try:

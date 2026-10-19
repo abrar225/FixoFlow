@@ -404,8 +404,9 @@
       input.disabled=!data.supported;
       document.getElementById('startupStatus').textContent=data.message;
       document.getElementById('manageStartup').hidden=!data.manage;
+      if (data.pending) setTimeout(()=>post('getStartupStatus'),500);
       if (!('start_at_login' in pendingSettings) && !(settingsRequest && 'start_at_login' in settingsRequest.config)) {
-        input.checked=data.enabled || data.approval;
+        input.checked=data.pending ? data.requested : data.enabled || data.approval;
         savedConfig.start_at_login=input.checked;
         currentConfig.start_at_login=input.checked;
       }

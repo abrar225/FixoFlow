@@ -162,3 +162,26 @@ def test_linux_external_lock_fails_promptly_instead_of_hanging(tmp_path):
         fcntl.flock(stream,fcntl.LOCK_EX|fcntl.LOCK_NB)
         with pytest.raises(RuntimeError,match='busy'):backend.set(False)
     assert backend.path.read_text()==before
+
+
+def test_os_confirmation_can_lag_without_reverting_requested_preference(tmp_path,monkeypatch):
+    cfg=config(tmp_path,monkeypatch,start_at_login=False)
+    backend=Mock();backend.status.return_value=(False,False)
+    service=StartupService(backend)
+    service.commit(cfg,replace(cfg,start_at_login=True),lambda:None,explicit=True)
+    snapshot=service.snapshot()
+    assert snapshot['pending'] and snapshot['requested'] is True
+    backend.status.return_value=(True,False)
+    assert not service.snapshot()['pending']
+    backend.status.return_value=(False,False)
+    assert not service.snapshot()['enabled']  # Later OS disable remains authoritative.
+
+
+def test_unconfirmed_os_change_has_bounded_polling(tmp_path,monkeypatch):
+    cfg=config(tmp_path,monkeypatch,start_at_login=False)
+    backend=Mock();backend.status.return_value=(False,False)
+    service=StartupService(backend)
+    service.commit(cfg,replace(cfg,start_at_login=True),lambda:None,explicit=True)
+    service._pending_since-=11
+    status=service.snapshot()
+    assert not status['pending'] and not status['enabled'] and 'not confirmed' in status['message']
