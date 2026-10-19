@@ -2,7 +2,6 @@
 export const PRODUCT = {
   name: "Fixo Flow",
   origin: "https://fixoflow.tech",
-  repository: "https://github.com/abrar225/FixoFlow",
   download: "/download/#choose-system",
   icon: "/images/logo-options/flow-fold.png",
   requirements: "macOS 14 or later on an Apple Silicon Mac",

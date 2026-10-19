@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { Brand } from "./brand";
-import { PRODUCT } from "@/lib/product";
 import releases from "@/lib/releases.generated.json";
 export function Footer() {
   return (
@@ -13,7 +11,7 @@ export function Footer() {
             <p>
               A little freedom from your keyboard.
               <br />
-              Free, open source dictation.
+              Free dictation for your everyday words.
             </p>
           </div>
           <div className="footer-links">
@@ -21,30 +19,14 @@ export function Footer() {
             <Link href="/how-it-works/">How it works</Link>
             <Link href="/download/">Download & setup</Link>
             <Link href="/privacy/">Privacy</Link>
-            <a
-              href={PRODUCT.repository}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub <ArrowUpRight size={14} />
-            </a>
           </div>
         </div>
         <div className="footer-wordmark" aria-hidden="true">
           let it flow<span>↗</span>
         </div>
         <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} Fixo Flow contributors · v{releases.version} preview</span>
-          <span>
-            Made to be yours. Shared under the{" "}
-            <a
-              href={`${PRODUCT.repository}/blob/main/LICENSE`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              MIT License.
-            </a>
-          </span>
+          <span>© {new Date().getFullYear()} Fixo Flow · v{releases.version} preview</span>
+          <span>Free to use. All rights reserved.</span>
         </div>
       </div>
     </footer>

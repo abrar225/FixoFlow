@@ -2,9 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ArrowUpRight } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Brand, DownloadLink } from "./brand";
-import { PRODUCT } from "@/lib/product";
 const links = [
   { label: "Why Fixo Flow", href: "/features/" },
   { label: "How it works", href: "/how-it-works/" },
@@ -60,14 +59,6 @@ export function Navbar() {
           ))}
         </div>
         <div className="nav-actions">
-          <a
-            className="github-nav"
-            href={PRODUCT.repository}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            GitHub <ArrowUpRight size={14} />
-          </a>
           <DownloadLink />
         </div>
         <button
@@ -87,9 +78,6 @@ export function Navbar() {
             {link.label}
           </Link>
         ))}
-        <a href={PRODUCT.repository} target="_blank" rel="noopener noreferrer">
-          GitHub <ArrowUpRight size={16} />
-        </a>
         <DownloadLink />
       </div>
     </header>

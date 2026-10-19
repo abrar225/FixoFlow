@@ -127,9 +127,9 @@
         <p class="permission-list">After granting Input Monitoring, restart Fixo Flow to activate your shortcut. If pasting is unavailable, your transcript stays on the clipboard.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('enableShortcut')">Retry shortcut</button><button class="action-btn" onclick="post('restartApp')">Restart Fixo Flow</button></div>
       </div>
       <div class="card-section"><div class="section-header">Updates</div><div class="setting-group">
-        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgCheckUpdates">Check for updates when Fixo Flow opens</label><span class="setting-desc">Requests public release metadata. Your audio and writing stay on your Mac.</span></div><label class="switch"><input id="cfgCheckUpdates" type="checkbox"><span aria-hidden="true"></span></label></div>
+        <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgCheckUpdates">Check for updates when Fixo Flow opens</label><span class="setting-desc">Requests public release metadata from fixoflow.tech. Your audio and writing stay on your Mac.</span></div><label class="switch"><input id="cfgCheckUpdates" type="checkbox"><span aria-hidden="true"></span></label></div>
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAutoInstall">Automatically download signed updates</label><span id="autoUpdateHelp" class="setting-desc">Available when the signed update feed is configured.</span></div><label class="switch"><input id="cfgAutoInstall" type="checkbox" disabled><span aria-hidden="true"></span></label></div>
-        <div class="setting-row"><div class="setting-copy"><span id="updateStatus" role="status">Checking update configuration…</span><span id="updateVersion" class="setting-desc"></span></div><button id="checkUpdatesButton" class="action-btn" onclick="post('checkUpdates')">Check for updates</button></div>
+        <div class="setting-row"><div class="setting-copy"><span id="updateStatus" role="status">Checking update configuration…</span><span id="updateVersion" class="setting-desc"></span><span class="setting-desc">Free to use. © 2026 Fixo Flow. All rights reserved.</span></div><button id="checkUpdatesButton" class="action-btn" onclick="post('checkUpdates')">Check for updates</button></div>
       </div></div>
       <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes save automatically after a short pause.</p><button class="action-btn" data-settings-retry hidden onclick="retryPreferences()">Retry saving</button></div>
     </section>
@@ -473,7 +473,7 @@
       document.getElementById('checkUpdatesButton').disabled = data.state === 'checking';
       document.getElementById('cfgAutoInstall').disabled = !data.auto_install_available;
       if (!data.auto_install_available) document.getElementById('cfgAutoInstall').checked = false;
-      document.getElementById('autoUpdateHelp').textContent = data.auto_install_available ? 'Sparkle verifies signatures and manages installation. You can choose when to relaunch.' : 'This local build has no signed update feed yet. Manual release checks are available.';
+      document.getElementById('autoUpdateHelp').textContent = data.auto_install_available ? 'Sparkle verifies signatures and manages installation. You can choose when to relaunch.' : 'Manual updates are available from fixoflow.tech. Automatic installation is not available yet.';
       document.getElementById('updateBanner').classList.toggle('hidden',data.state !== 'available');
       document.getElementById('updateBannerText').textContent = data.message;
     }

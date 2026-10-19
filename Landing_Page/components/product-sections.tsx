@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { AppIcon, DownloadLink } from "./brand";
 import { StylePreview } from "./style-preview";
-import { PRODUCT } from "@/lib/product";
 import { HowItWorksDemo } from "./how-it-works-demo";
 
 export function FeatureStories() {
@@ -221,18 +220,10 @@ export function ClosingCta() {
           <br />a voice.
         </h2>
         <p>
-          Free to use. Open for everyone to build on.
+          Free to use. Made for your everyday words.
           <br />A little more room to be you.
         </p>
         <DownloadLink />
-        <a
-          className="text-link"
-          href={PRODUCT.repository}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Made in the open <ArrowUpRight size={17} />
-        </a>
       </div>
     </section>
   );

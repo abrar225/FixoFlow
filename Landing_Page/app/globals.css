@@ -245,12 +245,6 @@ button {
   min-height: 42px;
   padding: 12px 20px;
 }
-.github-nav {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-}
 .menu-toggle {
   display: none;
   background: transparent;
@@ -1590,9 +1584,6 @@ button {
   }
   .nav-actions {
     gap: 16px;
-  }
-  .github-nav {
-    display: none;
   }
   .hero {
     column-gap: 8px;

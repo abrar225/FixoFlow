@@ -12,7 +12,6 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--artifacts',type=Path,default=root/'dist')
 parser.add_argument('--require-public-trust',action='store_true',help='Require native Windows/Mac trust reports before any staging writes; does not certify device compatibility')
 parser.add_argument('--trust-reports',type=Path,default=root/'dist/trust')
-parser.add_argument('--github-release-downloads', action='store_true', help='Link website buttons to versioned GitHub release assets; still verify and stage local installer bytes')
 args=parser.parse_args()
 public=root/'Landing_Page/public/downloads'
 platforms=[
@@ -46,11 +45,14 @@ for key,name,arch,requirements,source_name,filename,channel,notes in platforms:
     if key in trust:
         channel='signed preview'
         notes=('Developer ID / Gatekeeper and stapled notarization checks passed. English model included.' if key=='macos' else 'Publisher signature and timestamp verified. New releases can still receive SmartScreen reputation warnings. Physical-device acceptance remains separate.')
-    download_url = (f'https://github.com/abrar225/FixoFlow/releases/download/v{__version__}/{filename}' if args.github_release_downloads else f'/downloads/{filename}') if available else None
+    download_url = f'/downloads/{filename}' if available else None
     releases.append(dict(id=key,name=name,architecture=arch,requirements=requirements,available=available,filename=filename if available else None,downloadUrl=download_url,bytes=size,sha256=digest,channel=channel,notes=notes,publicTrustVerified=key in trust))
 # Only remove superseded product installers in this generated output directory.
 for old in public.iterdir():
     if old.is_file() and old.name.startswith('Fixoflow') and old.suffix.lower() in {'.dmg','.exe','.deb'} and old.name not in keep:old.unlink()
 manifest={'version':__version__,'platforms':releases}
 (root/'Landing_Page/lib/releases.generated.json').write_text(json.dumps(manifest,indent=2)+'\n')
+feed=root/'Landing_Page/public/releases/latest.json'
+feed.parent.mkdir(parents=True,exist_ok=True)
+feed.write_text(json.dumps({'schema_version':1,'version':__version__,'published':all(p['available'] for p in releases),'url':'https://fixoflow.tech/download/','notes':'Fixo Flow is free to use. This release uses public website downloads and update checks. English dictation runs locally. Multilingual dictation is coming soon.'},indent=2)+'\n')
 print(json.dumps({'version':__version__,'available':[p['id'] for p in releases if p['available']]},indent=2))

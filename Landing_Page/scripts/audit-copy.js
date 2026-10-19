@@ -45,10 +45,7 @@ assert.ok(fs.existsSync(path.join(root,"out/.htaccess")), "Hosting configuration
 const release = JSON.parse(fs.readFileSync(path.join(root,"lib/releases.generated.json"),"utf8"));
 for (const platform of release.platforms) {
   if (platform.available) {
-    assert.ok([
-      `/downloads/${platform.filename}`,
-      `https://github.com/abrar225/FixoFlow/releases/download/v${release.version}/${platform.filename}`,
-    ].includes(platform.downloadUrl), `Unexpected release URL: ${platform.id}`);
+    assert.equal(platform.downloadUrl, `/downloads/${platform.filename}`, `Unexpected release URL: ${platform.id}`);
     const installer = path.join(root,"public/downloads",platform.filename);
     assert.equal(fs.statSync(installer).size,platform.bytes,`Stale installer: ${platform.id}`);
     assert.equal(createHash("sha256").update(fs.readFileSync(installer)).digest("hex"),platform.sha256,`Installer digest mismatch: ${platform.id}`);
@@ -78,10 +75,7 @@ for (const route of routes) {
     `Selected Flow Fold icon missing: /${route}`,
   );
   assert.ok(!html.includes("/images/icon-master-1024.png"), `Superseded icon on /${route}`);
-  assert.ok(
-    html.includes("https://github.com/abrar225/FixoFlow"),
-    `Project link missing: /${route}`,
-  );
+  assert.ok(!/github\.com|open[ -]source|MIT License|Made in the open|Open for everyone to build on/i.test(html), `Retired source-distribution claim: /${route}`);
   assert.ok(
     !/\b(?:220\s*(?:WPM|words)|380\s*MB|SHA-?256|Measured speed|Real Benchmarks|Install via Terminal)\b/i.test(
       text,
@@ -115,7 +109,11 @@ const downloadHtml = fs.readFileSync(path.join(root, "out/download/index.html"),
 assert.ok(downloadHtml.includes(`Fixo Flow ${release.version}`), "Download version missing");
 assert.ok(downloadHtml.includes("Multilingual dictation is coming soon"), "Language availability missing");
 assert.ok(downloadHtml.includes('id="release-notes"'), "Release notes missing");
-assert.ok(!downloadHtml.includes("Fixoflow-0.2.0"), "Superseded installer advertised");
+assert.ok(!/Fixoflow-0\.[23]\.[02]-/.test(downloadHtml), "Superseded installer advertised");
+const updateFeed = JSON.parse(fs.readFileSync(path.join(root, "out/releases/latest.json"), "utf8"));
+assert.equal(updateFeed.version, release.version);
+assert.equal(updateFeed.published, true);
+assert.equal(updateFeed.url, `${origin}/download/`);
 console.log(
   `PASS ${required.length} required files and ${linksChecked} exported links. Download resolves to a nonempty installer.`,
 );

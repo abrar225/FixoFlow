@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s | Fixo Flow",
   },
   description:
-    "Turn your voice into writing in your everyday apps. Fixo Flow is free, open source dictation that processes your speech on your computer. No account required.",
+    "Turn your voice into writing in your everyday apps. Fixo Flow is free dictation that processes your speech on your computer. No account required.",
   icons: { icon: PRODUCT.icon, apple: PRODUCT.icon },
   openGraph: {
     title: "Fixo Flow | Think it. Speak it. Make it flow.",

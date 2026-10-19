@@ -11,9 +11,9 @@ import re
 import threading
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from fixoflow.version import __version__, RELEASES_URL
+from fixoflow.version import __version__, RELEASES_URL, WEBSITE_URL
 
-API_URL = 'https://api.github.com/repos/abrar225/FixoFlow/releases/latest'
+API_URL = WEBSITE_URL + '/releases/latest.json'
 MAX_METADATA_BYTES = 1_048_576
 
 
@@ -31,14 +31,14 @@ class Release:
 
 
 def parse_release(data):
-    if not isinstance(data,dict) or data.get('draft') is not False or data.get('prerelease') is not False:
-        raise ValueError('A stable published release was not returned.')
-    tag = data.get('tag_name')
+    if not isinstance(data,dict) or type(data.get('schema_version')) is not int or data.get('schema_version') != 1 or data.get('published') is not True:
+        raise ValueError('A published product release was not returned.')
+    tag = data.get('version')
     version_tuple(tag)
-    expected = RELEASES_URL + '/tag/' + tag
-    if data.get('html_url') != expected:
-        raise ValueError('Release link is outside the Fixo Flow repository.')
-    notes = data.get('body')
+    expected = RELEASES_URL
+    if data.get('url') != expected:
+        raise ValueError('Release link is outside the Fixo Flow website.')
+    notes = data.get('notes')
     if notes is None:
         notes = ''
     if not isinstance(notes,str):
@@ -47,7 +47,7 @@ def parse_release(data):
 
 
 def fetch_latest(opener=urlopen):
-    request = Request(API_URL,headers={'Accept':'application/vnd.github+json','User-Agent':f'FixoFlow/{__version__}'})
+    request = Request(API_URL,headers={'Accept':'application/json','User-Agent':f'FixoFlow/{__version__}'})
     try:
         with opener(request,timeout=10) as response:
             if response.geturl() != API_URL:
@@ -94,7 +94,7 @@ class UpdateService:
             if self._checking or self._closed:
                 return
             self._checking = True
-        self._publish(state='checking',message='Checking GitHub for a new Fixo Flow release…')
+        self._publish(state='checking',message='Checking fixoflow.tech for a new Fixo Flow release…')
         self.executor.submit(self._check)
 
     def _check(self):
@@ -103,7 +103,7 @@ class UpdateService:
             with self._lock:
                 self._release = release
             if release is None:
-                self._publish(state='no_releases',message='No public releases yet. You’re using the initial local build.',release_url=None)
+                self._publish(state='no_releases',message='Update information is not available yet. Please try again later.',release_url=None)
             elif version_tuple(release.version) > version_tuple(__version__):
                 self._publish(state='available',message=f'Fixo Flow {release.version} is available.',latest_version=release.version,release_url=release.url)
             else:

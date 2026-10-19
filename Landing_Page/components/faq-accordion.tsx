@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 const questions = [
   [
     "Is it really free?",
-    "Yes. Fixo Flow is free and open source under the MIT License. There is no account, credit card, subscription, or trial countdown.",
+    "Yes. Fixo Flow is free to use. There is no account, credit card, subscription, or trial countdown.",
   ],
   [
     "Which computers can use Fixo Flow?",

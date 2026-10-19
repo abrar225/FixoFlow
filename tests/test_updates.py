@@ -7,7 +7,7 @@ from fixoflow.updates import API_URL, MAX_METADATA_BYTES, UpdateService, Release
 
 
 def release(tag='v0.1.1',**changes):
-    data={'tag_name':tag,'draft':False,'prerelease':False,'html_url':'https://github.com/abrar225/FixoFlow/releases/tag/'+tag,'body':'A patch.'}
+    data={'schema_version':1,'version':tag,'published':True,'url':'https://fixoflow.tech/download/','notes':'A patch.'}
     data.update(changes)
     return data
 
@@ -18,7 +18,7 @@ def test_invalid_release_version_is_rejected(value):
 def test_version_comparison_is_numeric():
     assert version_tuple('v0.1.10')>version_tuple('0.1.9')
 
-@pytest.mark.parametrize('changes',[{'draft':True},{'prerelease':True},{'html_url':'https://example.com/download'},{'tag_name':'../../malicious'},{'body':[]}])
+@pytest.mark.parametrize('changes',[{'published':False},{'schema_version':2},{'url':'https://example.com/download'},{'version':'../../malicious'},{'notes':[]}])
 def test_untrusted_release_metadata_cannot_supply_an_update_link(changes):
     with pytest.raises(ValueError):parse_release(release(**changes))
 
@@ -47,7 +47,7 @@ def test_bad_network_boundaries_fail_closed(response):
 def test_duplicate_check_is_coalesced_and_close_suppresses_late_ui():
     entered=threading.Event();finish=threading.Event();publications=[];calls=[]
     def fetch():
-        calls.append(True);entered.set();assert finish.wait(3);return Release('0.1.1','https://github.com/abrar225/FixoFlow/releases/tag/v0.1.1','')
+        calls.append(True);entered.set();assert finish.wait(3);return Release('0.1.1','https://fixoflow.tech/download/','')
     service=UpdateService(publications.append,fetcher=fetch)
     try:
         service.check();assert entered.wait(3);service.check();service.close();finish.set();service.executor.shutdown(wait=True)
@@ -62,3 +62,19 @@ def test_unsigned_service_cannot_enable_automatic_installation():
         service.set_automatic(False)
         assert service.snapshot()['auto_install_available'] is False
     finally:service.close()
+
+def test_public_website_feed_notifies_without_private_repository():
+    available=threading.Event()
+    service=UpdateService(lambda state:available.set() if state['state']=='available' else None,
+                          fetcher=lambda:parse_release(release('99.0.0')))
+    try:
+        service.check()
+        assert available.wait(3)
+        assert service.snapshot()['state']=='available'
+        assert service.release_url()=='https://fixoflow.tech/download/'
+        assert API_URL=='https://fixoflow.tech/releases/latest.json'
+    finally:service.close()
+
+def test_old_repository_payload_and_boolean_schema_are_rejected():
+    with pytest.raises(ValueError):parse_release({'tag_name':'v99.0.0','draft':False,'prerelease':False})
+    with pytest.raises(ValueError):parse_release(release(schema_version=True))

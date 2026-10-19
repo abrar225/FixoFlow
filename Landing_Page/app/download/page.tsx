@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import {
-  ArrowUpRight,
   Check,
   FolderDown,
   Keyboard,
@@ -9,7 +8,6 @@ import {
 } from "lucide-react";
 import { AppIcon, DownloadLink } from "@/components/brand";
 import { PlatformDownloads } from "@/components/platform-downloads";
-import { PRODUCT } from "@/lib/product";
 import releases from "@/lib/releases.generated.json";
 export const metadata: Metadata = { alternates: { canonical: "/download/" }, title: "Download Fixo Flow" };
 const permissions = [
@@ -49,14 +47,6 @@ export default function DownloadPage() {
             macOS · Windows · Linux<br />
             Check package availability and system requirements below.
           </p>
-          <a
-            className="text-link"
-            href={PRODUCT.repository}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Explore the source on GitHub <ArrowUpRight size={16} />
-          </a>
         </div>
         <div className="download-art">
           <span className="download-art-ring" aria-hidden="true" />
@@ -78,10 +68,10 @@ export default function DownloadPage() {
       <section className="download-help shell" id="release-notes">
         <h2>What's new<br />in {releases.version}.</h2>
         <div>
+          <p>Free for everyone to use. Fixo Flow is a privately developed product.</p>
           <p>Start quietly when you sign in, choose separate hold-to-talk and hands-free shortcuts, and let Settings save automatically after a short pause.</p>
           <p>Clear spoken sequences become numbered lists in Writing mode and Automatic messaging mode. Your personal dictionary guides name spellings and corrects exact recurring mistakes. Strict Verbatim preserves the recognizer's text.</p>
           <p>This release focuses on English. Multilingual dictation is coming soon. No additional language models are bundled or downloaded for it.</p>
-          <a className="text-link" href={`${PRODUCT.repository}/blob/9561054bc3329301cef19bfae0eec72c4aabcb46/docs/13-english-quality-and-multilingual-research.md`} target="_blank" rel="noopener noreferrer">Read the quality findings <ArrowUpRight size={16} /></a>
         </div>
       </section>
       <section className="install-section shell" id="setup">
@@ -183,17 +173,8 @@ export default function DownloadPage() {
           </p>
           <p>
             Only download builds you trust. If macOS blocks the app or you need
-            help with installation, check the project’s packaging notes and
-            report an issue with the details.
+            help with installation, review the platform requirements and installation steps above.
           </p>
-          <a
-            className="text-link"
-            href={`${PRODUCT.repository}/blob/19c8bf8/docs/08-multiplatform-release.md`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read the installation notes <ArrowUpRight size={16} />
-          </a>
         </div>
       </section>
     </>

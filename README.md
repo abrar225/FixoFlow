@@ -10,7 +10,6 @@ Speak anywhere you type, in any app. Your audio and transcript stay on your comp
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Tests](https://img.shields.io/badge/tests-local%20suite-brightgreen)
 ![Local dictation](https://img.shields.io/badge/dictation-on%20device-4c9e63)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 </div>
 
@@ -20,7 +19,7 @@ Speak anywhere you type, in any app. Your audio and transcript stay on your comp
 
 ## Product release and platform status
 
-The current development preview is **0.3.0** (public downloads remain 0.2.0 until new packages pass release checks). Mac uses the native Cocoa
+The current development preview is **0.3.3**. Mac uses the native Cocoa
 host; Windows x64 uses WebView2; Ubuntu 24.04 X11 uses GTK/WebKit. All share the
 same design, history/dictionary and independent hold/toggle controls. Windows
 and Linux are previews with physical-device acceptance and signing still
@@ -93,7 +92,7 @@ stateDiagram-v2
 | `~/.fixoflow/audio_cache/` | Session WAVs + `.transcript.json` partial recovery files |
 | `~/Library/Logs/Fixoflow/fixoflow.log` | Rotating log |
 
-No accounts or telemetry. Dictation stays on-device. Optional startup/manual update checks request only public GitHub release metadata; signed update downloads require a separately configured Sparkle appcast. Disable startup checks in Settings for an offline-only workflow. Runtime transcription uses a bundled model, an explicit local model directory, or an already-cached snapshot; a missing model produces an error instead of a download. Cloud polishing is removed — older Gemini keys load as offline rules and are never read, and unknown/legacy config keys are ignored instead of crashing.
+No accounts or telemetry. Dictation stays on-device. Optional startup/manual update checks request only public release metadata from fixoflow.tech; signed update downloads require a separately configured Sparkle appcast. Disable startup checks in Settings for an offline-only workflow. Runtime transcription uses a bundled model, an explicit local model directory, or an already-cached snapshot; a missing model produces an error instead of a download. Cloud polishing is removed — older Gemini keys load as offline rules and are never read, and unknown/legacy config keys are ignored instead of crashing.
 
 Shortcuts are recorded in Settings, including exposed keyboard keys, modifiers,
 Fn/Globe, and mouse buttons. Legacy preferences migrate without being overwritten
@@ -187,4 +186,4 @@ Tests use isolated databases and simulated capture/decode boundaries — they do
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Proprietary software, free for end users. See [LICENSE](LICENSE).

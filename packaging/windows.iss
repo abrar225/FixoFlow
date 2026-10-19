@@ -6,7 +6,7 @@ AppId={{CC0937BA-D0BC-4B0A-96CE-84646D8E5A3C}
 AppName=Fixo Flow
 AppVersion={#AppVersion}
 AppPublisher=Fixo Flow
-AppPublisherURL=https://github.com/abrar225/FixoFlow
+AppPublisherURL=https://fixoflow.tech
 DefaultDirName={localappdata}\Programs\FixoFlow
 DefaultGroupName=Fixo Flow
 PrivilegesRequired=lowest
@@ -22,6 +22,12 @@ UninstallDisplayIcon={app}\Fixoflow.exe
 CloseApplications=yes
 RestartApplications=no
 WizardStyle=modern
+#ifdef PublicRelease
+; Supply /Sfixoflow=<provider signing command with $f> to ISCC.
+; Inno signs both setup and its embedded uninstaller; missing signer fails build.
+SignTool=fixoflow
+SignedUninstaller=yes
+#endif
 [Files]
 Source: "..\dist\Fixoflow\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]

@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { PrivacyStory, ClosingCta } from "@/components/product-sections";
 import { MotionScene } from "@/components/motion-scene";
-import { PRODUCT } from "@/lib/product";
 export const metadata: Metadata = { alternates: { canonical: "/privacy/" }, title: "Privacy" };
 const storage = [
   {
@@ -82,7 +81,7 @@ export default function PrivacyPage() {
           ))}
         </div>
       </section>
-      <section className="shell"><p>On Windows, the home folder shown as ~ is your user profile. Optional startup and manual update checks request public release information from GitHub; audio and writing are not included. Turn off startup checks in Settings for an offline-only workflow.</p></section>
+      <section className="shell"><p>On Windows, the home folder shown as ~ is your user profile. Optional startup and manual update checks request public release information from fixoflow.tech; audio and writing are not included. Turn off startup checks in Settings for an offline-only workflow.</p></section>
       <section className="privacy-details shell">
         <LockKeyhole size={30} />
         <h2>A clear boundary.</h2>
@@ -98,18 +97,10 @@ export default function PrivacyPage() {
             servers.
           </p>
           <p>
-            The source is available to inspect. This page describes the
+            This page describes the
             application’s local dictation design; it is not a claim of an
             independent security certification.
           </p>
-          <a
-            href={PRODUCT.repository}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-link"
-          >
-            Look inside the project <ArrowUpRight size={17} />
-          </a>
         </div>
       </section>
       <ClosingCta />
