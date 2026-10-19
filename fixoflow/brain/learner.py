@@ -69,13 +69,15 @@ class AdaptiveLearner:
         self.db = db or FixoflowDB.get_instance()
     def is_coding_context(self, app_name: str) -> bool:
         """Whether the active application is a coding / terminal / agent environment."""
-        coding_apps = [
-            "code", "cursor", "terminal", "iterm", "alacritty", "kitty",
-            "xcode", "warp", "pycharm", "webstorm", "sublime", "zed",
-            "antigravity", "claude", "chatgpt"
-        ]
-        app_lower = app_name.lower()
-        return any(candidate in app_lower for candidate in coding_apps)
+        # Chat apps need prose formatting too. Substrings such as "code" also
+        # misclassify unrelated apps (and Codex's conversational composer).
+        coding_apps = {"code", "vs code", "visual studio code", "code - insiders",
+            "cursor", "terminal", "iterm", "iterm2", "alacritty", "kitty",
+            "xcode", "warp", "pycharm", "webstorm", "sublime text", "zed",
+            "antigravity", "antigravity ide", "claude code", "pycharm64",
+            "webstorm64", "sublime_text", "gnome-terminal", "gnome-terminal-server",
+            "org.gnome.terminal", "konsole", "windows terminal", "windowsterminal"}
+        return app_name.strip().casefold() in coding_apps
 
     def effective_mode(self, mode: str, app_name: str) -> str:
         if mode == "auto":

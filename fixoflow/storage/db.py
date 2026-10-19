@@ -309,7 +309,7 @@ class FixoflowDB:
         """Most frequent and recently used terms used to condition the decoder."""
         with self._connect() as conn:
             cursor = conn.execute(
-                "SELECT replacement FROM dictionary ORDER BY frequency DESC, last_used DESC LIMIT ?",
+                "SELECT replacement FROM dictionary GROUP BY replacement ORDER BY SUM(frequency) DESC, MAX(last_used) DESC, replacement LIMIT ?",
                 (limit,),
             )
             return [row["replacement"] for row in cursor.fetchall()]

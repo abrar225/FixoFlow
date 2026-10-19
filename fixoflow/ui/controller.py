@@ -33,12 +33,11 @@ class HubController:
             if callback:
                 self._eval_js(f"onStartupData({json.dumps(callback())});")
         elif action in {'getLanguageOptions','installModelPack','cancelModelPack'}:
-            from fixoflow.languages import options, ENGLISH_VARIANTS
-            from fixoflow.model_packs import ModelPackManager
-            if not hasattr(self,'model_packs'):self.model_packs=ModelPackManager()
-            if action=='installModelPack':self.model_packs.start()
-            if action=='cancelModelPack':self.model_packs.cancel()
-            data={'languages':options(),'variants':ENGLISH_VARIANTS,'pack':self.model_packs.snapshot()}
+            from fixoflow.languages import options, ENGLISH_VARIANTS, MULTILINGUAL_MESSAGE
+            manager=getattr(self,'model_packs',None)
+            if action=='cancelModelPack' and manager:manager.cancel()
+            data={'languages':options(),'variants':ENGLISH_VARIANTS,'message':MULTILINGUAL_MESSAGE,
+                  'deferred_language':self.config.deferred_language}
             self._eval_js(f"onLanguageData({json.dumps(data)});")
         elif action == "startShortcutCapture":
             field = payload.get('field')
@@ -198,7 +197,7 @@ class HubController:
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)
-                    candidate.validate()
+                    candidate.validate_product()
                     if self.on_config_change is None:
                         raise RuntimeError("Open the full Fixoflow application to change dictation settings.")
                     status = self.on_control_status() if self.on_control_status else {}

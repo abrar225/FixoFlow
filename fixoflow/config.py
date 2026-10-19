@@ -35,6 +35,7 @@ class FixoflowConfig:
     language: Optional[str] = "en"  # "en" for English, or None for auto-detect
     initial_prompt: str = ""
     english_variant: str = "en-US"
+    deferred_language: str = ""  # Preserved experimental choice; never enabled automatically.
 
     # Dictation mode: "auto" (app-detected), "coding" (agents/IDE), "writing", "raw"
     mode: str = "auto"
@@ -84,7 +85,7 @@ class FixoflowConfig:
             if not isinstance(data, dict):
                 raise ValueError(f"Configuration at '{config_path}' must be a JSON object")
             config = cls(**cls._normalize_fields(data))
-            config.validate()
+            config.validate_product()
             return config
         config = cls()
         config.save()
@@ -135,7 +136,19 @@ class FixoflowConfig:
             logger.warning("Ignoring unknown configuration keys: %s", ", ".join(sorted(unknown)))
         if normalized.get("polishing_engine") == "gemini":
             normalized["polishing_engine"] = "rules"
+        from fixoflow.languages import LANGUAGES
+        language = normalized.get('language', 'en')
+        if language is None or (isinstance(language,str) and language in LANGUAGES and language != 'en'):
+            normalized['deferred_language'] = language or 'auto'
+            normalized['language'] = 'en'
+        if normalized.get('model_name') == 'multilingual-base':
+            normalized['model_name'] = cls.__dataclass_fields__['model_name'].default
         return normalized
+
+    def validate_product(self):
+        self.validate()
+        from fixoflow.languages import require_released_language
+        require_released_language(self.language, self.model_name)
 
     def validate(self) -> None:
         from fixoflow.languages import LANGUAGES, ENGLISH_VARIANTS
@@ -143,6 +156,8 @@ class FixoflowConfig:
             raise ValueError('Choose a supported recognition language.')
         if self.english_variant not in ENGLISH_VARIANTS:
             raise ValueError('Choose a supported English regional preference.')
+        if not isinstance(self.deferred_language, str) or self.deferred_language not in {'', 'auto', *LANGUAGES}:
+            raise ValueError('Invalid deferred language preference.')
         if self.language != 'en' and self.model_name in {'bundled-base.en','mlx-community/whisper-base.en-mlx','mlx-community/whisper-small.en-mlx'}:
             raise ValueError('Install and choose the Base multilingual pack for this language or auto detection.')
         for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "start_at_login", "login_setup_done"):

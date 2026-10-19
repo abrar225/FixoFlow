@@ -40,6 +40,7 @@ logger = logging.getLogger("fixoflow.core")
 class FixoflowCoordinator:
     def __init__(self, config: Optional[FixoflowConfig] = None, enable_overlay: bool = True):
         self.config = config or FixoflowConfig.load()
+        self.config.validate_product()
         self.recorder = AudioRecorder(self.config)
         self.stt = create_stt_engine(self.config)
         self.polisher = TextPolisher(self.config)
@@ -62,7 +63,7 @@ class FixoflowCoordinator:
 
     def apply_config(self, candidate):
         """Stage changed resources before saving; keep warm inference otherwise."""
-        candidate.validate()
+        candidate.validate_product()
         if self.state != 'IDLE':
             from fixoflow.settings import SettingsBusy
             raise SettingsBusy('Finish dictation before changing settings.')

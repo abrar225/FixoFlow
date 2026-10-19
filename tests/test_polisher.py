@@ -75,3 +75,44 @@ def test_literal_punctuation_words_survive_without_commands():
     assert p.polish('This period was difficult')=='This period was difficult'
     assert 'buy' in clean_with_rules_counted('bullet buy milk',spoken_commands=True)[0].lower()
     assert 'apples' in clean_with_rules_counted('bullet point apples and bananas',spoken_commands=True)[0].lower()
+
+
+def test_reported_ordinal_sequence_becomes_three_numbered_lines():
+    raw='Firstly, we have to focus on this. Second, we have to focus on that. Third, we have to focus on both.'
+    expected='1. We have to focus on this.\n2. We have to focus on that.\n3. We have to focus on both.'
+    for style in ('natural','concise','professional'):
+        assert TextPolisher(FixoflowConfig(mode='writing',output_style=style)).polish(raw)==expected
+    for config in (FixoflowConfig(mode='raw'),FixoflowConfig(mode='coding'),FixoflowConfig(output_style='verbatim')):
+        assert TextPolisher(config).polish(raw)==raw
+
+
+def test_explicit_lists_preserve_intro_and_all_item_words():
+    raw='My tasks: Firstly, keep API_KEY. Secondly, do not send the file. Thirdly, keep 3.14 and /tmp/config.py.'
+    expected='My tasks:\n1. Keep API_KEY.\n2. Do not send the file.\n3. Keep 3.14 and /tmp/config.py.'
+    assert clean_with_rules_counted(raw)[0]==expected
+    assert clean_with_rules_counted(expected)[0]==expected
+
+
+def test_ambiguous_or_nonconsecutive_prose_is_not_reformatted_as_a_list():
+    cases=['First day was busy. Second day was quiet.',
+           'First, keep this. Third, keep that.',
+           'Second, keep this. Third, keep that.',
+           'I came first, then second, then third.',
+           'She said "Firstly, do this. Second, do that."',
+           '`Firstly, do this. Second, do that.`',
+           'First, do this. Second,']
+    for raw in cases:
+        assert clean_with_rules_counted(raw)[0]==raw
+
+
+def test_actual_decoder_comma_separated_sequence_and_existing_numbering():
+    raw='Firstly, we have to focus on this, second, we have to focus on that, third, we have to focus on both.'
+    assert clean_with_rules_counted(raw)[0]=='1. We have to focus on this.\n2. We have to focus on that.\n3. We have to focus on both.'
+    for raw in ['1. First, do this. 2. Second, do that.',
+                'We discussed, firstly, this issue, secondly, that issue.']:
+        assert clean_with_rules_counted(raw)[0]==raw
+
+
+def test_list_item_identifiers_keep_their_case():
+    raw='First, parseConfig is the function. Second, api_key is required.'
+    assert clean_with_rules_counted(raw)[0]=='1. parseConfig is the function.\n2. api_key is required.'

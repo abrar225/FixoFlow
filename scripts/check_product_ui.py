@@ -107,13 +107,15 @@ def check(hub):
     assert evaluate(view, "document.getElementById('permissionMicrophone').textContent") == 'Not requested'
     evaluate(view, "switchTab('settings')")
     pump()
-    assert evaluate(view, "document.getElementById('cfgLanguage').options.length") == 100
+    assert evaluate(view, "document.getElementById('cfgLanguage').options.length") == 1
     assert evaluate(view, "document.getElementById('cfgLanguage').value") == 'en'
+    assert evaluate(view, "document.getElementById('cfgLanguage').disabled")
+    assert 'coming soon' in evaluate(view, "document.getElementById('languageAvailability').textContent")
+    assert not evaluate(view, "document.querySelector('[onclick*=installModelPack]') !== null")
     assert not evaluate(view, "document.getElementById('cfgSpokenCommands').checked")
-    evaluate(view, "document.getElementById('cfgLanguage').value='hi'; document.getElementById('cfgLanguage').dispatchEvent(new Event('change'));")
-    pump()
-    pump(1.1)
-    assert hub.config.language == 'hi' and hub.config.model_name == 'multilingual-base'
+    evaluate(view, "post('autosaveConfig',{request_id:9999,config:{language:'hi',model_name:'multilingual-base'}})")
+    pump(.2)
+    assert hub.config.language == 'en'
     # A late acknowledgement cannot replace a newer style selection.
     evaluate(view, "window.realPreferenceResult=onPreferencesResult; window.delayedPreferenceResult=null; onPreferencesResult=result=>{window.delayedPreferenceResult=result}; selectOutputStyle('natural');")
     pump(1.1)
@@ -208,7 +210,7 @@ def main():
             hub = HubManager()
             assert hub._window is not None and hub._webview is not None
             def apply(candidate, **kwargs):
-                candidate.validate()
+                candidate.validate_product()
                 hub.config = candidate
             hub.on_config_change = apply
             hub.on_startup_status = lambda: {'supported':True,'enabled':hub.config.start_at_login,'approval':False,'message':'Isolated startup preview'}

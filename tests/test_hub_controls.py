@@ -182,3 +182,21 @@ def test_pending_preferences_block_quit_until_acknowledged():
     assert ui.close_model_packs() is False
     ui.handle_action('preferencesPending',{'pending':False})
     assert ui.close_model_packs() is True
+
+
+def test_public_language_controls_offer_english_and_never_download(monkeypatch):
+    ui=manager();download=Mock()
+    monkeypatch.setattr('fixoflow.model_packs.ModelPackManager',download)
+    for action in ('getLanguageOptions','installModelPack'):
+        ui.handle_action(action,{})
+        data=json.loads(ui._eval_js.call_args.args[0][len('onLanguageData('):-2])
+        assert data['languages']==[{'value':'en','label':'English'}]
+        assert 'coming soon' in data['message']
+    download.assert_not_called()
+
+
+def test_public_autosave_rejects_multilingual_and_preserves_current_english():
+    ui=manager();ui.on_config_change=Mock()
+    ui.handle_action('autosaveConfig',{'request_id':10,'config':{'language':'hi','model_name':'multilingual-base'}})
+    ui.on_config_change.assert_not_called()
+    assert ui.config.language=='en' and 'coming soon' in ui._eval_js.call_args.args[0]

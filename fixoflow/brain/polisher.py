@@ -77,7 +77,9 @@ def _capitalize_sentences(text: str) -> Tuple[str, int]:
     changes = 0
     for part in sentences:
         if part and not re.match(r"^[.!?\s\n•]+$", part):
-            upper = part[0].upper() + part[1:]
+            token = re.match(r'[A-Za-z_][A-Za-z0-9_]*', part)
+            identifier = bool(token and ('_' in token[0] or re.search(r'[a-z][A-Z]', token[0])))
+            upper = part if identifier else part[0].upper() + part[1:]
             if upper != part:
                 changes += 1
             part = upper
@@ -99,6 +101,43 @@ def _expand_contractions(text: str) -> Tuple[str, int]:
             return replacement
         text = re.sub(pattern, replace, text, flags=re.IGNORECASE)
     return text, changes
+
+
+def _format_numbered_list(text: str) -> Tuple[str, int]:
+    """Structure explicit consecutive sentence-start ordinals, without rewriting.
+
+    Ambiguous prose, missing/reordered markers and existing numeric lists are
+    retained. This is intentionally narrower than semantic list inference.
+    """
+    ordinals = {'first':1,'second':2,'third':3,'fourth':4,'fifth':5,
+                'sixth':6,'seventh':7,'eighth':8,'ninth':9,'tenth':10}
+    markers = '|'.join(word + '(?:ly)?' for word in ordinals)
+    pattern = re.compile(r'(?P<boundary>^|(?<=[.!?:])\s+|,\s+)'
+        r'(?P<marker>' + markers + r')\b(?P<separator>\s*[,;:]\s*|\s+)', re.IGNORECASE)
+    matches = list(pattern.finditer(text))
+    if (len(matches) < 2 or '`' in text or re.search(r'(?:^|\s)\d+[.)]\s+', text)
+            or matches[0]['boundary'].startswith(',')):
+        return text, 0
+    numbers = []
+    for match in matches:
+        marker = match['marker'].lower()
+        ordinal = marker[:-2] if marker.endswith('ly') else marker
+        # "First day", "second floor" and similar noun phrases are prose.
+        if not marker.endswith('ly') and not any(c in match['separator'] for c in ',;:'):
+            return text, 0
+        numbers.append(ordinals[ordinal])
+    if numbers != list(range(1, len(numbers)+1)):
+        return text, 0
+    items = [text[match.end():matches[i+1].start() if i+1<len(matches) else len(text)].strip()
+             for i,match in enumerate(matches)]
+    if any(not item for item in items):
+        return text, 0
+    for i,item in enumerate(items[:-1]):
+        if matches[i+1]['boundary'].startswith(',') and item[-1] not in '.!?;:':
+            items[i] += '.'
+    prefix = text[:matches[0].start()].rstrip()
+    result = '\n'.join(f'{number}. {item}' for number,item in zip(numbers,items))
+    return (prefix+'\n' if prefix else '') + result, len(items)
 
 
 def clean_with_rules_counted(text: str, style: str = "natural", spoken_commands: bool = False) -> Tuple[str, int]:
@@ -141,6 +180,9 @@ def clean_with_rules_counted(text: str, style: str = "natural", spoken_commands:
     if style == "professional":
         cleaned, count = _expand_contractions(cleaned)
         fixes += count
+
+    cleaned, count = _format_numbered_list(cleaned)
+    fixes += count
 
     # Capitalize after periods, newlines, and bullet points
     cleaned, count = _capitalize_sentences(cleaned)

@@ -192,3 +192,23 @@ def test_vocabulary_prompt_does_not_invent_app_or_format_instructions(tmp_path):
     assert learner.get_vocabulary_prompt()==''
     db.upsert_word('maya desai','Maya Desai')
     assert learner.get_vocabulary_prompt()=='Maya Desai'
+
+
+def test_auto_mode_formats_chat_composers_and_preserves_real_coding_editors(tmp_path):
+    learner=AdaptiveLearner(FixoflowDB(tmp_path/'check.sqlite'))
+    for name in ('ChatGPT','Claude','Codex','Decode','Mail'):
+        assert learner.effective_mode('auto',name)=='writing'
+    for name in ('Code','Visual Studio Code','Cursor','Terminal','Claude Code','Antigravity IDE',
+                 'pycharm64','webstorm64','sublime_text','gnome-terminal','org.gnome.Terminal'):
+        assert learner.effective_mode('auto',name)=='coding'
+    assert learner.effective_mode('coding','ChatGPT')=='coding'
+
+
+def test_approved_wispr_spellings_are_exact_and_distinct_prompt_terms(tmp_path):
+    db=FixoflowDB(tmp_path/'check.sqlite');learner=AdaptiveLearner(db)
+    for phrase in ('Visper Flow','VS Perflow','wispr flow'):
+        db.upsert_word(phrase,'Wispr Flow')
+    db.upsert_word('fixoflow','Fixo Flow')
+    assert learner.get_vocabulary_prompt()=='Wispr Flow, Fixo Flow'
+    actual=learner.format_for_mode('Visper Flow and VS Perflow beat fixoflow. VS Codex stays unchanged.','writing','')
+    assert actual=='Wispr Flow and Wispr Flow beat Fixo Flow. VS Codex stays unchanged.'

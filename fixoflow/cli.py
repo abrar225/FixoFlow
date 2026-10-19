@@ -111,6 +111,7 @@ def cmd_config(args):
     if args.polisher:
         config.polishing_engine = args.polisher
 
+    config.validate_product()
     config.save()
     print("Current Configuration:")
     for k, v in config.__dict__.items():
