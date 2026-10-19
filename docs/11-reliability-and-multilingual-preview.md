@@ -1,6 +1,6 @@
 # Fixo Flow 0.3.0 reliability and multilingual preview
 
-Implementation and verification record, 19 October 2026. This is a development
+Implementation and verification record, 19 October 2026. Verified source commit: `f4a9119`. Installed Mac version: `0.3.0`. This is a development
 preview, not a declaration that every platform, language or acoustic condition
 is production ready. The original 33 findings remain available in
 [the dated audit](10-product-audit-and-roadmap.md).
@@ -96,7 +96,7 @@ automatic scavenger for previous-process leftovers.
 
 ## Executed verification
 
-- Local full suite: **192 passed, 2 skipped** after the final source fixes. The two
+- Local full worktree suite: **192 passed, 2 skipped** after the final source fixes, including the three existing uncommitted release-trust tests from the previous website/signing work. The two
   skips require native Windows/Linux execution. Tests include queued-start
   cancellation, paste-delay cancellation, truncated WAV partial recovery,
   bounded windows/tail coverage, pack corruption/cache invalidation, blocked
@@ -107,11 +107,19 @@ automatic scavenger for previous-process leftovers.
   commands default, real DB History/dictionary pagination and Windows permission
   visibility. It used a temporary database and mock pack availability, opened
   no microphone and changed no user settings.
-- Native Mac app build, strict local signature and frozen imports/resources
-  checks are run before packaging. Local signing is not Apple notarization.
-- Native CI coverage is configured on macOS, Windows and Ubuntu. Build/test
-  results must be recorded separately; workflow configuration alone does not
-  establish executed platform or physical-device acceptance.
+- Native Mac build, strict local signature, frozen resource/import checks,
+  actual bundled-model tone decode and DMG verification passed. Installed
+  `/Applications/Fixoflow.app` is 0.3.0 and passed its resource/import check.
+  Settings/recordings were preserved; one installed 0.2.0 rollback copy remains.
+  Superseded preview builds and redundant prior DMGs were removed. Local signing
+  is not Apple notarization.
+- [Portable CI](https://github.com/abrar225/FixoFlow/actions/runs/39201116535)
+  passed on macOS, Windows and Ubuntu for `f4a9119`: 120 shared tests each, plus 3 CPU-contract tests on Windows/Linux.
+- [Native package CI](https://github.com/abrar225/FixoFlow/actions/runs/39201116530)
+  passed on Windows and Ubuntu for the same source: 146 tests passed and 1 platform-specific test skipped per native job, frozen UI/bundled
+  inference, installer generation and installed-package smoke checks. These
+  runner checks opened no real microphone or user editor. Physical-device
+  recording, global input/paste and speech-quality acceptance remain open.
 - Diagnostic self-check now uses a nonzero tone: exact silence is deliberately
   skipped by the engine and therefore cannot prove decoder execution.
 
