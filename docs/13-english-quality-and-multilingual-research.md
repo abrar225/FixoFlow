@@ -235,4 +235,40 @@ bundled Base English MLX model. No user audio was uploaded or inspected.
   is not attributed to vocabulary and is not a product latency claim. Two clean
   generated clips are not representative of human voices, accents or noise.
 
-Final automated/native/build evidence will be recorded after validation.
+Final verification for runtime commit `9561054bc3329301cef19bfae0eec72c4aabcb46`:
+
+- Local regression suite: **226 passed, 3 skipped**; skipped native Windows/Linux
+  cases were not represented as locally executed coverage.
+- Real Cocoa/WebKit UI check passed across all six panels, including English-only
+  availability, rejected non-English preference requests, dictionary behavior,
+  autosave, isolated startup controls, history and bundled font/logo resources.
+  This check does not open the microphone or register system shortcuts.
+- [Portable CI](https://github.com/abrar225/FixoFlow/actions/runs/39211980249)
+  passed on macOS, Windows and Linux.
+- [Desktop preview CI](https://github.com/abrar225/FixoFlow/actions/runs/39211980222)
+  passed both Windows and Linux jobs, including frozen UI/model checks and
+  installation/smoke checks of the generated Windows setup and Debian package.
+  Its `windows-preview` and `linux-preview` artifacts are development previews;
+  runner smoke checks do not establish microphone/global-input/text-insertion
+  behavior on every user's desktop, or compatibility with every Linux distro.
+- The self-contained Mac 0.3.2 bundle passed signature and offline packaging
+  checks and replaced the installed 0.3.1 app, with the previous bundle retained
+  for rollback. The installed UI visibly reports 0.3.2, English-only recognition,
+  and the multilingual Coming soon notice. Existing settings/history remain.
+- After a protected local SQLite backup, the reported exact aliases and canonical
+  `Wispr Flow` / `Fixo Flow` spellings were added through the installed app's
+  personal dictionary UI. A check against those persisted entries verified both
+  canonical terms appear in the recognition prompt, the reported aliases resolve,
+  and the reported list becomes three numbered lines through Auto/ChatGPT writing
+  formatting. No ambiguous `VS Codex` replacement was added. This check does not
+  establish recognition accuracy on unseen human audio.
+- The Mac DMG passed `hdiutil verify`; versioned local artifact:
+  `dist/preview-0.3.2/9561054/Fixoflow-0.3.2-macos-arm64.dmg`
+  (239,213,692 bytes; SHA-256
+  `7943ee0ac2ecc0ada2440a6314d3e6b75556747a12c66aecf0185911813c1d99`).
+  It is locally signed, **not Apple-notarized**. Windows remains unsigned.
+  This work did not publish installers or modify/deploy the website.
+
+**VERDICT: PASS** for the scoped English formatting, personal-dictionary and
+English-only release criteria. General English recognition improvement, a 99%
+multilingual claim and broad physical-device validation remain unverified.
