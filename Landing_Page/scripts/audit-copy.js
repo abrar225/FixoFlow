@@ -45,6 +45,10 @@ assert.ok(fs.existsSync(path.join(root,"out/.htaccess")), "Hosting configuration
 const release = JSON.parse(fs.readFileSync(path.join(root,"lib/releases.generated.json"),"utf8"));
 for (const platform of release.platforms) {
   if (platform.available) {
+    assert.ok([
+      `/downloads/${platform.filename}`,
+      `https://github.com/abrar225/FixoFlow/releases/download/v${release.version}/${platform.filename}`,
+    ].includes(platform.downloadUrl), `Unexpected release URL: ${platform.id}`);
     const installer = path.join(root,"public/downloads",platform.filename);
     assert.equal(fs.statSync(installer).size,platform.bytes,`Stale installer: ${platform.id}`);
     assert.equal(createHash("sha256").update(fs.readFileSync(installer)).digest("hex"),platform.sha256,`Installer digest mismatch: ${platform.id}`);
