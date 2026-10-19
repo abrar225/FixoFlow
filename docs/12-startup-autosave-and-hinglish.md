@@ -140,7 +140,7 @@ romanization cannot recover words the recognizer missed.
 
 ## Verification record
 
-- Full local suite: **213 passed, 3 skipped** (native Windows/Linux-only checks).
+- Full local suite: **214 passed, 3 skipped** (native Windows/Linux-only checks).
 - Native Cocoa/WebKit check: all six panels, actual bridge, rapid/debounced saves,
   late acknowledgements, dictation waiting, explicit retry, startup toggle,
   font/logo and minimum viewport passed with an isolated database and no user

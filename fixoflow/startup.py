@@ -201,7 +201,7 @@ class StartupService:
                 message = ('Registered for login. Windows Startup Apps can still disable this entry.' if enabled else message)
             pending = False
             if self._pending is not None:
-                if enabled == self._pending or (approval and self._pending):
+                if bool(enabled or approval) == self._pending:
                     self._pending = None
                 elif time.monotonic() - self._pending_since < 10:
                     pending = True

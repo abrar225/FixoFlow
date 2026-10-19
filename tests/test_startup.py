@@ -185,3 +185,14 @@ def test_unconfirmed_os_change_has_bounded_polling(tmp_path,monkeypatch):
     service._pending_since-=11
     status=service.snapshot()
     assert not status['pending'] and not status['enabled'] and 'not confirmed' in status['message']
+
+
+def test_disabling_requires_approval_waits_for_item_to_be_fully_removed(tmp_path,monkeypatch):
+    cfg=config(tmp_path,monkeypatch,start_at_login=True)
+    backend=Mock();backend.status.return_value=(False,True)
+    service=StartupService(backend)
+    service.commit(cfg,replace(cfg,start_at_login=False),lambda:None,explicit=True)
+    status=service.snapshot()
+    assert status['pending'] and status['requested'] is False
+    backend.status.return_value=(False,False)
+    assert not service.snapshot()['pending'] and not service.snapshot()['approval']
