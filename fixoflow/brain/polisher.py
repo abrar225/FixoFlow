@@ -115,7 +115,8 @@ def _format_numbered_list(text: str) -> Tuple[str, int]:
     pattern = re.compile(r'(?P<boundary>^|(?<=[.!?:])\s+|,\s+)'
         r'(?P<marker>' + markers + r')\b(?P<separator>\s*[,;:]\s*|\s+)', re.IGNORECASE)
     matches = list(pattern.finditer(text))
-    if (len(matches) < 2 or '`' in text or re.search(r'(?:^|\s)\d+[.)]\s+', text)
+    if (len(matches) < 2 or '`' in text or re.search(r'["\u201c\u201d]|(?<!\w)[\'\u2018]', text)
+            or re.search(r'(?:^|\s)\d+[.)]\s+', text)
             or matches[0]['boundary'].startswith(',')):
         return text, 0
     numbers = []

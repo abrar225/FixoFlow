@@ -116,3 +116,10 @@ def test_actual_decoder_comma_separated_sequence_and_existing_numbering():
 def test_list_item_identifiers_keep_their_case():
     raw='First, parseConfig is the function. Second, api_key is required.'
     assert clean_with_rules_counted(raw)[0]=='1. parseConfig is the function.\n2. api_key is required.'
+
+
+def test_quoted_comma_ordinals_are_not_list_boundaries():
+    for raw in ['First, the exact phrase is "wait, second, I disagree".',
+                "First, the exact phrase is 'wait, second, I disagree'.",
+                'First, the phrase is \u201cwait, second, I disagree\u201d.']:
+        assert clean_with_rules_counted(raw)[0]==raw
