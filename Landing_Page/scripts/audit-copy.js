@@ -37,7 +37,7 @@ const routes = [
   "download/",
   "privacy/",
 ];
-const origin = "https://fixoflow.firehox.com";
+const origin = "https://fixoflow.tech";
 assert.ok(fs.readFileSync(path.join(root,"out/robots.txt"),"utf8").includes(`${origin}/sitemap.xml`), "Missing deployed sitemap reference");
 const sitemap = fs.readFileSync(path.join(root,"out/sitemap.xml"),"utf8");
 for (const route of routes) assert.ok(sitemap.includes(`${origin}/${route}`), `Missing sitemap route ${route}`);
@@ -66,6 +66,7 @@ for (const route of routes) {
   const text = html.replace(/<[^>]+>/g, " ");
   assert.ok(html.includes(`rel="canonical" href="${origin}/${route}"`), `Wrong canonical /${route}`);
   assert.ok(!html.includes("https://fixoflow.app"), `Retired domain /${route}`);
+  assert.ok(!html.includes("https://fixoflow.firehox.com"), `Retired subdomain /${route}`);
   assert.ok(text.includes(`v${release.version} preview`), `Wrong app version /${route}`);
   assert.equal(
     (html.match(/<h1\b/g) || []).length,
