@@ -89,10 +89,15 @@ and notarization reports; a preview link does not confer public publisher trust.
 - Browser review verified all three platform selections, their versioned URLs,
   platform requirements and trust notices. A fresh version query avoided an old
   browser-cached page. A screenshot was retained in local release evidence.
-- GitHub's release asset digests matched the verified local installers. Anonymous
-  full-file download verification is recorded separately in local evidence.
+- GitHub's release asset digests matched the verified local installers. All three
+  installers were then downloaded anonymously in full; their byte lengths and
+  SHA-256 digests matched those local files. The complete check passed.
 
 Local deployment records and rollback files are under
 `dist/release-evidence-0.3.2/` and are intentionally not committed. Publisher
 enrollment/signing, notarization and broader physical-device acceptance remain
 required before describing this as a trusted stable launch.
+
+**VERDICT: PASS** for Mac installation, preview publication, live website version
+and all three public download identities. Trusted stable distribution and broad
+physical-device acceptance are not established by this result.
