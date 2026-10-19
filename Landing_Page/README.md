@@ -20,8 +20,9 @@ The generated release manifest controls the three operating-system choices.
 Missing packages have no download link. Windows/Linux are labeled previews;
 physical-device acceptance and signing requirements still apply. The `public`
 download directory and exported `out` directory are build outputs, not Git files.
-Publish the complete export including its staged installers. This task does not
-deploy the site or create a public GitHub release.
+Publish the complete export including its staged installers to fixoflow.tech.
+The source repository is private. Public downloads and update metadata are served
+from the website; do not link customers to private repository assets.
 
 Legacy static HTML/Astro implementations and retired logo comparisons were
 removed. Flow Fold is the single current identity. See the product release

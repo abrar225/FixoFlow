@@ -7,6 +7,9 @@ AddType application/vnd.debian.binary-package .deb
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    <Files "latest.json">
+        Header set Cache-Control "no-cache, max-age=0, must-revalidate"
+    </Files>
     <FilesMatch "\.(dmg|exe|deb)$">
         Header set Content-Disposition "attachment"
         Header set Cache-Control "public, max-age=3600, no-transform"
