@@ -1,0 +1,66 @@
+name: Attach verified preview installers
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Desktop preview packages run ID
+        required: true
+      build_sha:
+        description: Full source commit used by that run
+        required: true
+      version:
+        description: Existing draft release version, without v
+        required: true
+      windows_sha256:
+        description: Verified Windows installer SHA-256
+        required: true
+      linux_sha256:
+        description: Verified Linux installer SHA-256
+        required: true
+permissions:
+  actions: read
+  contents: write
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN: ${{ inputs.build_run }}
+      BUILD_SHA: ${{ inputs.build_sha }}
+      VERSION: ${{ inputs.version }}
+      WINDOWS_HASH: ${{ inputs.windows_sha256 }}
+      LINUX_HASH: ${{ inputs.linux_sha256 }}
+    steps:
+      - name: Require a successful exact-source native build and matching draft
+        shell: bash
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          [[ "$BUILD_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$WINDOWS_HASH" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$LINUX_HASH" =~ ^[a-f0-9]{64}$ ]]
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" '.conclusion == "success" and .head_sha == $sha and .path == ".github/workflows/desktop-preview.yml"'
+          gh api "repos/$GH_REPO/releases?per_page=100" | jq -e --arg tag "v$VERSION" --arg sha "$BUILD_SHA" 'any(.[]; .tag_name == $tag and .draft == true and .target_commitish == $sha)'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run }}
+          name: windows-preview
+          path: windows
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run }}
+          name: linux-preview
+          path: linux
+      - name: Verify installer hashes and native UI/inference reports
+        shell: bash
+        run: |
+          echo "$WINDOWS_HASH  windows/dist/Fixoflow-$VERSION-windows-x64-setup.exe" | sha256sum -c -
+          echo "$LINUX_HASH  linux/dist/Fixoflow-$VERSION-linux-x64.deb" | sha256sum -c -
+          jq -e --arg version "$VERSION" '.version == $version and .platform == "win32" and .ui == "ok" and .local_inference == "executed"' windows/build/self-check.json
+          jq -e --arg version "$VERSION" '.version == $version and .platform == "linux" and .ui == "ok" and .local_inference == "executed"' linux/build/self-check.json
+      - name: Attach exact files without overwriting existing assets
+        run: gh release upload "v$VERSION" "windows/dist/Fixoflow-$VERSION-windows-x64-setup.exe" "linux/dist/Fixoflow-$VERSION-linux-x64.deb"
