@@ -11,12 +11,12 @@ export const metadata: Metadata = {
     template: "%s | Fixo Flow",
   },
   description:
-    "Turn your voice into writing in your everyday apps. Fixo Flow is free dictation that processes your speech on your computer. No account required.",
+    "Turn your voice into writing in your everyday apps. Fixo Flow is free, open-source dictation under the MIT License that processes your speech on your computer. No account required.",
   icons: { icon: PRODUCT.icon, apple: PRODUCT.icon },
   openGraph: {
     title: "Fixo Flow | Think it. Speak it. Make it flow.",
     description:
-      "Free voice dictation for your everyday apps. Your thoughts, in full flow.",
+      "Free, open-source voice dictation for your everyday apps. Your thoughts, in full flow.",
     images: [{ url: PRODUCT.icon, width: 1254, height: 1254 }],
   },
 };

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { AppIcon, DownloadLink } from "@/components/brand";
 import { PlatformDownloads } from "@/components/platform-downloads";
+import { PRODUCT } from "@/lib/product";
 import releases from "@/lib/releases.generated.json";
 export const metadata: Metadata = { alternates: { canonical: "/download/" }, title: "Download Fixo Flow" };
 const permissions = [
@@ -68,8 +69,8 @@ export default function DownloadPage() {
       <section className="download-help shell" id="release-notes">
         <h2>What's new<br />in {releases.version}.</h2>
         <div>
-          <p>Free for everyone to use. Downloads and update checks now come directly from fixoflow.tech.</p>
-          <p>Using 0.3.2 or earlier? Install this version manually once to switch to the new update service.</p>
+          <p>Free and open source under the MIT License. <a href={PRODUCT.github + "/releases"}>Download verified build files from GitHub Releases ↗</a> or <a href={PRODUCT.github}>explore the source and contribute ↗</a>.</p>
+          <p>Update checks remain compatible with the website feed. Updates are downloaded manually from the public GitHub release page.</p>
           <p>Start quietly when you sign in, choose separate hold-to-talk and hands-free shortcuts, and let Settings save automatically after a short pause.</p>
           <p>Clear spoken sequences become numbered lists in Writing mode and Automatic messaging mode. Your personal dictionary guides name spellings and corrects exact recurring mistakes. Strict Verbatim preserves the recognizer's text.</p>
           <p>This release focuses on English. Multilingual dictation is coming soon. No additional language models are bundled or downloaded for it.</p>

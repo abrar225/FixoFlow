@@ -1,4 +1,8 @@
-# Private product distribution — 0.3.3
+# Historical: private product distribution — 0.3.3
+
+> Superseded by the MIT/open-source release on 20 October 2026. See
+> [current distribution and contribution policy](17-open-source-release.md).
+> This document records the earlier deployment; it is not the current license.
 
 Fixo Flow is privately developed and free for end users. The source repository is
 private. First-party website copy, social metadata, navigation, download/help

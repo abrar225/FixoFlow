@@ -1,11 +1,10 @@
-"""Stage only existing, format-checked installers; missing platforms stay unavailable."""
+"""Verify native installers and publish versioned public GitHub download links."""
 from pathlib import Path
 import argparse
 import json
-import shutil
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from fixoflow.version import __version__
+from fixoflow.version import __version__, REPOSITORY_URL
 from verify_public_artifact import digest as file_digest, require_report
 root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser()
@@ -40,12 +39,11 @@ for key,name,arch,requirements,source_name,filename,channel,notes in platforms:
             head=file.read(8);file.seek(-512,2);tail=file.read(4)
         assert (tail==b'koly' if key=='macos' else head.startswith(b'MZ') if key=='windows' else head==b'!<arch>\n'),f'Invalid {key} installer: {source}'
         size=source.stat().st_size;digest=file_digest(source)
-        destination=public/filename;shutil.copy2(source,destination);keep.add(filename)
-        assert file_digest(destination)==digest
+        # Installers are hosted on GitHub Releases; do not duplicate them in the site export.
     if key in trust:
         channel='signed preview'
         notes=('Developer ID / Gatekeeper and stapled notarization checks passed. English model included.' if key=='macos' else 'Publisher signature and timestamp verified. New releases can still receive SmartScreen reputation warnings. Physical-device acceptance remains separate.')
-    download_url = f'/downloads/{filename}' if available else None
+    download_url = f'{REPOSITORY_URL}/releases/download/v{__version__}/{filename}' if available else None
     releases.append(dict(id=key,name=name,architecture=arch,requirements=requirements,available=available,filename=filename if available else None,downloadUrl=download_url,bytes=size,sha256=digest,channel=channel,notes=notes,publicTrustVerified=key in trust))
 # Only remove superseded product installers in this generated output directory.
 for old in public.iterdir():
@@ -54,5 +52,5 @@ manifest={'version':__version__,'platforms':releases}
 (root/'Landing_Page/lib/releases.generated.json').write_text(json.dumps(manifest,indent=2)+'\n')
 feed=root/'Landing_Page/public/releases/latest.json'
 feed.parent.mkdir(parents=True,exist_ok=True)
-feed.write_text(json.dumps({'schema_version':1,'version':__version__,'published':all(p['available'] for p in releases),'url':'https://fixoflow.tech/download/','notes':'Fixo Flow is free to use. This release uses public website downloads and update checks. English dictation runs locally. Multilingual dictation is coming soon.'},indent=2)+'\n')
+feed.write_text(json.dumps({'schema_version':1,'version':__version__,'published':all(p['available'] for p in releases),'url':'https://fixoflow.tech/download/','notes':'Fixo Flow is free and open source under the MIT License. Download the latest packages from GitHub Releases. English dictation runs locally; multilingual support is coming soon.'},indent=2)+'\n')
 print(json.dumps({'version':__version__,'available':[p['id'] for p in releases if p['available']]},indent=2))

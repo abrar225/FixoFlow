@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 
 const root = process.cwd();
 const required = [
@@ -45,10 +44,8 @@ assert.ok(fs.existsSync(path.join(root,"out/.htaccess")), "Hosting configuration
 const release = JSON.parse(fs.readFileSync(path.join(root,"lib/releases.generated.json"),"utf8"));
 for (const platform of release.platforms) {
   if (platform.available) {
-    assert.equal(platform.downloadUrl, `/downloads/${platform.filename}`, `Unexpected release URL: ${platform.id}`);
-    const installer = path.join(root,"public/downloads",platform.filename);
-    assert.equal(fs.statSync(installer).size,platform.bytes,`Stale installer: ${platform.id}`);
-    assert.equal(createHash("sha256").update(fs.readFileSync(installer)).digest("hex"),platform.sha256,`Installer digest mismatch: ${platform.id}`);
+    assert.equal(platform.downloadUrl, `https://github.com/abrar225/FixoFlow/releases/download/v${release.version}/${platform.filename}`, `Unexpected release URL: ${platform.id}`);
+    assert.ok(platform.bytes > 0 && /^[a-f0-9]{64}$/.test(platform.sha256), `Missing build evidence: ${platform.id}`);
   } else assert.equal(platform.filename,null,`Unavailable platform has a download: ${platform.id}`);
 }
 let linksChecked = 0;
@@ -75,7 +72,8 @@ for (const route of routes) {
     `Selected Flow Fold icon missing: /${route}`,
   );
   assert.ok(!html.includes("/images/icon-master-1024.png"), `Superseded icon on /${route}`);
-  assert.ok(!/github\.com|open[ -]source|MIT License|Made in the open|Open for everyone to build on/i.test(html), `Retired source-distribution claim: /${route}`);
+  assert.ok(html.includes("https://github.com/abrar225/FixoFlow") && text.includes("MIT License"), `Missing open-source contribution link/license: /${route}`);
+  assert.ok(!/All rights reserved|proprietary software|source repository is private/i.test(text), `Retired private-product claim: /${route}`);
   assert.ok(
     !/\b(?:220\s*(?:WPM|words)|380\s*MB|SHA-?256|Measured speed|Real Benchmarks|Install via Terminal)\b/i.test(
       text,
@@ -115,6 +113,6 @@ assert.equal(updateFeed.version, release.version);
 assert.equal(updateFeed.published, true);
 assert.equal(updateFeed.url, `${origin}/download/`);
 console.log(
-  `PASS ${required.length} required files and ${linksChecked} exported links. Download resolves to a nonempty installer.`,
+  `PASS ${required.length} required files and ${linksChecked} exported links. GitHub download links match verified installer metadata.`,
 );
 console.log("VERDICT: PASS");

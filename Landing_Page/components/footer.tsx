@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PRODUCT } from "@/lib/product";
 import { Brand } from "./brand";
 import releases from "@/lib/releases.generated.json";
 export function Footer() {
@@ -11,7 +12,7 @@ export function Footer() {
             <p>
               A little freedom from your keyboard.
               <br />
-              Free dictation for your everyday words.
+              Free, open-source dictation for your everyday words.
             </p>
           </div>
           <div className="footer-links">
@@ -19,6 +20,7 @@ export function Footer() {
             <Link href="/how-it-works/">How it works</Link>
             <Link href="/download/">Download & setup</Link>
             <Link href="/privacy/">Privacy</Link>
+            <a href={PRODUCT.github}>Contribute on GitHub ↗</a>
           </div>
         </div>
         <div className="footer-wordmark" aria-hidden="true">
@@ -26,7 +28,7 @@ export function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© {new Date().getFullYear()} Fixo Flow · v{releases.version} preview</span>
-          <span>Free to use. All rights reserved.</span>
+          <span>Free and open source · MIT License</span>
         </div>
       </div>
     </footer>

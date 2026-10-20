@@ -1,6 +1,7 @@
 // Website package versions are not application release versions.
 export const PRODUCT = {
   name: "Fixo Flow",
+  github: "https://github.com/abrar225/FixoFlow",
   origin: "https://fixoflow.tech",
   download: "/download/#choose-system",
   icon: "/images/logo-options/flow-fold.png",

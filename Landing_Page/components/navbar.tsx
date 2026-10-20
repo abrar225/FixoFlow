@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
+import { PRODUCT } from "@/lib/product";
 import { Brand, DownloadLink } from "./brand";
 const links = [
   { label: "Why Fixo Flow", href: "/features/" },
@@ -59,6 +60,7 @@ export function Navbar() {
           ))}
         </div>
         <div className="nav-actions">
+          <a href={PRODUCT.github} target="_blank" rel="noreferrer" aria-label="Fixo Flow on GitHub">GitHub ↗</a>
           <DownloadLink />
         </div>
         <button
@@ -78,6 +80,7 @@ export function Navbar() {
             {link.label}
           </Link>
         ))}
+        <a href={PRODUCT.github} target="_blank" rel="noreferrer">GitHub ↗</a>
         <DownloadLink />
       </div>
     </header>

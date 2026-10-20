@@ -81,6 +81,7 @@ export default function PrivacyPage() {
           ))}
         </div>
       </section>
+      <section className="shell"><p>Fixo Flow is open source under the MIT License. <a href="https://github.com/abrar225/FixoFlow">Read the code, report an issue, or contribute on GitHub ↗</a>.</p></section>
       <section className="shell"><p>On Windows, the home folder shown as ~ is your user profile. Optional startup and manual update checks request public release information from fixoflow.tech; audio and writing are not included. Turn off startup checks in Settings for an offline-only workflow.</p></section>
       <section className="privacy-details shell">
         <LockKeyhole size={30} />

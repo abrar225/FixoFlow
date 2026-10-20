@@ -1,189 +1,167 @@
 <div align="center">
+  <img src="fixoflow/ui/assets/flow-fold.png" width="88" alt="Fixo Flow Fold logo" />
 
-# Fixoflow
+# Fixo Flow
 
-**Private, local voice dictation for macOS, with Windows and Linux previews.**
+### A little freedom from your keyboard.
 
-Speak anywhere you type, in any app. Your audio and transcript stay on your computer.
+Free, open-source voice dictation. Speak into your everyday apps, with recognition on your computer.
 
-![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-black)
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![Tests](https://img.shields.io/badge/tests-local%20suite-brightgreen)
-![Local dictation](https://img.shields.io/badge/dictation-on%20device-4c9e63)
+[![MIT License](https://img.shields.io/badge/license-MIT-ace0b0)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/abrar225/FixoFlow?include_prereleases&color=c9b5ef)](https://github.com/abrar225/FixoFlow/releases)
+[![Portable tests](https://github.com/abrar225/FixoFlow/actions/workflows/portable-core.yml/badge.svg)](https://github.com/abrar225/FixoFlow/actions/workflows/portable-core.yml)
+
+**[Website](https://fixoflow.tech) · [Download](https://github.com/abrar225/FixoFlow/releases) · [Report a problem](https://github.com/abrar225/FixoFlow/issues) · [Contribute](CONTRIBUTING.md)**
+
+macOS Apple Silicon · Windows x64 preview · Ubuntu X11 preview
 
 </div>
 
-> **Status: experimental.** Fixoflow is a working local dictation prototype, not yet a verified daily-use replacement for Wispr Flow. Accuracy, latency, and memory claims are unproven; the Python/MLX inference stack currently exceeds its original 200 MB memory target. See the [assessment](docs/2026-10-17-assessment.md).
+> **Experimental preview — 0.3.4.** English dictation is available. Multilingual
+> dictation, including Hindi and Roman Hinglish, is **coming soon**, not delivered
+> in this release. Accuracy and performance vary by microphone, speech and hardware.
+> The project welcomes contributions; it does not promise identical behavior on every OS.
 
----
+## See the product
 
-## Product release and platform status
+![Fixo Flow macOS app — writing styles](docs/images/app-style.png)
+*Actual macOS application: choose a writing style while keeping recognition local.*
 
-The current development preview is **0.3.3**. Mac uses the native Cocoa
-host; Windows x64 uses WebView2; Ubuntu 24.04 X11 uses GTK/WebKit. All share the
-same design, history/dictionary and independent hold/toggle controls. Windows
-and Linux are previews with physical-device acceptance and signing still
-required. Windows 10 22H2 is a compatibility target, not a tested stable release.
+![Fixo Flow macOS app — settings](docs/images/app-settings.png)
+*Actual macOS application: separate shortcuts, automatic saving and dictation modes.
+These screenshots show the interface, not a benchmark or proof of recognition accuracy.*
 
-See the [current build, installation, footprint and launch runbook](docs/08-multiplatform-release.md).
-The [0.1.0 plan](docs/07-platform-and-release-plan.md) remains an historical record.
+## What you can do
 
-## Language and reliability preview
+- **Hold to talk or go hands-free.** Record two independent keyboard/mouse shortcuts in Settings.
+- **Write where you already work.** Your transcript goes to the clipboard first, then Fixo Flow attempts to paste into the original app.
+- **Keep your own vocabulary.** Add names and exact corrections to a local dictionary.
+- **Choose your style.** Natural, Concise, Professional or strict Verbatim; polishing uses offline rules.
+- **Recover your words.** Review local history when insertion fails. Explicit history deletion removes linked owned audio too.
+- **Make it fit your day.** Start quietly at login, use the floating controls, and let preferences save after a short pause.
 
-English remains the default. Settings can explicitly install a separate pinned
-Base multilingual pack (about 150 MB) without replacing the bundled English model.
-The 99-language selector includes Hindi, Chinese, Japanese and other Whisper
-languages. All multilingual options are **experimental**, not an accuracy claim;
-Hindi has substantial measured errors. US/UK/India English share the same recognition model; no regional spelling is forced. Simplified Chinese and Hindi script are prompt
-preferences, not guaranteed script conversion. No cloud processing is enabled.
-See [implementation status and measured limitations](docs/11-reliability-and-multilingual-preview.md).
+No account, subscription or cloud transcription. Optional startup/manual update
+checks request public release metadata; disable startup checks for offline-only
+use. Audio and transcripts are not sent with update requests.
 
-Spoken formatting commands are off by default; Verbatim preserves recognizer
-wording. Explicit History deletion removes linked owned audio as well as text.
-Cancelled/incomplete recordings remain for recovery; automatic retention and a
-recovery inbox are still pending.
+## Download and get started
+
+Get packages from **[GitHub Releases](https://github.com/abrar225/FixoFlow/releases)**.
+The **[website download guide](https://fixoflow.tech/download/)** shows the same
+release links, requirements and platform-specific setup steps.
+
+- **macOS:** Apple Silicon, macOS 14+. The DMG contains a self-contained app and the English model. Drag into Applications, then review Microphone, Accessibility and Input Monitoring permissions. Restart after granting Input Monitoring.
+- **Windows:** x64; Windows 11 is the target, Windows 10 22H2 a compatibility target. WebView2 and the Microsoft Visual C++ runtime are required. Physical-device acceptance is still pending.
+- **Linux:** Ubuntu 24.04 x64 with an X11 desktop. Install the `.deb` with a package manager so declared system dependencies are resolved. Wayland global shortcuts and automatic paste are not supported yet.
+
+**OS trust matters.** Mac previews are locally signed, not Apple-notarized;
+Windows previews are unsigned. Gatekeeper, SmartScreen or Smart App Control may
+warn or block them. Open-source availability does not remove those warnings.
+Keep OS protections enabled. If a package is rejected or offered to move to Trash,
+report the exact dialog, OS version and release filename; do not treat that as
+proof of an incomplete download or disable protection as a workaround.
+
+Verify downloads against the release's `SHA256SUMS.txt` when investigating file
+integrity. A matching checksum establishes matching bytes, not publisher trust.
+
+## Your first dictation
+
+1. Open Fixo Flow and review microphone/input permissions for your OS.
+2. In Settings, record separate **hold-to-talk** and **hands-free** shortcuts.
+3. Click the text field you want to write in.
+4. Hold your shortcut and speak; release to transcribe. Or tap hands-free once to start and again to finish.
+5. Review the result. If automatic paste fails, use the clipboard or local History.
+
+Clear spoken sequences such as “Firstly… Second… Third…” become numbered lists
+in Writing mode and Automatic messaging mode. Spoken punctuation commands are
+opt-in. Verbatim keeps recognizer wording. US, UK and India English share one
+English recognizer; spelling is not forced by a regional prompt.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    A["Two configurable shortcuts<br/>hold-to-talk · hands-free toggle"] --> B["16 kHz mono capture<br/>WAV flushed to disk during recording"]
-    B --> C["Bounded audio windows<br/>Butterworth bandpass<br/>80 Hz – 7.5 kHz + normalize"]
-    C --> D{"Longer than 24 s?"}
-    D -- Yes --> E["Slice at low-energy<br/>breathing pauses"]
-    D -- No --> F["Single chunk"]
-    E --> G["Local Whisper<br/>MLX on Mac · CTranslate2 on CPU"]
-    F --> G
-    G --> H["Dictionary + mode formatting<br/>rule-based polish (offline)"]
-    H --> I["Clipboard first, then paste<br/>into the app you started from"]
+    A[Hold or toggle] --> B[Microphone capture]
+    B --> C[Bounded audio chunks]
+    C --> D[Local Whisper recognition]
+    D --> E[Dictionary and offline formatting]
+    E --> F[Local history and clipboard]
+    F --> G[Attempt paste at your cursor]
 ```
 
-Every transcript is stored in local SQLite history, so text is recoverable even when insertion fails.
+The Mac engine uses MLX; Windows and Linux use CTranslate2/faster-whisper on CPU.
+Packages include their English model. Runtime inference does not download a
+missing model silently. Multilingual packs remain research-only in this release.
 
-## Dictation behavior
+## Privacy and updates
 
-| Gesture | Result |
-| :-- | :-- |
-| Hold-to-talk shortcut | Press to record; release to stop and transcribe |
-| Hands-free shortcut | Press once to start; press again to stop and transcribe |
-| Escape | Cancels capture; the audio file is kept |
-| Click the floating pill | Same toggle control, no keyboard needed |
-| Drag the floating pill | Press anywhere on it (buttons included) and drag; it drops into the nearest of four slots — top center, bottom left, bottom center, bottom right — and remembers it |
+Preferences, SQLite history and recordings live under `~/.fixoflow/` (`~` is your
+user home on Windows too). Mac logs are under `~/Library/Logs/Fixoflow/`.
+Cancelled/incomplete recordings may remain for recovery; automatic retention and
+a recovery inbox are not implemented. Do not share these files without reviewing
+them for personal content.
 
-The floating pill is a 116 × 30 pt glass capsule over a real macOS backdrop blur (`NSVisualEffectView`), so it stays out of the way; it expands only while you hover, record, or when a result needs to be shown. Idle it sits at 82% opacity, wakes to full opacity on hover, and its width, corner radius, and position all animate between states. While dragging, ghost outlines show the four snap slots and the nearest one highlights; a click that follows a drag is suppressed, so dragging can start from a button without ever firing it.
+Update checks use `https://fixoflow.tech/releases/latest.json` and direct you to
+public GitHub downloads through the website. Updates are **manual**; signed
+background installation is not enabled. The feed remains compatible with 0.3.3.
+Older clients can always install the current package manually from Releases.
 
-Text delivery is **clipboard-first**: the transcript is copied before any keystroke is posted. If the target app moved to the background, Fixoflow tries to refocus it; if Accessibility is missing or the paste keystroke is rejected, the text is already on your clipboard and a notification explains what happened.
+## Develop locally
 
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> RECORDING : shortcut / floating bar
-    RECORDING --> IDLE : Escape (audio kept)
-    RECORDING --> PROCESSING : stop
-    PROCESSING --> IDLE : insert text or clipboard fallback
-```
-
-## Local data
-
-| Path | Contents |
-| :-- | :-- |
-| `~/.fixoflow/config.json` | Preferences (atomic saves, `.json.bak` backup on change) |
-| `~/.fixoflow/fixoflow.sqlite` | Completed sessions, dictionary, daily analytics |
-| `~/.fixoflow/audio_cache/` | Session WAVs + `.transcript.json` partial recovery files |
-| `~/Library/Logs/Fixoflow/fixoflow.log` | Rotating log |
-
-No accounts or telemetry. Dictation stays on-device. Optional startup/manual update checks request only public release metadata from fixoflow.tech; signed update downloads require a separately configured Sparkle appcast. Disable startup checks in Settings for an offline-only workflow. Runtime transcription uses a bundled model, an explicit local model directory, or an already-cached snapshot; a missing model produces an error instead of a download. Cloud polishing is removed — older Gemini keys load as offline rules and are never read, and unknown/legacy config keys are ignored instead of crashing.
-
-Shortcuts are recorded in Settings, including exposed keyboard keys, modifiers,
-Fn/Globe, and mouse buttons. Legacy preferences migrate without being overwritten
-until Save. See the release plan for primary-mouse and reserved-key behavior.
-
-## Modes
-
-| Mode | Behavior |
-| :-- | :-- |
-| Automatic | Picks coding vs. writing from the frontmost app name |
-| Coding & AI | Dictionary + spoken-code commands (`camel case get user id` → `getUserId`, `dash dash verbose` → `--verbose`) |
-| Writing | Local rule-based cleanup, preserve line breaks |
-| Raw | Speech engine output untouched |
-
-The personal dictionary conditions the recognizer prompt and rewrites final text. Replacements are treated as literal text — backslashes and `\1` never corrupt output. Only entries you add are authoritative; model output is never auto-promoted.
-
-## Insights & style
-
-| Hub tab | What it shows |
-| :-- | :-- |
-| Insights | Daily streak with best-streak record and a week strip, words dictated today, lifetime words, dictations, average speaking pace, time saved, apps used, dictionary size — and the two learning counters: polish fixes (filler/spacing/punctuation cleanup) and fixes made by Fixoflow (learned terms and spoken-code replacements). Every number is aggregated from local SQLite; everything stays local. |
-| Style | Four writing-mode styles — Natural, Concise, Professional, Verbatim — each with a preview of what it does. Stored as `output_style` and applied by the offline polisher; coding and raw modes are never touched. |
-
-Fixoflow appears in the Dock and app switcher like a regular app. The floating pill stays a nonactivating panel, so clicking it never steals focus, and quitting from the Dock stops dictation cleanly.
-
-## Permissions
-
-| Permission | Why | Where |
-| :-- | :-- | :-- |
-| Microphone | Capture speech | System Settings → Privacy & Security → Microphone |
-| Accessibility | Paste ⌘V at the cursor | … → Accessibility |
-| Input Monitoring | Global shortcut while other apps are focused | … → Input Monitoring |
-
-The Settings tab shows live status for all three and a **Request permissions** button that raises the system prompts. macOS applies new grants only to a freshly started app, so after allowing Input Monitoring click **Restart Fixoflow** in Settings (or the menu-bar item) — the shortcut then activates by itself within a second; **Retry shortcut** forces an immediate re-check. Without Accessibility, dictation still works — text lands on the clipboard with a notification instead of pasting, and the app never re-raises the system dialog on its own.
-
-You only need to grant permissions once: builds are signed with a stable local signing identity (see below), so grants survive updates instead of resetting on every rebuild.
-
-## Install
-
-Build a self-contained `Fixoflow.app` (bundles Python, MLX, PortAudio and the `mlx-community/whisper-base.en-mlx` model):
+Use Python 3.12 and a platform-appropriate virtual environment:
 
 ```sh
-uv pip install --python .venv/bin/python -e '.[packaging]'
-bash scripts/create_signing_cert.sh   # one time: stable local signing identity
-bash scripts/build_app.sh
-bash scripts/build_dmg.sh
+python3.12 -m venv .venv
+# Activate .venv for your shell, then:
+python -m pip install -e '.[dev]'
+# Windows: python -m pip install -e '.[windows,dev]'
+# Linux:   python -m pip install -e '.[linux,dev]'
+python -m pytest tests/ -q
 ```
 
-Then copy `dist/Fixoflow.app` to `/Applications` and launch it. `create_signing_cert.sh` creates a self-signed "Fixoflow Local Signing" certificate in your login keychain; signing with it anchors macOS permission grants to the certificate instead of the binary hash, so Accessibility / Input Monitoring / Microphone grants survive rebuilds. Without it, builds fall back to ad-hoc signing and every update resets permissions. Builds are not Developer ID signed or notarized. See [packaging notes](docs/packaging.md).
+Linux also needs GTK/WebKit, PortAudio, X11 clipboard/input components and the
+PyGObject bindings. See [packaging](docs/packaging.md) and the native build
+[workflow](.github/workflows/desktop-preview.yml) for the exact build environment.
+Source runs need a compatible local model; native installers already bundle one.
+Tests use isolated data and simulated boundaries unless explicitly described as
+native inference/UI checks; passing them is not a speech-accuracy claim.
 
-## CLI
+For the static website:
 
 ```sh
-fixoflow start                 # floating bar, no hub window
-fixoflow hub                   # open the hub dashboard
-fixoflow record [--no-paste]   # interactive terminal dictation
-fixoflow transcribe file.wav   # resample/filter/format an existing file
-fixoflow config --hotkey '<cmd>+<shift>+d' --model ...
+cd Landing_Page
+npm ci
+npm run lint
+npm run build
+npm run audit:copy
 ```
 
-## Development
+## Help improve it
 
-```sh
-uv sync --extra dev
-.venv/bin/pytest tests/ -q
-.venv/bin/python -m fixoflow.app --self-check   # UI + model check, no mic
-```
+Read **[CONTRIBUTING.md](CONTRIBUTING.md)**. Useful contributions include:
 
-Tests use isolated databases and simulated capture/decode boundaries — they do not record the microphone or prove recognition accuracy. The packaged app supports `--packaging-check [--inference]` for bundle and real-Metal checks.
+- Reproducing and fixing microphone, shortcut and paste failures on real devices.
+- Public publisher signing/notarization and reproducible packaging.
+- Noise and speech-quality evaluation using consented recordings.
+- Accessibility, low-end hardware measurements and platform documentation.
+- Multilingual and Hinglish research with explicit accuracy evidence.
 
-## Limitations
+Please report observed behavior rather than claiming universal compatibility or
+99% accuracy. English recognition also makes mistakes; review important text.
 
-- Insertion posts a ⌘V keystroke; that does not prove the receiving app kept the same text field. History is the recovery path.
-- Absolute zero loss cannot be guaranteed against disk, power, or process failures. Partial text from failed chunks is saved as `.transcript.json` next to the audio and never pasted as if complete.
-- App detection uses name heuristics; websites and terminal agents are not distinguished.
-- Peak memory of the Python/MLX stack exceeds the original 200 MB target on this machine.
+<details>
+<summary><strong>Engineering notes and research</strong></summary>
 
-## Documentation
+- [Build and packaging](docs/packaging.md)
+- [Platform/release plan](docs/07-platform-and-release-plan.md)
+- [English quality and multilingual research](docs/13-english-quality-and-multilingual-research.md)
+- [Startup and autosave](docs/12-startup-autosave-and-hinglish.md)
+- [Current open-source distribution](docs/17-open-source-release.md)
+- [Original assessment and measured limitations](docs/2026-10-17-assessment.md)
 
-| Doc | Purpose |
-| :-- | :-- |
-| [App brief](docs/00-app-brief.md) | Product summary |
-| [PRD](docs/01-prd.md) | Requirements |
-| [TRD](docs/02-trd.md) | Architecture & stack |
-| [App flow](docs/03-app-flow.md) | States and journeys |
-| [UI/UX brief](docs/04-ui-ux-brief.md) | Interface direction |
-| [Backend schema](docs/05-backend-schema.md) | Local data model |
-| [Implementation status](docs/06-implementation-plan.md) | Code map & tests |
-| [Packaging](docs/packaging.md) | Build & verify |
-| [Assessment 2026-10-17](docs/2026-10-17-assessment.md) | Honest measurements & limits |
+</details>
 
 ## License
 
-Proprietary software, free for end users. See [LICENSE](LICENSE).
+**[MIT](LICENSE)** — use, study, modify and contribute. Third-party libraries and
+speech models retain their respective licenses and required notices.

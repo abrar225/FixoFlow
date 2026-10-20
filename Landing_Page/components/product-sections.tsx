@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PRODUCT } from "@/lib/product";
 import {
   ArrowUpRight,
   AudioLines,
@@ -220,7 +221,7 @@ export function ClosingCta() {
           <br />a voice.
         </h2>
         <p>
-          Free to use. Made for your everyday words.
+          Free and open source. Made for your everyday words.
           <br />A little more room to be you.
         </p>
         <DownloadLink />

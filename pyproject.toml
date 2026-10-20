@@ -7,6 +7,7 @@ name = "fixoflow"
 dynamic = ["version"]
 description = "Local voice dictation for macOS, Windows, and Linux"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
 authors = [
   { name = "Fixoflow Team" }
@@ -24,6 +25,11 @@ dependencies = [
   "pyobjc-framework-UserNotifications>=10.0; sys_platform == 'darwin'",
   "pyobjc-framework-ServiceManagement>=10.0; sys_platform == 'darwin'"
 ]
+
+[project.urls]
+Homepage = "https://fixoflow.tech"
+Repository = "https://github.com/abrar225/FixoFlow"
+Issues = "https://github.com/abrar225/FixoFlow/issues"
 
 [project.scripts]
 fixoflow = "fixoflow.cli:main"
