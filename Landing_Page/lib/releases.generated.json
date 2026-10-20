@@ -1,5 +1,5 @@
 {
-  "version": "0.3.3",
+  "version": "0.3.4",
   "platforms": [
     {
       "id": "macos",
@@ -7,10 +7,10 @@
       "architecture": "Apple Silicon",
       "requirements": "macOS 14 or later",
       "available": true,
-      "filename": "Fixoflow-0.3.3-macos-arm64.dmg",
-      "downloadUrl": "/downloads/Fixoflow-0.3.3-macos-arm64.dmg",
-      "bytes": 241025348,
-      "sha256": "d3b4075e687c78a7229980e16086194d8019e3bc1b7acb7f1a11c43740578cda",
+      "filename": "Fixoflow-0.3.4-macos-arm64.dmg",
+      "downloadUrl": "https://github.com/abrar225/FixoFlow/releases/download/v0.3.4/Fixoflow-0.3.4-macos-arm64.dmg",
+      "bytes": 236616516,
+      "sha256": "60ca89910fb8627976ec5ed67651ade21a40871fef4f660412f6930d84d42440",
       "channel": "local build",
       "notes": "Locally signed; not Apple notarized. English model included.",
       "publicTrustVerified": false
@@ -21,10 +21,10 @@
       "architecture": "x64",
       "requirements": "Windows 11; Windows 10 22H2 compatibility target",
       "available": true,
-      "filename": "Fixoflow-0.3.3-windows-x64-setup.exe",
-      "downloadUrl": "/downloads/Fixoflow-0.3.3-windows-x64-setup.exe",
-      "bytes": 209273449,
-      "sha256": "9bc926d49efefaea6d61c44de1e8d3566b0923d7ed50f387beb8488f424ea3df",
+      "filename": "Fixoflow-0.3.4-windows-x64-setup.exe",
+      "downloadUrl": "https://github.com/abrar225/FixoFlow/releases/download/v0.3.4/Fixoflow-0.3.4-windows-x64-setup.exe",
+      "bytes": 209326024,
+      "sha256": "de27e64b8d4272c6bd7fc4974b5facc3f5d4b4cb301a965db2439de83166b86e",
       "channel": "preview",
       "notes": "Unsigned preview. WebView2 and Microsoft Visual C++ runtimes required. No GPU needed. Physical-device acceptance is pending.",
       "publicTrustVerified": false
@@ -35,10 +35,10 @@
       "architecture": "x64",
       "requirements": "Ubuntu 24.04 \u00b7 x64 \u00b7 X11 desktop",
       "available": true,
-      "filename": "Fixoflow-0.3.3-linux-x64.deb",
-      "downloadUrl": "/downloads/Fixoflow-0.3.3-linux-x64.deb",
-      "bytes": 265605428,
-      "sha256": "6ec9ce6d7b11dd09f7de821e7ab0b76c817ebd1d16dafa8e4715d0f5f8f49821",
+      "filename": "Fixoflow-0.3.4-linux-x64.deb",
+      "downloadUrl": "https://github.com/abrar225/FixoFlow/releases/download/v0.3.4/Fixoflow-0.3.4-linux-x64.deb",
+      "bytes": 265612168,
+      "sha256": "3269ec332b3495246c70fa1d9e1a50908af07b915852fad23f419fd96e593563",
       "channel": "preview",
       "notes": "Preview for X11. Wayland global shortcuts and automatic paste are not supported yet. No GPU needed.",
       "publicTrustVerified": false

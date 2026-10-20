@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { PRODUCT } from "@/lib/product";
 import {
   ArrowUpRight,
   AudioLines,
