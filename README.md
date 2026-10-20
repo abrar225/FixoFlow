@@ -24,10 +24,10 @@ macOS Apple Silicon · Windows x64 preview · Ubuntu X11 preview
 
 ## See the product
 
-![Fixo Flow macOS app — writing styles](docs/images/app-style.png)
+![Fixo Flow macOS app — writing styles](docs/images/app-style.jpg)
 *Actual macOS application: choose a writing style while keeping recognition local.*
 
-![Fixo Flow macOS app — settings](docs/images/app-settings.png)
+![Fixo Flow macOS app — settings](docs/images/app-settings.jpg)
 *Actual macOS application: separate shortcuts, automatic saving and dictation modes.
 These screenshots show the interface, not a benchmark or proof of recognition accuracy.*
 
