@@ -39,3 +39,29 @@ targets Ubuntu 24.04 x64/X11; Wayland global inputs are not supported.
    Verify anonymous GitHub asset downloads, website copy and update discovery.
 6. Keep the default branch, README version, repository homepage and release
    notes aligned. Collect real-device reports without claiming universal support.
+
+## Publication verified — 26 October 2026
+
+The public default branch includes the MIT license, contribution guide and two
+screenshots captured from the actual 0.3.4 macOS application. GitHub's repository
+homepage points to fixoflow.tech. The obsolete private-transfer draft for 0.3.3
+was removed; the earlier public preview is preserved.
+
+All three complete anonymous downloads from the 0.3.4 GitHub release matched the
+verified build lengths and SHA-256 values. Windows/Linux native build and
+installed UI/model checks passed in run `39393701388`; the hash-gated attachment
+workflow passed in run `39397895434`. Local tests passed (228, with 3 skips), and
+the native Cocoa/WebKit six-panel checks passed. These results do not establish
+physical-device compatibility or public publisher trust.
+
+Hostinger MCP `hosting_deploy` successfully published the static export to
+fixoflow.tech on 26 October. All five live product pages were checked for 0.3.4,
+MIT wording and public GitHub links, without the superseded proprietary notice.
+The compatible JSON update feed announces 0.3.4 and returns cache revalidation
+headers. Signed automatic installation remains disabled.
+
+Maintainers can use `publish-verified-preview.yml` to attach Windows/Linux
+artifacts server-side: it requires an exact successful native build, matching
+draft target, supplied file hashes and passing native UI/inference reports. It
+does not publish the draft or overwrite existing assets. Review the complete
+release separately before publishing.
