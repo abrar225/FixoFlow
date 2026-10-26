@@ -6,7 +6,7 @@ Retaining all samples does not guarantee perfect word continuity at a boundary.
 from __future__ import annotations
 
 import logging
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
 
@@ -26,13 +26,13 @@ def find_pause_split_point(
     """
     start_sample = int(search_start_sec * sample_rate)
     end_sample = min(int(search_end_sec * sample_rate), len(audio))
-    
+
     if start_sample >= end_sample:
         return end_sample
 
     window_size = int(sample_rate * (window_ms / 1000.0))
     region = audio[start_sample:end_sample]
-    
+
     # Compute rolling energy across windows
     num_windows = len(region) // window_size
     if num_windows <= 1:
@@ -40,7 +40,7 @@ def find_pause_split_point(
 
     energies = []
     for i in range(num_windows):
-        win = region[i * window_size : (i + 1) * window_size]
+        win = region[i * window_size: (i + 1) * window_size]
         energy = np.sum(win**2)
         energies.append(energy)
 
@@ -91,7 +91,8 @@ def slice_audio_for_transcription(
 
         chunk = audio[current_offset:split_sample]
         slices.append(chunk)
-        logger.debug("Sliced chunk: %.2fs to %.2fs (length %.2fs)", current_offset / sample_rate, split_sample / sample_rate, len(chunk) / sample_rate)
+        logger.debug("Sliced chunk: %.2fs to %.2fs (length %.2fs)", current_offset /
+                     sample_rate, split_sample / sample_rate, len(chunk) / sample_rate)
         current_offset = split_sample
 
     logger.info("Sliced %.2fs of audio into %d seamless chunks with all samples retained.", total_sec, len(slices))

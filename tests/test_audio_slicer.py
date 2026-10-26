@@ -3,7 +3,6 @@ Unit tests for Fixoflow Audio Slicer.
 Verifies zero data loss across chunk boundaries on long audio recordings.
 """
 import numpy as np
-import pytest
 
 from fixoflow.audio.slicer import slice_audio_for_transcription, find_pause_split_point
 
@@ -22,11 +21,11 @@ def test_long_audio_sliced_with_zero_sample_loss():
     # 60 seconds of audio (should be sliced into at least 3 chunks)
     total_seconds = 60
     audio = np.random.randn(sample_rate * total_seconds).astype(np.float32) * 0.1
-    
+
     # Insert silence valleys every 18 seconds to simulate natural breathing pauses
     for pause_sec in [18, 36, 54]:
         idx = int(pause_sec * sample_rate)
-        audio[idx : idx + sample_rate] = 0.0  # 1 second of silence
+        audio[idx: idx + sample_rate] = 0.0  # 1 second of silence
 
     slices = slice_audio_for_transcription(
         audio,
@@ -34,7 +33,7 @@ def test_long_audio_sliced_with_zero_sample_loss():
         max_chunk_sec=24.0,
         min_search_sec=15.0,
     )
-    
+
     assert len(slices) >= 3
     # Check that total samples across all slices exactly equal the original audio
     total_sliced_samples = sum(len(s) for s in slices)

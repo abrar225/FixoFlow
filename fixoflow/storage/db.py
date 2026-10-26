@@ -72,7 +72,8 @@ class FixoflowDB:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_app ON history (app_name)")
 
-            cursor.execute("CREATE TABLE IF NOT EXISTS session_artifacts (path TEXT PRIMARY KEY, root TEXT NOT NULL, identity TEXT NOT NULL)")
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS session_artifacts (path TEXT PRIMARY KEY, root TEXT NOT NULL, identity TEXT NOT NULL)")
             # Additive migration for databases created before fix tracking.
             history_columns = {row[1] for row in cursor.execute("PRAGMA table_info(history)")}
             if "fixes_polish" not in history_columns:
@@ -205,7 +206,7 @@ class FixoflowDB:
             params.append(app)
 
         query += " ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?"
-        params.extend((limit,offset))
+        params.extend((limit, offset))
 
         with self._connect() as conn:
             return [dict(row) for row in conn.execute(query, params).fetchall()]
@@ -213,46 +214,59 @@ class FixoflowDB:
     def register_session_artifact(self, path, root):
         import json
         from .artifacts import identity, session_files
-        path=Path(path)
-        audio=path if path.suffix=='.wav' else path.with_suffix('').with_suffix('.wav')
-        if path not in session_files(audio,root):raise ValueError('Unknown recording artifact')
+        path = Path(path)
+        audio = path if path.suffix == '.wav' else path.with_suffix('').with_suffix('.wav')
+        if path not in session_files(audio, root):
+            raise ValueError('Unknown recording artifact')
         with self._connect() as conn:
-            conn.execute('INSERT OR REPLACE INTO session_artifacts VALUES (?,?,?)',(str(path.absolute()),str(Path(root).resolve()),json.dumps(identity(path))))
+            conn.execute('INSERT OR REPLACE INTO session_artifacts VALUES (?,?,?)',
+                         (str(path.absolute()), str(Path(root).resolve()), json.dumps(identity(path))))
 
     def delete_history_item(self, session_id: str, cache_root=None, rebuild=True) -> None:
         import json
         from .artifacts import session_files, validate_legacy, identity, unlink_owned
         with self._connect() as conn:
-            row=conn.execute('SELECT * FROM history WHERE id=?',(session_id,)).fetchone()
+            row = conn.execute('SELECT * FROM history WHERE id=?', (session_id,)).fetchone()
             if row and row['audio_path']:
-                audio=Path(row['audio_path']).absolute()
-                shared=conn.execute('SELECT count(*) FROM history WHERE audio_path=? AND id!=?',(row['audio_path'],session_id)).fetchone()[0]
+                audio = Path(row['audio_path']).absolute()
+                shared = conn.execute('SELECT count(*) FROM history WHERE audio_path=? AND id!=?',
+                                      (row['audio_path'], session_id)).fetchone()[0]
                 if not shared:
-                    records={r['path']:dict(r) for r in conn.execute('SELECT * FROM session_artifacts WHERE path IN (?,?)',(str(audio),str(audio.with_suffix('.transcript.json'))))}
-                    roots={record['root'] for record in records.values()}
-                    if len(roots)>1:raise ValueError('Recording ownership roots disagree; deletion stopped.')
-                    root=next(iter(roots)) if roots else cache_root
-                    if root is None:raise ValueError('Recording ownership needs verification; History was preserved.')
-                    files=session_files(audio,root)
+                    records = {r['path']: dict(r) for r in conn.execute(
+                        'SELECT * FROM session_artifacts WHERE path IN (?,?)', (str(audio), str(audio.with_suffix('.transcript.json'))))}
+                    roots = {record['root'] for record in records.values()}
+                    if len(roots) > 1:
+                        raise ValueError('Recording ownership roots disagree; deletion stopped.')
+                    root = next(iter(roots)) if roots else cache_root
+                    if root is None:
+                        raise ValueError('Recording ownership needs verification; History was preserved.')
+                    files = session_files(audio, root)
                     if any(f.exists() and str(f) not in records for f in files):
-                        files=validate_legacy(audio,root,row['asr_text'])
+                        files = validate_legacy(audio, root, row['asr_text'])
                         for file in files:
-                            if file.exists():records.setdefault(str(file),{'identity':json.dumps(identity(file))})
+                            if file.exists():
+                                records.setdefault(str(file), {'identity': json.dumps(identity(file))})
                     for file in files:
-                        if str(file) in records:unlink_owned(file,json.loads(records[str(file)]['identity']))
-                    conn.execute('DELETE FROM session_artifacts WHERE path IN (?,?)',(str(files[0]),str(files[1])))
+                        if str(file) in records:
+                            unlink_owned(file, json.loads(records[str(file)]['identity']))
+                    conn.execute('DELETE FROM session_artifacts WHERE path IN (?,?)', (str(files[0]), str(files[1])))
             conn.execute("DELETE FROM history WHERE id = ?", (session_id,))
-        if rebuild:self.rebuild_analytics()
+        if rebuild:
+            self.rebuild_analytics()
 
     def clear_all_history(self, cache_root=None) -> None:
         with self._connect() as conn:
-            ids=[row[0] for row in conn.execute('SELECT id FROM history')]
-        failures=[]
+            ids = [row[0] for row in conn.execute('SELECT id FROM history')]
+        failures = []
         for session_id in ids:
-            try:self.delete_history_item(session_id,cache_root,rebuild=False)
-            except (OSError,ValueError) as error:failures.append(str(error))
+            try:
+                self.delete_history_item(session_id, cache_root, rebuild=False)
+            except (OSError, ValueError) as error:
+                failures.append(str(error))
         self.rebuild_analytics()
-        if failures:raise ValueError(f'{len(failures)} sessions could not be fully deleted. Retry after resolving the file issue. '+failures[0])
+        if failures:
+            raise ValueError(
+                f'{len(failures)} sessions could not be fully deleted. Retry after resolving the file issue. '+failures[0])
 
     # ------------------------------------------------------------------
     # Dictionary / vocabulary
@@ -296,8 +310,9 @@ class FixoflowDB:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         with self._connect() as conn:
             cursor = conn.execute(
-                "SELECT * FROM dictionary WHERE phrase LIKE ? ESCAPE '\\' OR replacement LIKE ? ESCAPE '\\' ORDER BY frequency DESC, last_used DESC, phrase" + (" LIMIT ? OFFSET ?" if limit is not None else ""),
-                (f'%{escaped}%',f'%{escaped}%') + (() if limit is None else (limit,offset))
+                "SELECT * FROM dictionary WHERE phrase LIKE ? ESCAPE '\\' OR replacement LIKE ? ESCAPE '\\' ORDER BY frequency DESC, last_used DESC, phrase" +
+                (" LIMIT ? OFFSET ?" if limit is not None else ""),
+                (f'%{escaped}%', f'%{escaped}%') + (() if limit is None else (limit, offset))
             )
             return [dict(row) for row in cursor.fetchall()]
 

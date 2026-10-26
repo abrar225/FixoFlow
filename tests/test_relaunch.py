@@ -1,4 +1,7 @@
 import sys
+import pytest
+if sys.platform != 'darwin':
+    pytest.skip("macOS only", allow_module_level=True)
 
 from fixoflow import app as app_module
 
@@ -37,21 +40,26 @@ def test_dock_termination_drains_owned_dictation_before_exit():
 def test_rejected_shutdown_does_not_spawn_replacement(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import Mock
-    instance=SimpleNamespace(stop=Mock(return_value=False))
-    spawn=Mock();exit_process=Mock()
-    monkeypatch.setattr(app_module.subprocess,'Popen',spawn)
-    monkeypatch.setattr(app_module.os,'_exit',exit_process)
+    instance = SimpleNamespace(stop=Mock(return_value=False))
+    spawn = Mock()
+    exit_process = Mock()
+    monkeypatch.setattr(app_module.subprocess, 'Popen', spawn)
+    monkeypatch.setattr(app_module.os, '_exit', exit_process)
     app_module.FixoflowApp.restart(instance)
-    spawn.assert_not_called();exit_process.assert_not_called()
+    spawn.assert_not_called()
+    exit_process.assert_not_called()
 
 
 def test_restart_spawn_failure_preserves_completed_shutdown_and_reports(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import Mock
-    instance=SimpleNamespace(stop=Mock(return_value=True))
-    notice=Mock();exit_process=Mock()
-    monkeypatch.setattr(app_module.subprocess,'Popen',Mock(side_effect=OSError('launch failed')))
-    monkeypatch.setattr(app_module.os,'_exit',exit_process)
-    monkeypatch.setattr(app_module,'notify',notice)
+    instance = SimpleNamespace(stop=Mock(return_value=True))
+    notice = Mock()
+    exit_process = Mock()
+    monkeypatch.setattr(app_module.subprocess, 'Popen', Mock(side_effect=OSError('launch failed')))
+    monkeypatch.setattr(app_module.os, '_exit', exit_process)
+    monkeypatch.setattr(app_module, 'notify', notice)
     app_module.FixoflowApp.restart(instance)
-    instance.stop.assert_called_once();notice.assert_called_once();exit_process.assert_not_called()
+    instance.stop.assert_called_once()
+    notice.assert_called_once()
+    exit_process.assert_not_called()

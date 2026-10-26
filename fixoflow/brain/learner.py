@@ -67,16 +67,17 @@ def _to_kebab_case(text: str) -> str:
 class AdaptiveLearner:
     def __init__(self, db: Optional[FixoflowDB] = None):
         self.db = db or FixoflowDB.get_instance()
+
     def is_coding_context(self, app_name: str) -> bool:
         """Whether the active application is a coding / terminal / agent environment."""
         # Chat apps need prose formatting too. Substrings such as "code" also
         # misclassify unrelated apps (and Codex's conversational composer).
         coding_apps = {"code", "vs code", "visual studio code", "code - insiders",
-            "cursor", "terminal", "iterm", "iterm2", "alacritty", "kitty",
-            "xcode", "warp", "pycharm", "webstorm", "sublime text", "zed",
-            "antigravity", "antigravity ide", "claude code", "pycharm64",
-            "webstorm64", "sublime_text", "gnome-terminal", "gnome-terminal-server",
-            "org.gnome.terminal", "konsole", "windows terminal", "windowsterminal"}
+                       "cursor", "terminal", "iterm", "iterm2", "alacritty", "kitty",
+                       "xcode", "warp", "pycharm", "webstorm", "sublime text", "zed",
+                       "antigravity", "antigravity ide", "claude code", "pycharm64",
+                       "webstorm64", "sublime_text", "gnome-terminal", "gnome-terminal-server",
+                       "org.gnome.terminal", "konsole", "windows terminal", "windowsterminal"}
         return app_name.strip().casefold() in coding_apps
 
     def effective_mode(self, mode: str, app_name: str) -> str:
@@ -109,22 +110,23 @@ class AdaptiveLearner:
         for entry in sorted(dictionary, key=lambda e: (-len(e["phrase"]), e["phrase"].casefold(), e["phrase"])):
             by_phrase.setdefault(entry["phrase"].casefold(), entry)
         if by_phrase:
-            entries = {f'word{i}':entry for i,entry in enumerate(by_phrase.values())}
-            def word_character(char):return bool(char) and (unicodedata.category(char)[0] in 'LMN' or char=='_')
-            def unspaced(char):return bool(char) and ('\u3040'<=char<='\u30ff' or '\u3400'<=char<='\u9fff')
+            entries = {f'word{i}': entry for i, entry in enumerate(by_phrase.values())}
+            def word_character(char): return bool(char) and (unicodedata.category(char)[0] in 'LMN' or char == '_')
+            def unspaced(char): return bool(char) and ('\u3040' <= char <= '\u30ff' or '\u3400' <= char <= '\u9fff')
             # Boundaries belong in the matching grammar. Rejecting a longer
             # phrase in a replacement callback hides valid shorter matches.
             # Only characters present in this original input can border a
             # match; include combining marks, unlike Python's default \w.
-            characters=re.escape(''.join(sorted({c for c in text if word_character(c)})))
-            boundary=f'[{characters}]' if characters else r'(?!)'
-            alternatives=[]
-            for key,entry in entries.items():
-                left='' if unspaced(entry['phrase'][0]) else f'(?<!{boundary})'
-                right='' if unspaced(entry['phrase'][-1]) else f'(?!{boundary})'
+            characters = re.escape(''.join(sorted({c for c in text if word_character(c)})))
+            boundary = f'[{characters}]' if characters else r'(?!)'
+            alternatives = []
+            for key, entry in entries.items():
+                left = '' if unspaced(entry['phrase'][0]) else f'(?<!{boundary})'
+                right = '' if unspaced(entry['phrase'][-1]) else f'(?!{boundary})'
                 alternatives.append(left+f'(?P<{key}>{re.escape(entry["phrase"])})'+right)
-            pattern=re.compile('|'.join(alternatives),re.IGNORECASE)
+            pattern = re.compile('|'.join(alternatives), re.IGNORECASE)
             used = set()
+
             def replace(match):
                 nonlocal fixes
                 entry = entries[match.lastgroup]

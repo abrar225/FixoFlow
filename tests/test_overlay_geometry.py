@@ -1,3 +1,7 @@
+import sys
+import pytest
+if sys.platform != 'darwin':
+    pytest.skip("macOS only", allow_module_level=True)
 from fixoflow.ui.overlay import (
     dragged_origin,
     nearest_zone,

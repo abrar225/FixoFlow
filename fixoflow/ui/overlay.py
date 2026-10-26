@@ -500,7 +500,8 @@ class OverlayManager:
     def update_audio_level(self, level):
         def apply():
             if self._ready and self._state == 'listening':
-                self._webview.evaluateJavaScript_completionHandler_(f'setAudioLevel({max(0.0, min(float(level), 1.0))});', None)
+                self._webview.evaluateJavaScript_completionHandler_(
+                    f'setAudioLevel({max(0.0, min(float(level), 1.0))});', None)
         self._dispatch_main(apply)
 
     def hide(self):

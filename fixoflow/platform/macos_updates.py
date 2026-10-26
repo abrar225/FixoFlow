@@ -9,20 +9,20 @@ logger = logging.getLogger(__name__)
 
 
 class SparkleUpdater:
-    def __init__(self,controller):
+    def __init__(self, controller):
         self.controller = controller
         self.updater = controller.updater()
 
-    def check(self,manual=True):
+    def check(self, manual=True):
         if manual:
             self.controller.checkForUpdates_(None)
         else:
             self.updater.checkForUpdatesInBackground()
 
-    def set_automatic(self,enabled):
+    def set_automatic(self, enabled):
         self.updater.setAutomaticallyDownloadsUpdates_(bool(enabled))
 
-    def set_checks(self,enabled):
+    def set_checks(self, enabled):
         self.updater.setAutomaticallyChecksForUpdates_(bool(enabled))
 
 
@@ -43,5 +43,6 @@ def load_signed_updater():
     if framework is None or not framework.load():
         logger.error('Could not load the packaged Sparkle framework.')
         return None
-    controller = objc.lookUpClass('SPUStandardUpdaterController').alloc().initWithStartingUpdater_updaterDelegate_userDriverDelegate_(True,None,None)
+    controller = objc.lookUpClass('SPUStandardUpdaterController').alloc(
+    ).initWithStartingUpdater_updaterDelegate_userDriverDelegate_(True, None, None)
     return SparkleUpdater(controller)
