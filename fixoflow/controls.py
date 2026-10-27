@@ -101,7 +101,7 @@ class DictationControls:
                 return
             self._hold_session = None
             self._cancel_requested.set()
-            if self._intent == 'PROCESSING' and hasattr(self.coordinator,'request_cancel'):
+            if self._intent == 'PROCESSING' and hasattr(self.coordinator, 'request_cancel'):
                 self.coordinator.request_cancel()
             self._end_locked(cancel=True)
         self.on_change()
@@ -123,7 +123,8 @@ class DictationControls:
             self._cancel_requested.set()
         # Drain an in-flight start before closing capture. Queued finish keeps
         # ownership of its audio; shutdown must not abandon it midway.
-        if hasattr(self.coordinator,'request_cancel'):self.coordinator.request_cancel()
+        if hasattr(self.coordinator, 'request_cancel'):
+            self.coordinator.request_cancel()
         self.executor.shutdown(wait=True)
         if self.coordinator.recorder.is_recording:
             self.coordinator.cancel_recording()

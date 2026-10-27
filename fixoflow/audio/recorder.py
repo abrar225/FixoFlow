@@ -66,9 +66,11 @@ class AudioRecorder:
         return self._stream is not None or self._writer is not None or self._output is not None
 
     def retry_cleanup(self):
-        try:self.stop(load_audio=False)
+        try:
+            self.stop(load_audio=False)
         except RecordingError:
-            if self.needs_cleanup:raise
+            if self.needs_cleanup:
+                raise
         return not self.needs_cleanup
 
     def _fail(self, error: BaseException) -> None:
@@ -234,7 +236,8 @@ class AudioRecorder:
             raise RecordingError(f"Recording incomplete: {self._error}", path) from self._error
         if self._current_session_path is None:
             return np.array([], dtype=np.float32), path
-        if not load_audio:return np.array([], dtype=np.float32), path
+        if not load_audio:
+            return np.array([], dtype=np.float32), path
         _, audio = wav.read(str(path))
         audio = audio.astype(np.float32) / 32767.0
         if audio.ndim > 1:

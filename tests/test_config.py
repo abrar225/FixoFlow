@@ -5,7 +5,8 @@ from fixoflow.config import FixoflowConfig
 
 def test_legacy_cloud_config_loads_offline_without_overwriting(tmp_path, monkeypatch):
     path = tmp_path / 'config.json'
-    original = {'polishing_engine':'gemini', 'gemini_api_key':'legacy-value', 'gemini_model':'old', 'groq_api_key':'unknown-value'}
+    original = {'polishing_engine': 'gemini', 'gemini_api_key': 'legacy-value',
+                'gemini_model': 'old', 'groq_api_key': 'unknown-value'}
     path.write_text(json.dumps(original))
     monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
     cfg = FixoflowConfig.load()
@@ -17,7 +18,7 @@ def test_legacy_cloud_config_loads_offline_without_overwriting(tmp_path, monkeyp
 
 def test_unknown_keys_never_break_startup(tmp_path, monkeypatch):
     path = tmp_path / 'config.json'
-    path.write_text(json.dumps({'groq_api_key':'secret', 'mode':'coding'}))
+    path.write_text(json.dumps({'groq_api_key': 'secret', 'mode': 'coding'}))
     monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
     cfg = FixoflowConfig.load()
     assert cfg.mode == 'coding'
@@ -25,19 +26,20 @@ def test_unknown_keys_never_break_startup(tmp_path, monkeypatch):
 
 def test_legacy_shortcuts_migrate_without_rewriting(tmp_path, monkeypatch):
     path = tmp_path / 'config.json'
-    original = {'hotkey':'<cmd>+<shift>+d','dual_mode_hotkey':True,'dual_mode_threshold_sec':0.9}
+    original = {'hotkey': '<cmd>+<shift>+d', 'dual_mode_hotkey': True, 'dual_mode_threshold_sec': 0.9}
     path.write_text(json.dumps(original))
-    monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:path))
+    monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
     cfg = FixoflowConfig.load()
-    assert cfg.hold_shortcut['keys'] == ['cmd','shift','d']
+    assert cfg.hold_shortcut['keys'] == ['cmd', 'shift', 'd']
     assert cfg.hands_free_shortcut['keys'] != cfg.hold_shortcut['keys']
     assert json.loads(path.read_text()) == original
 
 
 def test_legacy_toggle_keeps_existing_shortcut_for_hands_free(tmp_path, monkeypatch):
-    path=tmp_path/'config.json';path.write_text(json.dumps({'hotkey':'<ctrl>+<space>','dual_mode_hotkey':False,'hold_to_talk':False}))
-    monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:path))
-    assert FixoflowConfig.load().hands_free_shortcut['keys']==['ctrl','space']
+    path = tmp_path/'config.json'
+    path.write_text(json.dumps({'hotkey': '<ctrl>+<space>', 'dual_mode_hotkey': False, 'hold_to_talk': False}))
+    monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
+    assert FixoflowConfig.load().hands_free_shortcut['keys'] == ['ctrl', 'space']
 
 
 def test_invalid_config_is_not_silently_reset(tmp_path, monkeypatch):
@@ -86,23 +88,27 @@ def test_output_style_defaults_to_natural_and_rejects_unknown_styles():
         FixoflowConfig(output_style='shakespearean').validate()
 
 
-def test_old_multilingual_preference_is_deferred_without_deleting_or_rewriting(tmp_path,monkeypatch):
-    path=tmp_path/'config.json'
-    original={'language':'hi','model_name':'multilingual-base'}
+def test_old_multilingual_preference_is_deferred_without_deleting_or_rewriting(tmp_path, monkeypatch):
+    path = tmp_path/'config.json'
+    original = {'language': 'hi', 'model_name': 'multilingual-base'}
     path.write_text(json.dumps(original))
-    monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:path))
-    cfg=FixoflowConfig.load()
-    assert cfg.language=='en' and cfg.deferred_language=='hi'
-    assert cfg.model_name==FixoflowConfig().model_name
-    assert json.loads(path.read_text())==original
-    cfg.cache_dir=str(tmp_path/'audio');cfg.save()
-    assert json.loads(path.with_suffix('.json.bak').read_text())==original
-    assert FixoflowConfig.load().deferred_language=='hi'
+    monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
+    cfg = FixoflowConfig.load()
+    assert cfg.language == 'en' and cfg.deferred_language == 'hi'
+    assert cfg.model_name == FixoflowConfig().model_name
+    assert json.loads(path.read_text()) == original
+    cfg.cache_dir = str(tmp_path/'audio')
+    cfg.save()
+    assert json.loads(path.with_suffix('.json.bak').read_text()) == original
+    assert FixoflowConfig.load().deferred_language == 'hi'
 
 
-def test_old_auto_language_is_deferred_but_malformed_language_is_not_hidden(tmp_path,monkeypatch):
-    path=tmp_path/'config.json';monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:path))
-    path.write_text(json.dumps({'language':None,'model_name':'multilingual-base'}))
-    cfg=FixoflowConfig.load();assert cfg.language=='en' and cfg.deferred_language=='auto'
-    path.write_text(json.dumps({'language':'bogus'}))
-    with pytest.raises(ValueError):FixoflowConfig.load()
+def test_old_auto_language_is_deferred_but_malformed_language_is_not_hidden(tmp_path, monkeypatch):
+    path = tmp_path/'config.json'
+    monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
+    path.write_text(json.dumps({'language': None, 'model_name': 'multilingual-base'}))
+    cfg = FixoflowConfig.load()
+    assert cfg.language == 'en' and cfg.deferred_language == 'auto'
+    path.write_text(json.dumps({'language': 'bogus'}))
+    with pytest.raises(ValueError):
+        FixoflowConfig.load()

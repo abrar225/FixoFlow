@@ -10,11 +10,12 @@ missing or event posting fails. Callers distinguish the failure reason through
 `InsertionOutcome`.
 """
 from __future__ import annotations
+from .contracts import InsertionOutcome
 
 import logging
 import subprocess
 import time
-from typing import Optional, Tuple
+from typing import Tuple
 
 import AppKit
 import ApplicationServices
@@ -43,9 +44,6 @@ _MICROPHONE_STATES = {
     2: "denied",
     3: "authorized",
 }
-
-
-from .contracts import InsertionOutcome
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +192,8 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=No
     """
     if not copy_to_clipboard(text):
         return InsertionOutcome(False, False, "clipboard-failed")
-    if cancelled and cancelled():return InsertionOutcome(False, True, 'cancelled')
+    if cancelled and cancelled():
+        return InsertionOutcome(False, True, 'cancelled')
 
     if not accessibility_trusted():
         # Never raise the system prompt from an insertion attempt. Prompting is
@@ -207,8 +206,10 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=No
     deadline = time.monotonic() + 0.8
     modifiers = Quartz.kCGEventFlagMaskCommand | Quartz.kCGEventFlagMaskControl | Quartz.kCGEventFlagMaskAlternate | Quartz.kCGEventFlagMaskShift
     while Quartz.CGEventSourceFlagsState(Quartz.kCGEventSourceStateCombinedSessionState) & modifiers:
-        if cancelled and cancelled():return InsertionOutcome(False, True, 'cancelled')
-        if time.monotonic() > deadline:return InsertionOutcome(False, True, 'event-failed')
+        if cancelled and cancelled():
+            return InsertionOutcome(False, True, 'cancelled')
+        if time.monotonic() > deadline:
+            return InsertionOutcome(False, True, 'event-failed')
         time.sleep(0.01)
     time.sleep(delay_sec)
     if not target or get_frontmost_app_info()[1] != target:
@@ -218,11 +219,14 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=No
         Quartz.CGEventSetFlags(event_down, Quartz.kCGEventFlagMaskCommand)
         event_up = Quartz.CGEventCreateKeyboardEvent(None, KEY_CODE_V, False)
         Quartz.CGEventSetFlags(event_up, 0)
-        if cancelled and cancelled():return InsertionOutcome(False, True, 'cancelled')
+        if cancelled and cancelled():
+            return InsertionOutcome(False, True, 'cancelled')
         # Dispatch commits at the first post. Always release once committed,
         # including cancellation arriving between the down and up events.
-        try:Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_down)
-        finally:Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_up)
+        try:
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_down)
+        finally:
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, event_up)
         logger.info("Pasted text (%d characters) at cursor", len(text))
         return InsertionOutcome(True, True, "inserted")
     except Exception as error:
@@ -281,6 +285,7 @@ def play_sound(sound_name: str = "Tink") -> None:
 
 def open_permission_settings(section):
     from Foundation import NSURL
-    names = {'microphone':'Privacy_Microphone','accessibility':'Privacy_Accessibility','input':'Privacy_ListenEvent'}
+    names = {'microphone': 'Privacy_Microphone', 'accessibility': 'Privacy_Accessibility', 'input': 'Privacy_ListenEvent'}
     if section in names:
-        AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('x-apple.systempreferences:com.apple.preference.security?'+names[section]))
+        AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_(
+            'x-apple.systempreferences:com.apple.preference.security?'+names[section]))

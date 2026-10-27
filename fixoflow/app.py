@@ -11,7 +11,6 @@ import shlex
 import signal
 import subprocess
 import sys
-import threading
 import time
 import argparse
 import fcntl
@@ -190,7 +189,8 @@ class MenuDelegate(NSObject):
 
     def applicationShouldTerminate_(self, application):
         if self.app_instance:
-            if self.app_instance.stop() is False:return AppKit.NSTerminateCancel
+            if self.app_instance.stop() is False:
+                return AppKit.NSTerminateCancel
         return AppKit.NSTerminateNow
 
     def applicationShouldTerminateAfterLastWindowClosed_(self, application):
@@ -236,8 +236,8 @@ class FixoflowApp:
         self.hub.on_primary_mouse_capture = self.daemon.capture_primary_mouse
         from fixoflow.updates import UpdateService
         from fixoflow.platform.macos_updates import load_signed_updater
-        self.updates = UpdateService(lambda value:self.hub._eval_js(f"onUpdateData({json.dumps(value)});"),
-            dispatch=lambda fn:NSOperationQueue.mainQueue().addOperationWithBlock_(fn),signed_updater=load_signed_updater())
+        self.updates = UpdateService(lambda value: self.hub._eval_js(f"onUpdateData({json.dumps(value)});"),
+                                     dispatch=lambda fn: NSOperationQueue.mainQueue().addOperationWithBlock_(fn), signed_updater=load_signed_updater())
         self.hub.on_update_check = self.check_updates
         self.hub.on_update_status = self.updates.snapshot
         self.hub.on_open_release = self.open_release
@@ -254,8 +254,8 @@ class FixoflowApp:
         self._setup_menu_bar()
         self._setup_application_menu()
         self.daemon.coordinator.overlay.configure(self.config, on_toggle=self.daemon.controls.toggle,
-            on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show,
-            on_position_change=self.set_overlay_position)
+                                                  on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show,
+                                                  on_position_change=self.set_overlay_position)
 
     def show_overlay(self):
         overlay = self.daemon.coordinator.overlay
@@ -265,9 +265,11 @@ class FixoflowApp:
     def control_status(self):
         listener = self.daemon._listener
         mouse_listener = self.daemon._mouse_listener
-        active = bool(listener is not None and listener.is_alive() and listener.running and mouse_listener is not None and mouse_listener.is_alive() and mouse_listener.running)
+        active = bool(listener is not None and listener.is_alive(
+        ) and listener.running and mouse_listener is not None and mouse_listener.is_alive() and mouse_listener.running)
         state = self.daemon.controls.state
-        detail = self.daemon.coordinator.last_error or ("Hold your hold-to-talk shortcut, or tap hands-free to start and stop." if active else self._shortcut_error)
+        detail = self.daemon.coordinator.last_error or (
+            "Hold your hold-to-talk shortcut, or tap hands-free to start and stop." if active else self._shortcut_error)
         return {"state": state, "shortcut": shortcut_label(self.config.hold_shortcut), "hands_free_shortcut": shortcut_label(self.config.hands_free_shortcut), "shortcut_active": active, "detail": detail}
 
     def refresh_status(self):
@@ -279,7 +281,7 @@ class FixoflowApp:
             self._status_cache = serialized
             self.hub._eval_js(f"onControlStatus({serialized});")
             self._toggle_menu_item.setTitle_("Stop dictation" if status["state"] == "RECORDING" else
-                "Transcribing…" if status["state"] == "PROCESSING" else f"Start dictation ({status['shortcut']})")
+                                             "Transcribing…" if status["state"] == "PROCESSING" else f"Start dictation ({status['shortcut']})")
             self._toggle_menu_item.setEnabled_(status["state"] != "PROCESSING")
         self._activate_shortcut_when_permitted(status)
 
@@ -323,9 +325,11 @@ class FixoflowApp:
         message = self.enable_shortcut()
         if message:
             raise RuntimeError(message)
+
         def captured(binding, message):
-            value = {'field':field,'binding':binding,'message':message}
-            NSOperationQueue.mainQueue().addOperationWithBlock_(lambda:self.hub._eval_js(f"onShortcutCaptured({json.dumps(value)});"))
+            value = {'field': field, 'binding': binding, 'message': message}
+            NSOperationQueue.mainQueue().addOperationWithBlock_(
+                lambda: self.hub._eval_js(f"onShortcutCaptured({json.dumps(value)});"))
         self.daemon.begin_capture(captured)
 
     def check_updates(self):
@@ -354,9 +358,10 @@ class FixoflowApp:
         # waiting on that lock. Holding it while joining would deadlock.
         if bindings_changed:
             self.daemon.stop_listener()
+
         def update():
             self.startup.commit(self.config, candidate,
-                lambda: self.daemon.coordinator.apply_config(candidate), explicit=startup_requested)
+                                lambda: self.daemon.coordinator.apply_config(candidate), explicit=startup_requested)
             if bindings_changed:
                 self.daemon.configure_shortcuts()
         try:
@@ -374,18 +379,18 @@ class FixoflowApp:
     def _setup_application_menu(self):
         # A regular Dock app also needs the standard application/edit menu.
         bar = AppKit.NSMenu.alloc().init()
-        root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Fixo Flow',None,'')
+        root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Fixo Flow', None, '')
         menu = AppKit.NSMenu.alloc().initWithTitle_('Fixo Flow')
-        for title,action,key,target in [('Open Fixo Flow','openHub:','0',self._delegate),('Settings…','openSettings:',',',self._delegate),('Check for Updates…','checkUpdates:','',self._delegate),('Quit Fixo Flow','quitApp:','q',self._delegate)]:
-            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title,action,key)
+        for title, action, key, target in [('Open Fixo Flow', 'openHub:', '0', self._delegate), ('Settings…', 'openSettings:', ',', self._delegate), ('Check for Updates…', 'checkUpdates:', '', self._delegate), ('Quit Fixo Flow', 'quitApp:', 'q', self._delegate)]:
+            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key)
             item.setTarget_(target)
             menu.addItem_(item)
         root.setSubmenu_(menu)
         bar.addItem_(root)
-        edit_root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Edit',None,'')
+        edit_root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Edit', None, '')
         edit = AppKit.NSMenu.alloc().initWithTitle_('Edit')
-        for title,action,key in [('Undo','undo:','z'),('Cut','cut:','x'),('Copy','copy:','c'),('Paste','paste:','v'),('Select All','selectAll:','a')]:
-            edit.addItem_(AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title,action,key))
+        for title, action, key in [('Undo', 'undo:', 'z'), ('Cut', 'cut:', 'x'), ('Copy', 'copy:', 'c'), ('Paste', 'paste:', 'v'), ('Select All', 'selectAll:', 'a')]:
+            edit.addItem_(AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key))
         edit_root.setSubmenu_(edit)
         bar.addItem_(edit_root)
         self.ns_app.setMainMenu_(bar)
@@ -552,12 +557,14 @@ class FixoflowApp:
         started processes, and the single-instance lock routes plain reopens
         back to this (pre-grant) process.
         """
-        if self.stop() is False:return
+        if self.stop() is False:
+            return
         command = relaunch_command()
-        try:subprocess.Popen(command, start_new_session=True)
+        try:
+            subprocess.Popen(command, start_new_session=True)
         except OSError:
             logger.exception('Could not restart Fixoflow; shutdown completed safely')
-            notify('Fixo Flow','Could not restart automatically. Please open Fixo Flow again from Applications.')
+            notify('Fixo Flow', 'Could not restart automatically. Please open Fixo Flow again from Applications.')
             return
         logger.info("Restarting Fixoflow with a fresh process")
         os._exit(0)
@@ -565,13 +572,15 @@ class FixoflowApp:
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--self-check", action="store_true", help="Check UI and local model without microphone or hotkey")
+    parser.add_argument("--self-check", action="store_true",
+                        help="Check UI and local model without microphone or hotkey")
     parser.add_argument("--background", action="store_true", help="Start the floating controls without opening the hub")
     args = parser.parse_args(argv)
     log_dir = Path.home() / "Library/Logs/Fixoflow"
     log_dir.mkdir(parents=True, exist_ok=True)
     from logging.handlers import RotatingFileHandler
-    logging.basicConfig(level=logging.INFO, handlers=[RotatingFileHandler(log_dir / "fixoflow.log", maxBytes=1000000, backupCount=2), logging.StreamHandler()], format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(level=logging.INFO, handlers=[RotatingFileHandler(
+        log_dir / "fixoflow.log", maxBytes=1000000, backupCount=2), logging.StreamHandler()], format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     if args.self_check:
         import tempfile
         from fixoflow.storage.db import FixoflowDB
@@ -612,7 +621,8 @@ def main(argv=None):
             logger.exception("Fixoflow startup failed")
             alert = AppKit.NSAlert.alloc().init()
             alert.setMessageText_("Fixoflow could not start")
-            alert.setInformativeText_(f"Details were saved to {log_dir / 'fixoflow.log'}. Your recordings have not been deleted.")
+            alert.setInformativeText_(
+                f"Details were saved to {log_dir / 'fixoflow.log'}. Your recordings have not been deleted.")
             alert.runModal()
             raise
 

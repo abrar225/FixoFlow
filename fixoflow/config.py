@@ -110,7 +110,7 @@ class FixoflowConfig:
         if legacy and 'hold_shortcut' not in data and 'hands_free_shortcut' not in data:
             saved = Shortcut.from_text(legacy).as_dict()
             data['hold_shortcut'] = saved
-            candidates = ['<alt>+<space>','<cmd>+<shift>+<f12>','<ctrl>+<alt>+<f11>']
+            candidates = ['<alt>+<space>', '<cmd>+<shift>+<f12>', '<ctrl>+<alt>+<f11>']
             for candidate in candidates:
                 alternate = Shortcut.from_text(candidate).as_dict()
                 try:
@@ -138,7 +138,7 @@ class FixoflowConfig:
             normalized["polishing_engine"] = "rules"
         from fixoflow.languages import LANGUAGES
         language = normalized.get('language', 'en')
-        if language is None or (isinstance(language,str) and language in LANGUAGES and language != 'en'):
+        if language is None or (isinstance(language, str) and language in LANGUAGES and language != 'en'):
             normalized['deferred_language'] = language or 'auto'
             normalized['language'] = 'en'
         if normalized.get('model_name') == 'multilingual-base':
@@ -158,7 +158,7 @@ class FixoflowConfig:
             raise ValueError('Choose a supported English regional preference.')
         if not isinstance(self.deferred_language, str) or self.deferred_language not in {'', 'auto', *LANGUAGES}:
             raise ValueError('Invalid deferred language preference.')
-        if self.language != 'en' and self.model_name in {'bundled-base.en','mlx-community/whisper-base.en-mlx','mlx-community/whisper-small.en-mlx'}:
+        if self.language != 'en' and self.model_name in {'bundled-base.en', 'mlx-community/whisper-base.en-mlx', 'mlx-community/whisper-small.en-mlx'}:
             raise ValueError('Install and choose the Base multilingual pack for this language or auto detection.')
         for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "start_at_login", "login_setup_done"):
             if type(getattr(self, name)) is not bool:
