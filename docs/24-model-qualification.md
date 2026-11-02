@@ -97,10 +97,10 @@ normalized word errors on this one clip. Final reports:
 - `/tmp/fixoflow-small-model-qualification-sequential.json`: warm-up 0.6670 s;
   median decode 0.29275 s; five completed, zero failures.
 
-Tiny was faster than Base in this bounded warm diagnostic. Small loads and
-decodes successfully but has **not** demonstrated higher accuracy: all models
-were perfect on this easy clip. Small remains the quality candidate requiring a
-harder held-out corpus. These findings do not justify changing the default.
+Tiny was faster than Base in this initial bounded warm diagnostic. That diagnostic
+alone did not demonstrate higher Small accuracy: all models were perfect on this
+easy clip. The later public-corpus qualification below supersedes that limited
+quality finding. These findings do not justify changing the default.
 
 Filesystem/OS/GPU caches and host load were uncontrolled. These warm decode
 figures are not comparable to the other workstream's fresh-process timings,
@@ -109,6 +109,29 @@ estimates. Repeated copies of one recording are not independent speech samples.
 
 No CPU model inference, Windows/Linux qualification, battery measurement or
 whole-process-family memory study was performed in this model workstream.
+
+## Subsequent 20-clip qualification and installed checks
+
+The pinned public LibriSpeech manifest was subsequently used for 20 clips from
+20 speakers, ten clean and ten other recordings, 130.805 seconds and 340 reference
+words. Tiny and Small each completed all 20 decodes. Normalized WER was 10.88%
+for Tiny (37 errors) and 4.71% for Small (16 errors). Median warm local decode
+was approximately 0.055 s for Tiny and 0.246 s for Small, with uncontrolled host
+and cache conditions. This supports Tiny as the speed option and Small as the
+quality option on this sample, with broader qualification still required.
+
+Actual unmodified SpeakType Base scored 7.06% and Fixo Base scored 8.53% in the
+separate matched fresh-process comparison. Small/Tiny were paired to the first
+SpeakType repetition for quality only; their warm-worker timing cannot be ranked
+against fresh-process timing. The Small-versus-SpeakType-Base difference does
+not establish a product winner or compare SpeakType's stronger available models.
+The default remains Base English. Full provenance, paired uncertainty and
+coverage limits are in [the benchmark evidence](23-benchmark-evidence.md).
+
+After this workstream, native Windows/Linux CI also passed frozen and installed
+bundled Base inference, and the installed Apple Silicon Mac candidate passed
+synthetic inference and offline dependency checks. This does not qualify every
+Tiny/Small CPU model on native hardware. See [candidate acceptance](26-release-candidate-progress.md).
 
 ## Remaining qualification gates
 
