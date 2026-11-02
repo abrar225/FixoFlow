@@ -143,6 +143,11 @@ def frontmost_bundle_id() -> str:
     return get_frontmost_app_info()[1]
 
 
+def get_stable_app_identity(target):
+    from fixoflow.app_identity import app_scope
+    return app_scope(target)
+
+
 def activate_application(bundle_id: str, timeout_sec: float = 0.8) -> bool:
     """Best-effort return of focus to the application that owns the cursor.
 

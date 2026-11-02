@@ -201,8 +201,8 @@ class MenuDelegate(NSObject):
 
 
 class FixoflowApp:
-    def __init__(self):
-        self.config = FixoflowConfig.load()
+    def __init__(self, config=None, diagnostic=False):
+        self.config = config if config is not None else FixoflowConfig.load()
         from fixoflow.startup import StartupService
         self.startup = StartupService()
         self._login_launch = False
@@ -224,6 +224,9 @@ class FixoflowApp:
             self._delegate, "reopen:", "com.fixoflow.showHub", None
         )
         self.hub.config = self.config
+        self.hub.coordinator = self.daemon.coordinator
+        self.hub.on_maintenance = self.daemon.controls.configure
+        self.hub.on_recovery = self.daemon.controls.recover
         self.hub.on_config_change = self.apply_config
         self.hub.on_startup_status = self.startup.snapshot
         self.hub.on_open_startup_settings = self.startup.open_settings
@@ -249,7 +252,7 @@ class FixoflowApp:
         self._shortcut_error = "Shortcut needs Accessibility and Input Monitoring. Grant them, then restart Fixoflow if the status stays red."
         self._last_permission_probe = 0.0
         self._running = False
-        request_notification_authorization()
+        if not diagnostic:request_notification_authorization()
 
         self._setup_menu_bar()
         self._setup_application_menu()
@@ -271,6 +274,7 @@ class FixoflowApp:
         return {"state": state, "shortcut": shortcut_label(self.config.hold_shortcut), "hands_free_shortcut": shortcut_label(self.config.hands_free_shortcut), "shortcut_active": active, "detail": detail}
 
     def refresh_status(self):
+        self.daemon.controls.poll_capture()
         self.daemon._hub_focused = bool(self.hub._window and self.hub._window.isKeyWindow())
         self.daemon.expire_capture()
         status = self.control_status()
@@ -578,7 +582,7 @@ def main(argv=None):
         from fixoflow.stt.engine import create_stt_engine
         with tempfile.TemporaryDirectory() as directory:
             FixoflowDB._instance = FixoflowDB(Path(directory) / "check.sqlite")
-            app = FixoflowApp()
+            app = FixoflowApp(config=FixoflowConfig(cache_dir=str(Path(directory)/'audio')),diagnostic=True)
             assert app.ns_app.activationPolicy() == AppKit.NSApplicationActivationPolicyRegular
             assert app.ns_app.applicationIconImage() is not None
             assert app.ns_app.mainMenu() is not None

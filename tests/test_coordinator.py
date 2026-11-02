@@ -42,6 +42,8 @@ def test_coordinator_lifecycle(coordinator):
     assert coordinator.last_error == ''
     assert coordinator.stt.transcribe_file.call_args.kwargs['initial_prompt'] == ''
     assert coordinator.db.get_history()[0]['final_text'] == 'parseConfig'
+    assert coordinator.db.get_history()[0]['id'] == coordinator.session_id
+    assert coordinator.db.get_session(coordinator.session_id)['delivery_status'] == 'not_attempted'
 
 
 def test_session_records_measured_fix_counts(coordinator):
@@ -57,6 +59,7 @@ def test_start_failure_rolls_back_state(coordinator):
     coordinator.start_recording()
     assert coordinator.state == 'IDLE'
     assert 'microphone denied' in coordinator.last_error
+    assert coordinator.db.get_session(coordinator.session_id)['status'] == 'capture_failed'
 
 
 def test_focus_changed_does_not_inject(coordinator, monkeypatch):
@@ -135,6 +138,99 @@ def test_cancel_keeps_audio_without_asr_or_paste(coordinator, monkeypatch):
     coordinator.stt.transcribe_file.assert_not_called()
     insert.assert_not_called()
     assert coordinator.db.get_history() == []
+    assert coordinator.db.get_session(coordinator.session_id)['status'] == 'cancelled'
+
+
+def test_session_identity_exists_before_microphone_open(coordinator):
+    path = coordinator.recorder.start.return_value
+    def open_microphone():
+        assert coordinator.db.get_session(coordinator.session_id)['status'] == 'starting'
+        return path
+    coordinator.recorder.start.side_effect = open_microphone
+    coordinator.start_recording()
+    assert coordinator.state == 'RECORDING'
+
+
+def test_journal_failure_does_not_open_microphone(coordinator):
+    coordinator.db.begin_session = Mock(side_effect=OSError('disk full'))
+    coordinator.start_recording()
+    coordinator.recorder.start.assert_not_called()
+    assert coordinator.state == 'IDLE'
+
+
+@pytest.mark.parametrize('style,expected', [('natural','corrected words'),('verbatim','camel case parse config')])
+def test_explicit_approved_memory_respects_verbatim(coordinator, style, expected):
+    coordinator.start_recording()
+    coordinator.stop_and_process(auto_paste=False)
+    cid = coordinator.db.propose_correction(coordinator.session_id, 'corrected words')
+    coordinator.db.approve_correction(cid)
+    coordinator.config.output_style = style
+    coordinator.start_recording()
+    assert coordinator.stop_and_process(auto_paste=False) == expected
+
+
+def test_dispatch_is_not_claimed_as_verified_delivery(coordinator, monkeypatch):
+    monkeypatch.setattr(core, 'insert_text_at_cursor', lambda *a, **k: InsertionOutcome(True,True,'inserted'))
+    coordinator.start_recording()
+    coordinator.stop_and_process()
+    assert coordinator.db.get_session(coordinator.session_id)['delivery_status'] == 'dispatch_sent'
+
+
+def recovery_fixture(coordinator, status='cancelled'):
+    import wave
+    path=coordinator.recorder.start.return_value
+    with wave.open(str(path),'wb') as audio:
+        audio.setnchannels(1);audio.setsampwidth(2);audio.setframerate(16000)
+        audio.writeframes(b'\0\0'*160)
+    sid=coordinator.db.begin_session('Antigravity','test.antigravity','model','en','auto')
+    coordinator.db.register_session_artifact(path,path.parent)
+    coordinator.db.update_session(sid,status=status,audio_path=str(path))
+    return sid,path
+
+
+def test_recovery_uses_new_owned_copy_and_never_pastes(coordinator,monkeypatch):
+    sid,path=recovery_fixture(coordinator)
+    insert=Mock();monkeypatch.setattr(core,'insert_text_at_cursor',insert)
+    assert coordinator.recover_session(sid)=='parseConfig'
+    assert coordinator.session_id!=sid
+    row=coordinator.db.get_history()[0]
+    assert row['id']==coordinator.session_id and row['audio_path']!=str(path)
+    assert path.exists() and coordinator.db.get_session(sid)['status']=='recovered'
+    assert coordinator.db.get_recovery_items()[0]['status']=='recovered'
+    insert.assert_not_called();coordinator.recorder.start.assert_not_called()
+
+
+def test_active_recovery_is_refused_and_source_remains_unchanged(coordinator):
+    sid,path=recovery_fixture(coordinator,status='recording')
+    assert coordinator.recover_session(sid)==''
+    assert 'active' in coordinator.last_error
+    assert coordinator.db.get_session(sid)['status']=='recording'
+    assert coordinator.db.get_history()==[] and path.exists()
+
+
+def test_recovery_delete_removes_owned_audio_without_completed_history(coordinator):
+    sid,path=recovery_fixture(coordinator)
+    coordinator.db.delete_recovery_item(sid)
+    assert not path.exists() and coordinator.db.get_session(sid) is None
+
+
+def test_history_failure_stays_recoverable_and_never_reports_history_saved(coordinator,monkeypatch):
+    coordinator.db.record_session=Mock(side_effect=OSError('disk full'))
+    insert=Mock();monkeypatch.setattr(core,'insert_text_at_cursor',insert)
+    coordinator.start_recording()
+    assert coordinator.stop_and_process()=='parseConfig'
+    assert coordinator.db.get_session(coordinator.session_id)['status']=='history_failed'
+    assert coordinator.db.get_recovery_items() and not coordinator.db.get_history()
+    assert 'could not be saved' in coordinator.last_error
+    insert.assert_not_called()
+
+
+def test_failed_recovery_history_write_does_not_retire_original(coordinator):
+    sid,path=recovery_fixture(coordinator)
+    coordinator.db.record_session=Mock(side_effect=OSError('disk full'))
+    coordinator.recover_session(sid)
+    assert coordinator.db.get_session(sid)['status']=='cancelled'
+    assert len(coordinator.db.get_recovery_items())==2 and path.exists()
 
 
 def test_unrelated_preferences_preserve_warm_engine_and_recorder(coordinator,monkeypatch):

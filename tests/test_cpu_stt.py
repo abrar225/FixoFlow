@@ -38,3 +38,15 @@ def test_custom_english_only_model_cannot_be_used_for_other_languages(tmp_path):
     with pytest.raises(TranscriptionError,match='not compatible'):engine.resolve_model_path()
     (tmp_path/'config.json').write_text(json.dumps({'lang_ids':list(range(50259,50358))}))
     assert engine.resolve_model_path()==str(tmp_path)
+
+
+def test_warmup_loads_local_weights_once_without_decoding(tmp_path):
+    for name in ('model.bin','config.json','tokenizer.json','vocabulary.txt'):(tmp_path/name).write_bytes(b'local fixture')
+    builds=[]
+    def factory(path,**kwargs):
+        builds.append(path)
+        return SimpleNamespace(transcribe=lambda *a,**k:pytest.fail('warm-up must not transcribe'))
+    engine=CPUWhisperEngine(FixoflowConfig(model_name=str(tmp_path)),model_factory=factory)
+    assert engine.warm_up()==str(tmp_path)
+    engine.warm_up()
+    assert builds==[str(tmp_path)] and engine.capabilities.local_only

@@ -8,6 +8,7 @@ PYTHON_EXEC="${FIXOFLOW_BUILD_PYTHON:-$PROJECT_DIR/.venv/bin/python}"
 # No runtime or build-time downloads. A complete revision-pinned model must already be cached.
 export FIXOFLOW_BUILD_MODEL_DIR="$PROJECT_DIR/build/bundled-model"
 "$PYTHON_EXEC" "$SCRIPT_DIR/prepare_model.py"
+"$PYTHON_EXEC" "$SCRIPT_DIR/write_source_manifest.py"
 mkdir -p "$PROJECT_DIR/dist"
 BUILD_OUTPUT="$(mktemp -d "$PROJECT_DIR/build/app-stage.XXXXXX")"
 trap 'rm -rf "$BUILD_OUTPUT"' EXIT

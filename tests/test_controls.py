@@ -59,6 +59,22 @@ def test_preferences_do_not_replace_pending_capture(interaction):
     with pytest.raises(RuntimeError,match='Finish'):c.configure(update)
     update.assert_not_called()
 
+
+def test_microphone_or_model_operation_excludes_capture_and_preferences(interaction):
+    c,b,e,_=interaction;b.maintenance_busy=True
+    c.hold_press();c.hold_release();c.toggle();e.drain()
+    assert b.events==[] and c.state=='IDLE'
+    update=Mock()
+    with pytest.raises(RuntimeError):c.configure(update)
+    update.assert_not_called()
+
+
+def test_device_failure_is_finished_on_control_thread(interaction):
+    c,b,e,_=interaction;c.toggle();e.drain()
+    b.recorder.capture_failed=True;c.poll_capture()
+    assert c.state=='PROCESSING'
+    e.drain();assert b.events==['start','stop'] and c.state=='IDLE'
+
 def test_shutdown_drains_start_keeps_audio_and_rejects_events(interaction):
     c,b,_,_=interaction;c.toggle();c.shutdown();c.toggle();c.hold_press();c.hold_release();c.cancel();assert b.events==['start','cancel']
 

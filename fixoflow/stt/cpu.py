@@ -19,7 +19,11 @@ class CPUWhisperEngine(STTEngine):
         self._loaded_path=None
 
     def resolve_model_path(self):
+        from fixoflow.models.manager import resolve_catalog_model
+        try:catalog_path = resolve_catalog_model(self.model_name, 'cpu')
+        except (ValueError,OSError) as error:raise TranscriptionError(str(error)) from error
         path=Path(self.model_name).expanduser()
+        if catalog_path is not None:path=Path(catalog_path)
         if self.model_name == 'multilingual-base':
             from fixoflow.model_packs import pack_path, validate_pack
             try:return str(validate_pack(pack_path('cpu'), 'cpu').resolve())
@@ -36,7 +40,15 @@ class CPUWhisperEngine(STTEngine):
         return str(path.resolve())
 
     def _decode(self,chunk,model_path,prompt):
+        self._ensure_model(model_path)
+        segments,_=self._model.transcribe(chunk,language=self.language,initial_prompt=prompt or None,
+            condition_on_previous_text=False,vad_filter=False,beam_size=5)
+        return ' '.join(segment.text.strip() for segment in segments).strip()
+
+    def _ensure_model(self,model_path):
         if self._model is None or self._loaded_path!=model_path:
+            self._model = None
+            self._loaded_path = None
             factory=self._factory
             if factory is None:
                 try:
@@ -47,6 +59,13 @@ class CPUWhisperEngine(STTEngine):
             self._model=factory(model_path,device='cpu',compute_type='float32',
                 cpu_threads=max(1,min(self.config.cpu_threads,os.cpu_count() or 1)),num_workers=1,local_files_only=True)
             self._loaded_path=model_path
-        segments,_=self._model.transcribe(chunk,language=self.language,initial_prompt=prompt or None,
-            condition_on_previous_text=False,vad_filter=False,beam_size=5)
-        return ' '.join(segment.text.strip() for segment in segments).strip()
+
+    def warm_up(self):
+        path = self.resolve_model_path()
+        self._ensure_model(path)
+        return path
+
+    @property
+    def capabilities(self):
+        from fixoflow.stt.contracts import RecognitionCapabilities
+        return RecognitionCapabilities(backend='cpu')

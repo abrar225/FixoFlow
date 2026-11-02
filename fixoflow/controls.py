@@ -54,10 +54,14 @@ class DictationControls:
             self.on_change()
 
     def _begin_locked(self):
+        if getattr(self.coordinator,'maintenance_busy',False) is True:
+            self.coordinator.last_error = 'Finish the microphone check or model operation before dictating.'
+            return False
         self._session_id += 1
         self._cancel_requested = threading.Event()
         self._intent = 'RECORDING'
         self.executor.submit(self._start, self._cancel_requested)
+        return True
 
     def _end_locked(self, cancel=False):
         if self._intent == 'RECORDING':
@@ -82,8 +86,8 @@ class DictationControls:
             self._hold_down = True
             self._hold_session = None
             if self._intent == 'IDLE':
-                self._begin_locked()
-                self._hold_session = self._session_id
+                if self._begin_locked():
+                    self._hold_session = self._session_id
         self.on_change()
 
     def hold_release(self):
@@ -109,12 +113,33 @@ class DictationControls:
     def configure(self, update):
         """Exclude new gestures while applying settings to an idle session."""
         with self._lock:
-            if self._intent != 'IDLE' or self._closed:
+            if self._intent != 'IDLE' or self._closed or getattr(self.coordinator,'maintenance_busy',False) is True:
                 from fixoflow.settings import SettingsBusy
                 raise SettingsBusy('Finish the current dictation before changing settings.')
             update()
             self._hold_down = False
             self._hold_session = None
+
+    def poll_capture(self):
+        """UI/status thread detects device failure; audio callbacks never wait for UI."""
+        with self._lock:
+            if self._intent=='RECORDING' and getattr(self.coordinator.recorder,'capture_failed',False) is True:
+                self._end_locked()
+
+    def recover(self, session_id):
+        with self._lock:
+            if self._intent!='IDLE' or self._closed or getattr(self.coordinator,'maintenance_busy',False) is True:
+                raise RuntimeError('Finish the current operation before recovery.')
+            self._intent='PROCESSING'
+            self._cancel_requested=threading.Event()
+            cancellation=self._cancel_requested
+            def run():
+                try:self.coordinator.recover_session(session_id,cancellation=cancellation)
+                finally:
+                    with self._lock:self._intent='IDLE'
+                    self.on_change()
+            self.executor.submit(run)
+        self.on_change()
 
     def shutdown(self):
         with self._lock:

@@ -17,9 +17,11 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 logger = logging.getLogger("fixoflow.storage.db")
+from fixoflow.storage.sessions import SessionStore
+from fixoflow.storage.feedback import FeedbackStore
 
 
-class FixoflowDB:
+class FixoflowDB(SessionStore, FeedbackStore):
     _instance: Optional[FixoflowDB] = None
 
     def __init__(self, db_path: Optional[Path] = None):
@@ -30,6 +32,8 @@ class FixoflowDB:
         else:
             self.db_path = db_path
         self._init_tables()
+        self.init_session_tables()
+        self.init_feedback_tables()
         self.rebuild_analytics()
 
     @classmethod
@@ -141,13 +145,19 @@ class FixoflowDB:
         audio_path: str = "",
         fixes_polish: int = 0,
         fixes_vocab: int = 0,
+        session_id: Optional[str] = None,
     ) -> str:
         """Record a completed dictation session and update derived analytics."""
-        session_id = str(uuid.uuid4())
+        session_id = session_id or str(uuid.uuid4())
         now = datetime.datetime.now()
         word_count = len(final_text.split())
 
         with self._connect() as conn:
+            existing = conn.execute('SELECT asr_text,final_text,audio_path FROM history WHERE id=?', (session_id,)).fetchone()
+            if existing:
+                if tuple(existing) != (asr_text, final_text, audio_path):
+                    raise ValueError('Session already contains a different transcript')
+                return session_id
             conn.execute(
                 """
                 INSERT INTO history (id, timestamp, app_name, asr_text, final_text, duration_sec, word_count, latency_ms, mode, audio_path, fixes_polish, fixes_vocab)
@@ -224,6 +234,8 @@ class FixoflowDB:
         from .artifacts import session_files, validate_legacy, identity, unlink_owned
         with self._connect() as conn:
             row=conn.execute('SELECT * FROM history WHERE id=?',(session_id,)).fetchone()
+            if row is None:
+                row=conn.execute("SELECT id,audio_path,'' AS asr_text FROM sessions WHERE id=?",(session_id,)).fetchone()
             if row and row['audio_path']:
                 audio=Path(row['audio_path']).absolute()
                 shared=conn.execute('SELECT count(*) FROM history WHERE audio_path=? AND id!=?',(row['audio_path'],session_id)).fetchone()[0]
@@ -242,6 +254,8 @@ class FixoflowDB:
                         if str(file) in records:unlink_owned(file,json.loads(records[str(file)]['identity']))
                     conn.execute('DELETE FROM session_artifacts WHERE path IN (?,?)',(str(files[0]),str(files[1])))
             conn.execute("DELETE FROM history WHERE id = ?", (session_id,))
+            conn.execute('DELETE FROM sessions WHERE id=?', (session_id,))
+            conn.execute('DELETE FROM correction_memory WHERE session_id=?', (session_id,))
         if rebuild:self.rebuild_analytics()
 
     def clear_all_history(self, cache_root=None) -> None:

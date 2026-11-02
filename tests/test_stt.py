@@ -149,3 +149,21 @@ def test_english_decode_request_never_contains_locale_instructions(engine,monkey
     monkeypatch.setattr(module.mlx_whisper,'transcribe',decode)
     assert engine.transcribe(np.ones(16000,np.float32))=='Recognized speech.'
     assert 'initial_prompt' not in requests[0]
+
+
+def test_intel_macos_uses_cpu_engine_without_loading_mlx(monkeypatch):
+    from fixoflow.models import catalog
+    from fixoflow.stt.cpu import CPUWhisperEngine
+    monkeypatch.setattr(module.sys,'platform','darwin')
+    monkeypatch.setattr(catalog.platform,'machine',lambda:'x86_64')
+    assert isinstance(module.create_stt_engine(FixoflowConfig(model_name='bundled-base.en')),CPUWhisperEngine)
+
+
+def test_missing_catalog_model_never_fetches_from_hub(engine,monkeypatch,tmp_path):
+    from fixoflow.models import manager
+    monkeypatch.setattr(manager,'model_root',lambda:tmp_path/'absent')
+    download=Mock(side_effect=AssertionError('inference must never download'))
+    monkeypatch.setattr(module,'snapshot_download',download)
+    engine.model_name='catalog:tiny-en-mlx'
+    with pytest.raises(module.TranscriptionError,match='not installed'):engine.resolve_model_path()
+    download.assert_not_called()

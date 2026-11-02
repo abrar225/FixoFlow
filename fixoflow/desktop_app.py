@@ -56,6 +56,9 @@ class DesktopApplication:
         self.coordinator=FixoflowCoordinator(config,enable_overlay=False)
         self.coordinator.recorder.on_level_callback=self.audio_level
         self.controls=DictationControls(self.coordinator,config)
+        self.hub.coordinator=self.coordinator
+        self.hub.on_maintenance=self.controls.configure
+        self.hub.on_recovery=self.controls.recover
         self.inputs=DesktopInput(config,self.controls)
         self.updates=UpdateService(on_change=lambda status:self.hub._eval_js('onUpdateData('+json.dumps(status)+');'))
         ui=Path(__file__).parent/'ui'
@@ -196,6 +199,7 @@ class DesktopApplication:
         previous=None
         while not self._closed.wait(0.2):
             if not self._loaded.is_set():continue
+            self.controls.poll_capture()
             self.inputs.expire_capture();status=self.status()
             while True:
                 try:captured=self._captures.get_nowait()
@@ -209,7 +213,7 @@ class DesktopApplication:
                 if status['state'] in {'RECORDING','PROCESSING'} or self.config.always_show_overlay:self.pill.show()
                 elif status['state']=='IDLE':self.pill.hide()
                 previous=serialized;self.hub._eval_js('onControlStatus('+serialized+');')
-                try:self.pill.evaluate_js('updateControl('+json.dumps({'state':{'IDLE':'idle','RECORDING':'listening','PROCESSING':'processing'}[status['state']],'message':status['detail'] or ('Listening…' if status['state']=='RECORDING' else 'Transcribing…' if status['state']=='PROCESSING' else 'Ready to dictate')})+');')
+                try:self.pill.evaluate_js('updateControl('+json.dumps({'theme':self.config.theme,'state':{'IDLE':'idle','RECORDING':'listening','PROCESSING':'processing'}[status['state']],'message':status['detail'] or ('Listening…' if status['state']=='RECORDING' else 'Transcribing…' if status['state']=='PROCESSING' else 'Ready to dictate')})+');')
                 except Exception:pass
 
 

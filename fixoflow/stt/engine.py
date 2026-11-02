@@ -60,6 +60,13 @@ class STTEngine:
         return str(model_path.resolve())
 
     def resolve_model_path(self) -> str:
+        from fixoflow.models.manager import resolve_catalog_model
+        try:
+            catalog_path = resolve_catalog_model(self.model_name, 'mlx')
+        except (ValueError, OSError) as error:
+            raise TranscriptionError(str(error)) from error
+        if catalog_path is not None:
+            return self._validate_model_path(Path(catalog_path))
         # Explicit caller-selected folders always take precedence over defaults.
         if self.model_name == 'multilingual-base':
             from fixoflow.model_packs import pack_path, validate_pack
@@ -164,11 +171,37 @@ class STTEngine:
         return mlx_whisper.transcribe(chunk,path_or_hf_repo=model_path,
             condition_on_previous_text=False,**options)['text']
 
+    @property
+    def capabilities(self):
+        from fixoflow.stt.contracts import RecognitionCapabilities
+        return RecognitionCapabilities(backend='mlx')
+
+    def warm_up(self):
+        """Load verified local weights into the same holder used by decode.
+
+        No synthetic speech is decoded, no transcript is created and no model
+        repository identifier is passed to the native loader.
+        """
+        path = self.resolve_model_path()
+        if sys.platform != 'darwin':
+            raise TranscriptionError('The MLX speech backend requires macOS Apple Silicon.')
+        import importlib
+        import mlx.core as mx
+        holder = importlib.import_module('mlx_whisper.transcribe').ModelHolder
+        # Drop old weights before loading a different model, avoiding double
+        # model residency during an explicit warm-up switch.
+        if holder.model_path != path:
+            holder.model = None
+            holder.model_path = None
+        holder.get_model(path, mx.float16)
+        return path
+
 
 def create_stt_engine(config):
-    if sys.platform == 'darwin':
+    from fixoflow.models.catalog import runtime_backend
+    if sys.platform == 'darwin' and runtime_backend() == 'mlx':
         return STTEngine(config)
-    if sys.platform == 'win32' or sys.platform.startswith('linux'):
+    if sys.platform in {'darwin','win32'} or sys.platform.startswith('linux'):
         from fixoflow.stt.cpu import CPUWhisperEngine
         return CPUWhisperEngine(config)
     raise RuntimeError('Unsupported desktop platform.')

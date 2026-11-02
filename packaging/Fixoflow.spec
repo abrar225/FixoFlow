@@ -12,6 +12,7 @@ a = Analysis(
     pathex=[str(root)],
     binaries=collect_dynamic_libs("mlx"),
     datas=[(str(root / "LICENSE"), "licenses/fixoflow"),
+           (str(root / "build/source-manifest.json"), "release"),
            (str(root / "fixoflow" / "ui" / "hub.html"), "fixoflow/ui"),
            (str(root / "fixoflow" / "ui" / "hub.css"), "fixoflow/ui"),
            (str(root / "fixoflow" / "ui" / "overlay.html"), "fixoflow/ui"),

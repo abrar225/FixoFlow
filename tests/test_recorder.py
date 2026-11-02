@@ -40,12 +40,50 @@ def test_capture_persists_before_stop_and_retains_short_tail(recorder, monkeypat
 def test_constructor_writes_no_session(recorder):
     assert not list(module.Path(recorder.config.cache_dir).iterdir())
 
+
+def test_journal_callback_receives_persisted_file_before_mic_open(recorder, monkeypatch):
+    events = []
+    def created(path):
+        with wave.open(str(path)) as saved:
+            assert saved.getnframes() == 0
+        events.append('journal')
+    class CheckedStream(Stream):
+        def __init__(self, **options):
+            assert events == ['journal']
+            events.append('device')
+            super().__init__(**options)
+    recorder.on_session_created = created
+    monkeypatch.setattr(module.sd, 'InputStream', CheckedStream)
+    recorder.start()
+    recorder.stop()
+    assert events == ['journal','device']
+
+
+def test_journal_binding_failure_closes_resources_without_opening_mic(recorder, monkeypatch):
+    from unittest.mock import Mock
+    stream = Mock()
+    monkeypatch.setattr(module.sd, 'InputStream', stream)
+    recorder.on_session_created = Mock(side_effect=OSError('journal disk full'))
+    with pytest.raises(OSError, match='journal disk full'):
+        recorder.start()
+    stream.assert_not_called()
+    assert recorder._writer is None and recorder._output is None
+
 def test_input_overflow_is_not_success(recorder):
     path = recorder.start()
     feed(recorder, status='input overflow')
     with pytest.raises(module.RecordingError, match='input overflow') as caught:
         recorder.stop()
     assert caught.value.session_path == path
+    assert path.exists()
+
+
+def test_unexpected_device_stop_keeps_recovery_and_is_not_complete(recorder):
+    path=recorder.start();feed(recorder)
+    recorder._stream_finished()
+    assert recorder.capture_failed
+    with pytest.raises(module.RecordingError,match='stopped unexpectedly'):
+        recorder.finalize_capture()
     assert path.exists()
 
 def test_disk_failure_is_not_success(recorder, monkeypatch):

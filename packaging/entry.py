@@ -30,6 +30,7 @@ if __name__ == "__main__":
                     root / "models/whisper/config.json", root / "mlx/lib/mlx.metallib",
                     root / "mlx_whisper/assets/gpt2.tiktoken", root / "mlx_whisper/assets/mel_filters.npz"]
         model = root / "models/whisper"
+        provenance=json.loads((root/'release/source-manifest.json').read_text())
         assert any((model / n).is_file() for n in ("weights.npz", "weights.safetensors")), "Missing bundled model weights"
         assert all(p.is_file() for p in required), f"Missing bundle resources: {[str(p) for p in required if not p.is_file()]}"
         assert os.environ.get("HF_HUB_OFFLINE") == "1"
@@ -41,6 +42,7 @@ if __name__ == "__main__":
             result = create_stt_engine(FixoflowConfig()).transcribe((.01*np.sin(2*np.pi*440*np.arange(16000)/16000)).astype(np.float32))
             print(json.dumps({"synthetic_tone_text": result, "shared_engine_inference": "executed"}))
         print(json.dumps({"status": "ok", "bundle": str(root), "model": str(model),
+                          "source_commit":provenance['git_commit'],
                           "ui_resources": "present", "native_dependencies": "imported",
                           "offline": True}))
     else:

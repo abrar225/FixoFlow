@@ -67,6 +67,30 @@ def activate_application(identity,timeout_sec=0.8):
     return False
 
 
+def get_stable_app_identity(identity):
+    """Resolve a verified target to its executable, not display name or PID."""
+    from fixoflow.app_identity import executable_scope
+    try:
+        hwnd,pid,born = json.loads(identity)
+        if not u.IsWindow(hwnd) or _identity(hwnd) != [hwnd,pid,born]:
+            return ''
+        handle = k.OpenProcess(0x1000,False,pid)
+        if not handle:
+            return ''
+        try:
+            size=w.DWORD(32768); buffer=c.create_unicode_buffer(size.value)
+            k.QueryFullProcessImageNameW.argtypes=[w.HANDLE,w.DWORD,w.LPWSTR,c.POINTER(w.DWORD)]
+            if not k.QueryFullProcessImageNameW(handle,0,buffer,c.byref(size)):
+                return ''
+            if _identity(hwnd) != [hwnd,pid,born]:
+                return ''
+            return executable_scope(buffer.value,'windows')
+        finally:
+            k.CloseHandle(handle)
+    except (ValueError,TypeError,OSError):
+        return ''
+
+
 def copy_to_clipboard(text):
     # Clipboard handles transfer ownership only after SetClipboardData succeeds.
     data=(text+'\0').encode('utf-16-le'); owned=None

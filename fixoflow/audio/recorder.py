@@ -55,6 +55,7 @@ class AudioRecorder:
         self._pending: queue.Queue = queue.Queue(self.MAX_PENDING_BLOCKS)
         self._error: Optional[BaseException] = None
         self.on_level_callback: Optional[Callable[[float], None]] = None
+        self.on_session_created: Optional[Callable[[Path], None]] = None
 
     @property
     def is_recording(self) -> bool:
@@ -75,6 +76,14 @@ class AudioRecorder:
         with self._lock:
             if self._error is None:
                 self._error = error
+
+    @property
+    def capture_failed(self):
+        with self._lock:return self._error is not None
+
+    def _stream_finished(self):
+        with self._lock:unexpected=self._is_recording
+        if unexpected:self._fail(RecordingError('Microphone stopped unexpectedly. Recording retained for recovery.'))
 
     def _audio_callback(self, indata: np.ndarray, frames: int, time_info, status):
         with self._lock:
@@ -168,15 +177,22 @@ class AudioRecorder:
         self._session = session
         self._writer = threading.Thread(target=self._persist, args=(output, session), daemon=True)
         try:
+            # Bind the persisted WAV to its journal before opening the device.
+            if self.on_session_created:
+                self.on_session_created(path)
             self._writer.start()
         except Exception:
             self._writer = None
             self._close_output()
             raise
         try:
+            from fixoflow.audio.devices import resolve_input_device
+            device = resolve_input_device(self.config.input_device)
             self._stream = sd.InputStream(
+                device=device,
                 samplerate=self.sample_rate, channels=self.channels, dtype='float32',
                 callback=self._audio_callback, blocksize=int(self.sample_rate * 0.1),
+                finished_callback=self._stream_finished,
             )
             with self._lock:
                 self._is_recording = True
@@ -202,6 +218,8 @@ class AudioRecorder:
         the whole recording for filtering and inference.
         """
         with self._lock:
+            if self._is_recording and self._stream is not None and getattr(self._stream,'active',True) is False and self._error is None:
+                self._error=RecordingError('Microphone disconnected or stopped. Recording retained for recovery.')
             self._is_recording = False
         path = self._current_session_path or Path()
         if self._stream is not None:

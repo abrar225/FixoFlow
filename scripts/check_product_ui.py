@@ -13,9 +13,9 @@ import tempfile
 import time
 from unittest.mock import patch
 from types import SimpleNamespace
-from fixoflow.shortcuts import ShortcutRouter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from fixoflow.shortcuts import ShortcutRouter
 import AppKit
 from Foundation import NSDate, NSRunLoop, NSObject
 from fixoflow.config import FixoflowConfig
@@ -171,6 +171,57 @@ def check(hub):
     evaluate(view, "document.getElementById('dictionaryMore').click()")
     pump()
     assert evaluate(view, "document.querySelectorAll('#dictionaryList .list-item').length") == 106
+    # Exercise correction proposal/approval/forget through the real WebKit bridge.
+    sid = hub.db.begin_session('Editor','test.editor','test-model','en','writing')
+    hub.db.record_session('Y is this failing?', 'Y is this failing?', 'Editor',1,1,
+                          mode='writing', session_id=sid)
+    hub.db.update_session(sid,status='completed',delivery_status='dispatch_sent')
+    item = next(row for row in hub.db.get_history() if row['id'] == sid)
+    evaluate(view, 'switchTab("history"); openCorrectionEditor('+json.dumps(item)+');')
+    evaluate(view, "document.getElementById('correctedTranscript').value='<b>Why is this failing?</b>'; proposeCorrection();")
+    pump()
+    assert hub.db.get_corrections()[0]['state'] == 'proposed'
+    assert hub.db.apply_approved_correction('Y is this failing?','test.editor','en','writing')[0] == 'Y is this failing?'
+    assert evaluate(view, "document.querySelector('#correctionMemory b') === null")
+    assert 'dispatch_sent' in evaluate(view, "document.getElementById('sessionJournal').textContent")
+    evaluate(view, "document.querySelector('#correctionMemory button').click()")
+    pump()
+    assert hub.db.get_corrections()[0]['state'] == 'approved'
+    assert hub.db.apply_approved_correction('Y is this failing?','test.editor','en','writing')[0] == '<b>Why is this failing?</b>'
+    evaluate(view, "document.querySelector('#correctionMemory .delete').click(); closeCorrectionEditor();")
+    pump()
+    assert not hub.db.get_corrections()
+    # Playback reads only an owned synthetic fixture; never opens audio output.
+    import wave
+    audio = hub.db.db_path.parent/'session_20261102_120000_123456.wav'
+    with wave.open(str(audio),'wb') as capture:
+        capture.setnchannels(1);capture.setsampwidth(2);capture.setframerate(16000)
+        capture.writeframes(b'\0\0'*160)
+    playback_id = hub.db.record_session('test','test','Editor',.01,1,audio_path=str(audio))
+    hub.db.register_session_artifact(audio,audio.parent)
+    evaluate(view, 'loadHistoryAudio('+json.dumps(playback_id)+');')
+    pump()
+    assert evaluate(view,"document.getElementById('historyAudio').src.startsWith('data:audio/wav;base64,')")
+    evaluate(view, 'stopHistoryAudio();')
+    assert evaluate(view,"document.getElementById('historyAudio').getAttribute('src') === null")
+    # Device-list rendering must preserve a saved selection if hardware is gone.
+    selection = json.dumps(['Test Audio','USB Mic'])
+    evaluate(view, 'onInputDeviceData([], "", '+json.dumps(selection)+');')
+    assert evaluate(view,"document.getElementById('cfgInputDevice').value") == selection
+    evaluate(view,'onInputDeviceData([], "", "");')
+    # Theme controls alter real WebKit tokens and are saved through normal autosave.
+    evaluate(view,"switchTab('settings'); document.getElementById('cfgTheme').value='dark'; document.getElementById('cfgTheme').dispatchEvent(new Event('change'));")
+    pump(1.1)
+    assert hub.config.theme=='dark'
+    assert evaluate(view,"getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()")!='#eee9fb'
+    evaluate(view,"document.getElementById('cfgTheme').value='light'; document.getElementById('cfgTheme').dispatchEvent(new Event('change'));")
+    pump(1.1)
+    assert hub.config.theme=='light'
+    evaluate(view,"onServiceData({microphone:{state:'idle',level:0,message:'No check running'},busy:false,models:[{compatible:true,id:'test-model',name:'Test English',download_bytes:1000000,purpose:'Diagnostic candidate',state:'absent',message:'Explicit download',installed:false,model_name:'catalog:test-model'}]});")
+    assert 'Test English' in evaluate(view,"document.getElementById('catalogModels').textContent")
+    assert evaluate(view,"document.querySelector('#catalogModels button').textContent")=='Download model'
+    evaluate(view,"onRecoveryData([{id:'test-recovery',app_name:'Editor',status:'cancelled',started_at:'2026-11-02T12:00:00'}]);")
+    assert 'Retry into History' in evaluate(view,"document.getElementById('recoveryInbox').textContent")
     evaluate(view, "onPermissionData({platform:'Windows',microphone:'unknown',accessibility:null,input:null})")
     assert evaluate(view, "getComputedStyle(document.getElementById('permissionAccessibility').closest('.permission-card')).display") == 'none'
     assert 'Windows' in evaluate(view, "document.getElementById('permissionStatus').textContent")
@@ -185,6 +236,8 @@ def check(hub):
                       'dictionary': 'ok', 'history_search_and_escaping': 'ok',
                       'debounced_autosave_busy_retry_and_late_ack': 'ok', 'startup_toggle_isolated': 'ok', 'minimum_window': 'ok',
                       'language_and_commands': 'ok', 'history_and_dictionary_paging':'ok', 'desktop_permission_visibility':'ok',
+                      'correction_approval_forget_and_literal_rendering':'ok', 'session_journal':'ok',
+                      'owned_audio_playback_without_output':'ok', 'microphone_selection_rendering':'ok',
                       'microphone_opened': False, 'user_data_modified': False}))
     print('VERDICT: PASS', flush=True)
 

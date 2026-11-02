@@ -55,6 +55,21 @@ def activate_application(identity,timeout_sec=0.8):
     return False
 
 
+def get_stable_app_identity(identity):
+    from fixoflow.app_identity import executable_scope
+    display=None
+    try:
+        xid,pid,born=json.loads(identity)
+        display=_display();window=display.create_resource_object('window',xid)
+        if _identity(display,window)!=[xid,pid,born]:return ''
+        executable=os.readlink(Path('/proc')/str(pid)/'exe')
+        if _identity(display,window)!=[xid,pid,born]:return ''
+        return executable_scope(executable,'linux')
+    except Exception:return ''
+    finally:
+        if display:display.close()
+
+
 def copy_to_clipboard(text):
     command=['wl-copy'] if os.environ.get('XDG_SESSION_TYPE')=='wayland' else ['xclip','-selection','clipboard']
     if not shutil.which(command[0]):return False

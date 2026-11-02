@@ -8,6 +8,10 @@ class HubController:
         if getattr(self, 'preferences_pending', False):
             self._eval_js("flushPreferences(); onSettingsResult(true,'Preferences are still saving. Please retry Quit after they finish.');")
             return False
+        coordinator=getattr(self,'coordinator',None)
+        if coordinator is not None and not coordinator.close_services():
+            self._eval_js("onSettingsResult(false,'Microphone or model cleanup is still pending. Retry Quit shortly.');")
+            return False
         manager=getattr(self,'model_packs',None)
         if manager is None or manager.close():return True
         self._eval_js("onSettingsResult(false,'Model download is stopping or needs cleanup. Please retry Quit in a moment.');")
@@ -18,7 +22,79 @@ class HubController:
 
     def handle_action(self, action: str, payload):
         """Processes IPC messages coming from hub.html UI."""
-        if action == 'preferencesPending':
+        if action in {'getRecovery','retryRecovery','deleteRecovery','revealRecovery'}:
+            try:
+                if action=='retryRecovery':
+                    callback=getattr(self,'on_recovery',None)
+                    if callback is None:raise ValueError('Open the full application to retry recovery.')
+                    callback(str(payload.get('id','')))
+                    self._eval_js("onHistoryResult('Recovery queued. Results will be saved in History; nothing will be pasted.');")
+                elif action=='deleteRecovery':
+                    status=self.on_control_status() if self.on_control_status else {}
+                    if status.get('state','IDLE')!='IDLE':raise ValueError('Finish the current operation before deleting recovery audio.')
+                    self.db.delete_recovery_item(str(payload.get('id','')))
+                    self.handle_action('getHistory',{})
+                elif action=='revealRecovery':self.db.reveal_recovery_audio(str(payload.get('id','')))
+                self._eval_js('onRecoveryData('+json.dumps(self.db.get_recovery_items())+');')
+            except (ValueError,OSError,RuntimeError) as error:
+                self._eval_js(f'onHistoryResult({json.dumps(str(error))});')
+        elif action in {'startMicCheck','cancelMicCheck','getServices','installCatalogModel','warmSelectedModel','cancelCatalogModel'}:
+            coordinator=getattr(self,'coordinator',None)
+            configure=getattr(self,'on_maintenance',None)
+            if coordinator is None:
+                self._eval_js("onSettingsResult(false,'Open the full app to use microphone checks and model management.');")
+                return
+            try:
+                if action=='startMicCheck':
+                    if configure is None:raise ValueError('Dictation control is unavailable.')
+                    configure(lambda:coordinator.checkup.start(self.config.input_device))
+                elif action=='cancelMicCheck':coordinator.checkup.close()
+                elif action=='installCatalogModel':
+                    if configure is None:raise ValueError('Dictation control is unavailable.')
+                    configure(lambda:coordinator.model_manager.start_install(str(payload.get('id',''))))
+                elif action=='warmSelectedModel':
+                    if configure is None:raise ValueError('Dictation control is unavailable.')
+                    if not self.config.model_name.startswith('catalog:'):raise ValueError('Select an installed catalog model before warming it.')
+                    configure(lambda:coordinator.model_manager.start_warm_up(self.config.model_name.removeprefix('catalog:'),coordinator.stt))
+                elif action=='cancelCatalogModel':coordinator.model_manager.cancel()
+                self._eval_js('onServiceData('+json.dumps({'microphone':coordinator.checkup.snapshot(),'models':coordinator.model_manager.snapshot(),'busy':coordinator.maintenance_busy})+');')
+            except Exception as error:
+                self._eval_js(f'onSettingsResult(false,{json.dumps(str(error))});')
+        elif action == 'getInputDevices':
+            try:
+                from fixoflow.audio.devices import input_devices
+                self._eval_js(f'onInputDeviceData({json.dumps(input_devices())}, "");')
+            except Exception:
+                self._eval_js('onInputDeviceData([], "Microphone list unavailable. Refresh after connecting your microphone.");')
+        elif action == 'getHistoryAudio':
+            import base64
+            sid = str(payload.get('id',''))
+            try:
+                data = self.db.read_history_audio(sid)
+                uri = 'data:audio/wav;base64,' + base64.b64encode(data).decode('ascii')
+                self._eval_js(f'onHistoryAudioData({json.dumps(sid)}, {json.dumps(uri)}, "");')
+            except (ValueError, OSError) as error:
+                self._eval_js(f'onHistoryAudioData({json.dumps(sid)}, null, {json.dumps(str(error))});')
+        elif action == 'getContextualSuggestions':
+            self._eval_js(f'onContextualSuggestions({json.dumps(str(payload.get("id","")))}, {json.dumps(self.db.contextual_suggestions(str(payload.get("id",""))))});')
+        elif action in {'getCorrections', 'proposeCorrection', 'approveCorrection', 'forgetCorrection', 'undoCorrectionApproval'}:
+            try:
+                if action == 'proposeCorrection':
+                    self.db.propose_correction(str(payload.get('session_id', '')), payload.get('text'))
+                elif action == 'approveCorrection':
+                    self.db.approve_correction(str(payload.get('id', '')))
+                elif action == 'forgetCorrection':
+                    self.db.forget_correction(str(payload.get('id', '')))
+                elif action == 'undoCorrectionApproval':
+                    self.db.undo_correction_approval(str(payload.get('id','')))
+                self._eval_js(f'onCorrectionData({json.dumps(self.db.get_corrections())});')
+                if action != 'getCorrections':
+                    self._eval_js("onHistoryResult('Correction memory updated. Raw transcripts are preserved.');")
+            except (ValueError, OSError) as error:
+                self._eval_js(f'onHistoryResult({json.dumps(str(error))});')
+        elif action == 'getSessionJournal':
+            self._eval_js(f'onSessionJournalData({json.dumps(self.db.get_session_journal())});')
+        elif action == 'preferencesPending':
             self.preferences_pending = payload.get('pending') is True
         elif action in {'getStartupStatus','openStartupSettings'}:
             if action == 'openStartupSettings':
@@ -139,12 +215,16 @@ class HubController:
                     return
                 self.handle_action("getHistory", {})
                 self.handle_action("getDashboard", {})
+                self.handle_action('getCorrections', {})
+                self.handle_action('getSessionJournal', {})
 
         elif action == "clearHistory":
             try:self.db.clear_all_history(cache_root=self.config.cache_dir)
             except (OSError,ValueError) as error:self._eval_js(f"onHistoryResult({json.dumps(str(error))});")
             self.handle_action("getHistory", {})
             self.handle_action("getDashboard", {})
+            self.handle_action('getCorrections', {})
+            self.handle_action('getSessionJournal', {})
 
         elif action == "getDictionary":
             offset=max(0,int(payload.get('offset',0)))
@@ -193,7 +273,7 @@ class HubController:
             if isinstance(cfg_dict, dict) and cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login"}
+                    allowed = {"mode", "role_preset", "theme", "input_device", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)
