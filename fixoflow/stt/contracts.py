@@ -11,4 +11,3 @@ class RecognitionCapabilities:
     streaming_output: bool = False
     calibrated_confidence: bool = False
     local_only: bool = True
-
