@@ -10,7 +10,7 @@ def manager():
     ui = HubController.__new__(HubController)
     ui.config = FixoflowConfig(initial_prompt='Keep the selected prompt')
     ui._eval_js = Mock()
-    ui.on_control_status = lambda: {'state':'IDLE','shortcut_active':False}
+    ui.on_control_status = lambda: {'state': 'IDLE', 'shortcut_active': False}
     ui.on_restart = None
     return ui
 
@@ -87,8 +87,8 @@ def test_new_preferences_preserve_unexposed_settings():
     ui = manager()
     changes = []
     ui.on_config_change = lambda candidate: changes.append(candidate)
-    ui.handle_action('saveConfig', {'config': {'always_show_overlay': False, 'sound_enabled':False,
-         'check_updates_on_launch':False, 'initial_prompt':'unexpected replacement'}})
+    ui.handle_action('saveConfig', {'config': {'always_show_overlay': False, 'sound_enabled': False,
+                                               'check_updates_on_launch': False, 'initial_prompt': 'unexpected replacement'}})
     assert len(changes) == 1
     cfg = changes[0]
     assert cfg.always_show_overlay is False
@@ -100,7 +100,7 @@ def test_new_preferences_preserve_unexposed_settings():
 def test_invalid_toggle_value_is_rejected_without_applying():
     ui = manager()
     ui.on_config_change = Mock()
-    ui.handle_action('saveConfig', {'config':{'always_show_overlay':'false'}})
+    ui.handle_action('saveConfig', {'config': {'always_show_overlay': 'false'}})
     ui.on_config_change.assert_not_called()
     assert 'onSettingsResult(false' in ui._eval_js.call_args.args[0]
 
@@ -109,12 +109,13 @@ def test_retry_publishes_current_permissions_even_when_shortcut_fails(monkeypatc
     ui = manager()
     ui.on_enable_shortcut = Mock(return_value='Input Monitoring needed')
     monkeypatch.setattr('fixoflow.ui.controller.permission_snapshot',
-                        lambda: {'accessibility':True,'input':False,'microphone':'authorized'})
+                        lambda: {'accessibility': True, 'input': False, 'microphone': 'authorized'})
     ui.handle_action('enableShortcut', {})
     messages = [call.args[0] for call in ui._eval_js.call_args_list]
     assert any('onSettingsResult(false' in s and 'Input Monitoring needed' in s for s in messages)
     permissions = next(s for s in messages if s.startswith('onPermissionData('))
-    assert json.loads(permissions[len('onPermissionData('):-2]) == {'accessibility':True,'input':False,'microphone':'authorized'}
+    assert json.loads(permissions[len('onPermissionData('):-2]
+                      ) == {'accessibility': True, 'input': False, 'microphone': 'authorized'}
     assert any(s.startswith('onControlStatus(') for s in messages)
 
 
@@ -122,7 +123,7 @@ def test_successful_enable_reports_success(monkeypatch):
     ui = manager()
     ui.on_enable_shortcut = Mock(return_value=None)
     monkeypatch.setattr('fixoflow.ui.controller.permission_snapshot',
-                        lambda: {'accessibility':True,'input':True,'microphone':'authorized'})
+                        lambda: {'accessibility': True, 'input': True, 'microphone': 'authorized'})
     ui.handle_action('enableShortcut', {})
     messages = [call.args[0] for call in ui._eval_js.call_args_list]
     assert any('onSettingsResult(true' in s for s in messages)
@@ -132,7 +133,7 @@ def test_request_permissions_triggers_system_prompts(monkeypatch):
     ui = manager()
     requested = []
     monkeypatch.setattr('fixoflow.ui.controller.request_all_permissions',
-                        lambda: requested.append(True) or {'accessibility':False,'input':False,'microphone':'not determined'})
+                        lambda: requested.append(True) or {'accessibility': False, 'input': False, 'microphone': 'not determined'})
     ui.handle_action('requestPermissions', {})
     assert requested == [True]
     messages = [call.args[0] for call in ui._eval_js.call_args_list]
@@ -144,59 +145,66 @@ def test_request_permissions_triggers_system_prompts(monkeypatch):
 def test_permission_refresh_does_not_reload_unsaved_preferences(monkeypatch):
     ui = manager()
     monkeypatch.setattr('fixoflow.ui.controller.permission_snapshot',
-                        lambda: {'accessibility':False,'input':True,'microphone':'denied'})
+                        lambda: {'accessibility': False, 'input': True, 'microphone': 'denied'})
     ui.handle_action('getPermissions', {})
     assert ui._eval_js.call_count == 1
     assert ui._eval_js.call_args.args[0].startswith('onPermissionData(')
 
 
 def test_autosave_replies_with_identity_without_reloading_newer_draft():
-    ui=manager();ui.on_config_change=Mock()
-    ui.handle_action('autosaveConfig',{'request_id':7,'config':{'sound_enabled':False}})
+    ui = manager()
+    ui.on_config_change = Mock()
+    ui.handle_action('autosaveConfig', {'request_id': 7, 'config': {'sound_enabled': False}})
     ui.on_config_change.assert_called_once()
-    scripts=[call.args[0] for call in ui._eval_js.call_args_list]
+    scripts = [call.args[0] for call in ui._eval_js.call_args_list]
     assert not any(s.startswith('onConfigData(') for s in scripts)
-    result=json.loads(scripts[0][len('onPreferencesResult('):-2])
-    assert result=={'request_id':7,'status':'saved','message':'Saved automatically.'}
+    result = json.loads(scripts[0][len('onPreferencesResult('):-2])
+    assert result == {'request_id': 7, 'status': 'saved', 'message': 'Saved automatically.'}
 
 
 def test_busy_autosave_defers_instead_of_changing_recording():
-    ui=manager();ui.on_config_change=Mock();ui.on_control_status=lambda:{'state':'PROCESSING'}
-    ui.handle_action('autosaveConfig',{'request_id':8,'config':{'sound_enabled':False}})
+    ui = manager()
+    ui.on_config_change = Mock()
+    ui.on_control_status = lambda: {'state': 'PROCESSING'}
+    ui.handle_action('autosaveConfig', {'request_id': 8, 'config': {'sound_enabled': False}})
     ui.on_config_change.assert_not_called()
-    result=json.loads(ui._eval_js.call_args.args[0][len('onPreferencesResult('):-2])
-    assert result['request_id']==8 and result['status']=='waiting'
+    result = json.loads(ui._eval_js.call_args.args[0][len('onPreferencesResult('):-2])
+    assert result['request_id'] == 8 and result['status'] == 'waiting'
 
 
 def test_startup_changes_are_explicit_but_internal_setup_marker_cannot_be_set():
-    ui=manager();ui.on_config_change=Mock()
-    ui.handle_action('autosaveConfig',{'request_id':9,'config':{'start_at_login':False,'login_setup_done':True}})
-    args,kwargs=ui.on_config_change.call_args
-    assert kwargs=={'startup_requested':True}
+    ui = manager()
+    ui.on_config_change = Mock()
+    ui.handle_action('autosaveConfig', {'request_id': 9, 'config': {'start_at_login': False, 'login_setup_done': True}})
+    args, kwargs = ui.on_config_change.call_args
+    assert kwargs == {'startup_requested': True}
     assert not args[0].start_at_login and not args[0].login_setup_done
 
 
 def test_pending_preferences_block_quit_until_acknowledged():
-    ui=manager()
-    ui.handle_action('preferencesPending',{'pending':True})
+    ui = manager()
+    ui.handle_action('preferencesPending', {'pending': True})
     assert ui.close_model_packs() is False
-    ui.handle_action('preferencesPending',{'pending':False})
+    ui.handle_action('preferencesPending', {'pending': False})
     assert ui.close_model_packs() is True
 
 
 def test_public_language_controls_offer_english_and_never_download(monkeypatch):
-    ui=manager();download=Mock()
-    monkeypatch.setattr('fixoflow.model_packs.ModelPackManager',download)
-    for action in ('getLanguageOptions','installModelPack'):
-        ui.handle_action(action,{})
-        data=json.loads(ui._eval_js.call_args.args[0][len('onLanguageData('):-2])
-        assert data['languages']==[{'value':'en','label':'English'}]
+    ui = manager()
+    download = Mock()
+    monkeypatch.setattr('fixoflow.model_packs.ModelPackManager', download)
+    for action in ('getLanguageOptions', 'installModelPack'):
+        ui.handle_action(action, {})
+        data = json.loads(ui._eval_js.call_args.args[0][len('onLanguageData('):-2])
+        assert data['languages'] == [{'value': 'en', 'label': 'English'}]
         assert 'coming soon' in data['message']
     download.assert_not_called()
 
 
 def test_public_autosave_rejects_multilingual_and_preserves_current_english():
-    ui=manager();ui.on_config_change=Mock()
-    ui.handle_action('autosaveConfig',{'request_id':10,'config':{'language':'hi','model_name':'multilingual-base'}})
+    ui = manager()
+    ui.on_config_change = Mock()
+    ui.handle_action('autosaveConfig', {'request_id': 10, 'config': {
+                     'language': 'hi', 'model_name': 'multilingual-base'}})
     ui.on_config_change.assert_not_called()
-    assert ui.config.language=='en' and 'coming soon' in ui._eval_js.call_args.args[0]
+    assert ui.config.language == 'en' and 'coming soon' in ui._eval_js.call_args.args[0]

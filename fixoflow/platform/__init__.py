@@ -8,3 +8,5 @@ elif sys.platform.startswith('linux'):
     from .linux import (activate_application, copy_to_clipboard, get_frontmost_app_info, get_stable_app_identity, insert_text_at_cursor, notify, play_sound, permission_snapshot, request_all_permissions, open_permission_settings)
 else:
     raise RuntimeError('Unsupported desktop operating system: '+sys.platform)
+
+__all__ = ["activate_application", "copy_to_clipboard", "get_frontmost_app_info", "get_stable_app_identity", "insert_text_at_cursor", "notify", "play_sound", "permission_snapshot", "request_all_permissions", "open_permission_settings"]

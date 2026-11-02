@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 
 from fixoflow.config import FixoflowConfig
 from fixoflow.core import FixoflowCoordinator
@@ -136,7 +135,8 @@ def main():
 
     # config
     cfg_parser = subparsers.add_parser("config", help="View or update configuration")
-    cfg_parser.add_argument("--model", help="Whisper model (e.g. mlx-community/whisper-tiny, mlx-community/whisper-base)")
+    cfg_parser.add_argument(
+        "--model", help="Whisper model (e.g. mlx-community/whisper-tiny, mlx-community/whisper-base)")
     cfg_parser.add_argument("--hold-shortcut", "--hotkey", dest="hotkey", help="Hold-to-talk keys, e.g. <ctrl>+<space>")
     cfg_parser.add_argument("--hands-free-shortcut", help="Toggle keys, e.g. <alt>+<space>")
     cfg_parser.add_argument("--polisher", choices=["rules", "none"], help="Polishing engine")

@@ -1,14 +1,12 @@
 """Windows and Linux native-webview host for the shared Fixo Flow product UI."""
 from __future__ import annotations
 import argparse
-from dataclasses import asdict
 import json
 import logging
 import queue
 from pathlib import Path
 import sys
 import threading
-import time
 import webbrowser
 
 from fixoflow.config import FixoflowConfig

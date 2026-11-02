@@ -31,13 +31,13 @@ class HubBridgeHandler(NSObject):
             # dict/list instances. Normalize the JSON protocol once at entry.
             if not NSJSONSerialization.isValidJSONObject_(raw):
                 return
-            data,error = NSJSONSerialization.dataWithJSONObject_options_error_(raw,0,None)
+            data, error = NSJSONSerialization.dataWithJSONObject_options_error_(raw, 0, None)
             if error is not None or data is None:
                 return
             body = json.loads(bytes(data).decode('utf-8'))
-            action = body.get('action') if isinstance(body,dict) else None
-            if self.hub_manager is not None and isinstance(action,str):
-                self.hub_manager.handle_action(action,body)
+            action = body.get('action') if isinstance(body, dict) else None
+            if self.hub_manager is not None and isinstance(action, str):
+                self.hub_manager.handle_action(action, body)
         except Exception as e:
             logger.error("Error processing JS message: %s", e)
 

@@ -24,7 +24,8 @@ def coordinator(tmp_path, monkeypatch):
     instance.recorder = Mock()
     instance.recorder.needs_cleanup = False
     instance.recorder.start.return_value = tmp_path / 'session_20261018_120000_123456.wav'
-    instance.recorder.stop.return_value = (np.ones(16000, dtype=np.float32), tmp_path / 'session_20261018_120000_123456.wav')
+    instance.recorder.stop.return_value = (np.ones(16000, dtype=np.float32),
+                                           tmp_path / 'session_20261018_120000_123456.wav')
     from fixoflow.audio.recorder import Capture
     instance.recorder.finalize_capture.return_value=Capture(instance.recorder.start.return_value,16000,16000)
     instance.stt = Mock()
@@ -86,7 +87,8 @@ def test_focus_restore_returns_text_to_original_app(coordinator, monkeypatch):
     ])
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: next(responses))
     assert coordinator.stop_and_process() == 'parseConfig'
-    insert.assert_called_once_with('parseConfig', expected_target='test.antigravity', cancelled=coordinator._cancel_requested.is_set)
+    insert.assert_called_once_with('parseConfig', expected_target='test.antigravity',
+                                   cancelled=coordinator._cancel_requested.is_set)
     coordinator.overlay.show_success.assert_called_with('Paste sent')
 
 
@@ -113,7 +115,8 @@ def test_unidentified_target_copies_instead_of_guessing(coordinator, monkeypatch
 def test_decode_failure_saves_partial_and_never_pastes(coordinator, monkeypatch):
     insert = Mock()
     monkeypatch.setattr(core, 'insert_text_at_cursor', insert)
-    coordinator.stt.transcribe_file.side_effect = TranscriptionError('second chunk failed', partial_text='first words', failed_chunk_index=1)
+    coordinator.stt.transcribe_file.side_effect = TranscriptionError(
+        'second chunk failed', partial_text='first words', failed_chunk_index=1)
     coordinator.start_recording()
     assert coordinator.stop_and_process() == ''
     insert.assert_not_called()
@@ -258,10 +261,13 @@ def test_spoken_code_commands_require_opt_in(coordinator):
 
 
 def test_cancellation_during_focus_restore_prevents_insertion(coordinator,monkeypatch):
-    insert=Mock();monkeypatch.setattr(core,'insert_text_at_cursor',insert)
+    insert = Mock()
+    monkeypatch.setattr(core, 'insert_text_at_cursor', insert)
     coordinator.start_recording()
     monkeypatch.setattr(core,'get_frontmost_app_info',lambda:('Other','other'))
-    def activate(*args):coordinator.request_cancel();return False
+    def activate(*args):
+        coordinator.request_cancel()
+        return False
     monkeypatch.setattr(core,'activate_application',activate)
     coordinator.stop_and_process()
     insert.assert_not_called()
@@ -271,17 +277,28 @@ def test_cancellation_during_focus_restore_prevents_insertion(coordinator,monkey
 @pytest.mark.parametrize('shutdown',[False,True])
 def test_cancel_before_queued_start_is_not_reset(coordinator,monkeypatch,shutdown):
     from fixoflow.controls import DictationControls
+
     class Deferred:
         def __init__(self):self.queue=[]
         def submit(self,fn,*args):self.queue.append((fn,args))
+
         def drain(self):
             while self.queue:
-                fn,args=self.queue.pop(0);fn(*args)
+                fn, args = self.queue.pop(0)
+                fn(*args)
+
         def shutdown(self,wait=True):self.drain()
-    executor=Deferred();controls=DictationControls(coordinator,coordinator.config,executor=executor)
-    insert=Mock();monkeypatch.setattr(core,'insert_text_at_cursor',insert)
-    controls.hold_press();controls.hold_release()
-    if shutdown:controls.shutdown()
-    else:controls.cancel();executor.drain()
-    coordinator.stt.transcribe_file.assert_not_called();insert.assert_not_called()
+    executor = Deferred()
+    controls = DictationControls(coordinator, coordinator.config, executor=executor)
+    insert = Mock()
+    monkeypatch.setattr(core, 'insert_text_at_cursor', insert)
+    controls.hold_press()
+    controls.hold_release()
+    if shutdown:
+        controls.shutdown()
+    else:
+        controls.cancel()
+        executor.drain()
+    coordinator.stt.transcribe_file.assert_not_called()
+    insert.assert_not_called()
     assert coordinator._cancel_requested.is_set() and controls.state=='IDLE'

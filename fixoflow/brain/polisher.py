@@ -109,11 +109,11 @@ def _format_numbered_list(text: str) -> Tuple[str, int]:
     Ambiguous prose, missing/reordered markers and existing numeric lists are
     retained. This is intentionally narrower than semantic list inference.
     """
-    ordinals = {'first':1,'second':2,'third':3,'fourth':4,'fifth':5,
-                'sixth':6,'seventh':7,'eighth':8,'ninth':9,'tenth':10}
+    ordinals = {'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'fifth': 5,
+                'sixth': 6, 'seventh': 7, 'eighth': 8, 'ninth': 9, 'tenth': 10}
     markers = '|'.join(word + '(?:ly)?' for word in ordinals)
     pattern = re.compile(r'(?P<boundary>^|(?<=[.!?:])\s+|,\s+)'
-        r'(?P<marker>' + markers + r')\b(?P<separator>\s*[,;:]\s*|\s+)', re.IGNORECASE)
+                         r'(?P<marker>' + markers + r')\b(?P<separator>\s*[,;:]\s*|\s+)', re.IGNORECASE)
     matches = list(pattern.finditer(text))
     if (len(matches) < 2 or '`' in text or re.search(r'["\u201c\u201d]|(?<!\w)[\'\u2018]', text)
             or re.search(r'(?:^|\s)\d+[.)]\s+', text)
@@ -129,15 +129,15 @@ def _format_numbered_list(text: str) -> Tuple[str, int]:
         numbers.append(ordinals[ordinal])
     if numbers != list(range(1, len(numbers)+1)):
         return text, 0
-    items = [text[match.end():matches[i+1].start() if i+1<len(matches) else len(text)].strip()
-             for i,match in enumerate(matches)]
+    items = [text[match.end():matches[i+1].start() if i+1 < len(matches) else len(text)].strip()
+             for i, match in enumerate(matches)]
     if any(not item for item in items):
         return text, 0
-    for i,item in enumerate(items[:-1]):
+    for i, item in enumerate(items[:-1]):
         if matches[i+1]['boundary'].startswith(',') and item[-1] not in '.!?;:':
             items[i] += '.'
     prefix = text[:matches[0].start()].rstrip()
-    result = '\n'.join(f'{number}. {item}' for number,item in zip(numbers,items))
+    result = '\n'.join(f'{number}. {item}' for number, item in zip(numbers, items))
     return (prefix+'\n' if prefix else '') + result, len(items)
 
 

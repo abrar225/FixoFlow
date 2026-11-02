@@ -1,6 +1,5 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
-import threading
 import pytest
 from fixoflow.controls import DictationControls, shortcut_label
 from fixoflow.config import FixoflowConfig

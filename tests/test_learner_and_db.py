@@ -169,46 +169,58 @@ def test_today_and_week_activity_fill_missing_days():
         assert [day["active"] for day in week] == [False, False, False, False, True, False, True]
         assert week[-1]["words"] == 12 and week[-3]["words"] == 8
 
+
 def test_dictionary_is_one_pass_symbol_aware_and_has_complete_coverage(tmp_path):
-    db=FixoflowDB(tmp_path/'dictionary.sqlite');learner=AdaptiveLearner(db)
-    db.upsert_word('alpha','beta');db.upsert_word('beta','gamma');db.upsert_word('C++','CPP')
-    for i in range(250):db.upsert_word(f'word{i}',f'replacement{i}')
+    db = FixoflowDB(tmp_path/'dictionary.sqlite')
+    learner = AdaptiveLearner(db)
+    db.upsert_word('alpha', 'beta')
+    db.upsert_word('beta', 'gamma')
+    db.upsert_word('C++', 'CPP')
+    for i in range(250):
+        db.upsert_word(f'word{i}', f'replacement{i}')
     for _ in range(2):
-        assert learner.format_for_mode('alpha C++ word249 word0', 'writing','Mail')=='beta CPP replacement249 replacement0'
+        assert learner.format_for_mode('alpha C++ word249 word0', 'writing',
+                                       'Mail') == 'beta CPP replacement249 replacement0'
     db.increment_word_usage('beta')
-    assert learner.format_for_mode('alpha', 'writing','Mail')=='beta'
+    assert learner.format_for_mode('alpha', 'writing', 'Mail') == 'beta'
 
 
 def test_longest_valid_dictionary_match_does_not_hide_shorter_term(tmp_path):
-    db=FixoflowDB(tmp_path/'dictionary.sqlite');learner=AdaptiveLearner(db)
-    db.upsert_word('new york','NY');db.upsert_word('new','fresh');db.upsert_word('yorker','Yorker')
-    assert learner.format_for_mode('new yorker and new york', 'writing','Mail')=='fresh Yorker and NY'
-    db.upsert_word('नाम','पहचान')
-    assert learner.format_for_mode('नामों नाम','writing','Mail')=='नामों पहचान'
+    db = FixoflowDB(tmp_path/'dictionary.sqlite')
+    learner = AdaptiveLearner(db)
+    db.upsert_word('new york', 'NY')
+    db.upsert_word('new', 'fresh')
+    db.upsert_word('yorker', 'Yorker')
+    assert learner.format_for_mode('new yorker and new york', 'writing', 'Mail') == 'fresh Yorker and NY'
+    db.upsert_word('नाम', 'पहचान')
+    assert learner.format_for_mode('नामों नाम', 'writing', 'Mail') == 'नामों पहचान'
 
 
 def test_vocabulary_prompt_does_not_invent_app_or_format_instructions(tmp_path):
-    db=FixoflowDB(tmp_path/'dictionary.sqlite');learner=AdaptiveLearner(db)
-    assert learner.get_vocabulary_prompt()==''
-    db.upsert_word('maya desai','Maya Desai')
-    assert learner.get_vocabulary_prompt()=='Maya Desai'
+    db = FixoflowDB(tmp_path/'dictionary.sqlite')
+    learner = AdaptiveLearner(db)
+    assert learner.get_vocabulary_prompt() == ''
+    db.upsert_word('maya desai', 'Maya Desai')
+    assert learner.get_vocabulary_prompt() == 'Maya Desai'
 
 
 def test_auto_mode_formats_chat_composers_and_preserves_real_coding_editors(tmp_path):
-    learner=AdaptiveLearner(FixoflowDB(tmp_path/'check.sqlite'))
-    for name in ('ChatGPT','Claude','Codex','Decode','Mail'):
-        assert learner.effective_mode('auto',name)=='writing'
-    for name in ('Code','Visual Studio Code','Cursor','Terminal','Claude Code','Antigravity IDE',
-                 'pycharm64','webstorm64','sublime_text','gnome-terminal','org.gnome.Terminal'):
-        assert learner.effective_mode('auto',name)=='coding'
-    assert learner.effective_mode('coding','ChatGPT')=='coding'
+    learner = AdaptiveLearner(FixoflowDB(tmp_path/'check.sqlite'))
+    for name in ('ChatGPT', 'Claude', 'Codex', 'Decode', 'Mail'):
+        assert learner.effective_mode('auto', name) == 'writing'
+    for name in ('Code', 'Visual Studio Code', 'Cursor', 'Terminal', 'Claude Code', 'Antigravity IDE',
+                 'pycharm64', 'webstorm64', 'sublime_text', 'gnome-terminal', 'org.gnome.Terminal'):
+        assert learner.effective_mode('auto', name) == 'coding'
+    assert learner.effective_mode('coding', 'ChatGPT') == 'coding'
 
 
 def test_approved_wispr_spellings_are_exact_and_distinct_prompt_terms(tmp_path):
-    db=FixoflowDB(tmp_path/'check.sqlite');learner=AdaptiveLearner(db)
-    for phrase in ('Visper Flow','VS Perflow','wispr flow'):
-        db.upsert_word(phrase,'Wispr Flow')
-    db.upsert_word('fixoflow','Fixo Flow')
-    assert learner.get_vocabulary_prompt()=='Wispr Flow, Fixo Flow'
-    actual=learner.format_for_mode('Visper Flow and VS Perflow beat fixoflow. VS Codex stays unchanged.','writing','')
-    assert actual=='Wispr Flow and Wispr Flow beat Fixo Flow. VS Codex stays unchanged.'
+    db = FixoflowDB(tmp_path/'check.sqlite')
+    learner = AdaptiveLearner(db)
+    for phrase in ('Visper Flow', 'VS Perflow', 'wispr flow'):
+        db.upsert_word(phrase, 'Wispr Flow')
+    db.upsert_word('fixoflow', 'Fixo Flow')
+    assert learner.get_vocabulary_prompt() == 'Wispr Flow, Fixo Flow'
+    actual = learner.format_for_mode(
+        'Visper Flow and VS Perflow beat fixoflow. VS Codex stays unchanged.', 'writing', '')
+    assert actual == 'Wispr Flow and Wispr Flow beat Fixo Flow. VS Codex stays unchanged.'

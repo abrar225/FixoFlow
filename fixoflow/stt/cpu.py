@@ -26,17 +26,23 @@ class CPUWhisperEngine(STTEngine):
         if catalog_path is not None:path=Path(catalog_path)
         if self.model_name == 'multilingual-base':
             from fixoflow.model_packs import pack_path, validate_pack
-            try:return str(validate_pack(pack_path('cpu'), 'cpu').resolve())
-            except (ValueError,OSError) as error:raise TranscriptionError('Install the Base multilingual pack in Settings first.') from error
+            try:
+                return str(validate_pack(pack_path('cpu'), 'cpu').resolve())
+            except (ValueError, OSError) as error:
+                raise TranscriptionError('Install the Base multilingual pack in Settings first.') from error
         if self.model_name == 'bundled-base.en':
             path=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parents[2]))/'models'/'whisper'
         required=('model.bin','config.json','tokenizer.json','vocabulary.txt')
         if not path.is_dir() or any(not (path/name).is_file() or (path/name).stat().st_size==0 for name in required):
-            raise TranscriptionError('Choose a complete local CTranslate2 Whisper model directory containing '+', '.join(required)+'. Mac MLX weights cannot be used directly. No model was downloaded.')
+            raise TranscriptionError('Choose a complete local CTranslate2 Whisper model directory containing ' +
+                                     ', '.join(required)+'. Mac MLX weights cannot be used directly. No model was downloaded.')
         if self.language != 'en':
             from fixoflow.model_packs import validate_model_language
-            try:validate_model_language(json.loads((path/'config.json').read_text()),'cpu')
-            except (ValueError,OSError) as error:raise TranscriptionError('Selected local model is not compatible with multilingual recognition.') from error
+            try:
+                validate_model_language(json.loads((path/'config.json').read_text()), 'cpu')
+            except (ValueError, OSError) as error:
+                raise TranscriptionError(
+                    'Selected local model is not compatible with multilingual recognition.') from error
         return str(path.resolve())
 
     def _decode(self,chunk,model_path,prompt):

@@ -61,7 +61,8 @@ class WindowsLogin:
                 except FileNotFoundError:
                     previous = None
                 if previous is not None and previous != self.command:
-                    raise RuntimeError('A different Fixo Flow startup entry exists. Remove it in Windows Startup Apps first.')
+                    raise RuntimeError(
+                        'A different Fixo Flow startup entry exists. Remove it in Windows Startup Apps first.')
                 r.SetValueEx(key, self.name, 0, r.REG_SZ, self.command)
             else:
                 try:
@@ -95,7 +96,7 @@ class LinuxLogin:
 
     def _parse(self, text):
         parser = configparser.ConfigParser(interpolation=None, strict=True,
-            delimiters=('=',), comment_prefixes=('#',), empty_lines_in_values=False)
+                                           delimiters=('=',), comment_prefixes=('#',), empty_lines_in_values=False)
         parser.optionxform = str
         parser.read_string(text)
         entry = parser['Desktop Entry']
@@ -209,12 +210,12 @@ class StartupService:
                 else:
                     self._pending = None
                     message = 'The system has not confirmed the change. Check your system startup settings.'
-            return {'supported':self.backend is not None, 'enabled':enabled, 'approval':approval,
-                    'pending':pending, 'requested':self._pending,
-                    'manage':self.backend is not None and sys.platform in {'darwin','win32'},
-                    'message':self.error or (message if self.backend else 'Startup is available in the installed application.')}
+            return {'supported': self.backend is not None, 'enabled': enabled, 'approval': approval,
+                    'pending': pending, 'requested': self._pending,
+                    'manage': self.backend is not None and sys.platform in {'darwin', 'win32'},
+                    'message': self.error or (message if self.backend else 'Startup is available in the installed application.')}
         except Exception as error:
-            return {'supported':False, 'enabled':False, 'approval':False, 'message':str(error)}
+            return {'supported': False, 'enabled': False, 'approval': False, 'message': str(error)}
 
     def open_settings(self):
         if self.backend is None:
@@ -271,7 +272,8 @@ def launched_at_login(event=None):
         event = NSAppleEventManager.sharedAppleEventManager().currentAppleEvent()
     if event is None:
         return False
-    keyword = lambda value: int.from_bytes(value.encode('ascii'), 'big')
+
+    def keyword(value): return int.from_bytes(value.encode('ascii'), 'big')
     if event.eventID() != keyword('oapp'):
         return False
     marker = event.paramDescriptorForKeyword_(keyword('prdt'))
