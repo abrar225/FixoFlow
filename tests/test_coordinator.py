@@ -19,6 +19,10 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(core, 'copy_to_clipboard', Mock(return_value=True))
     monkeypatch.setattr(core, 'activate_application', lambda bundle_id, timeout_sec=0.8: False)
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: ('Antigravity', 'test.antigravity'))
+    # This fixture simulates a Mac-style target on every OS. Resolve its scope
+    # at the same fake native boundary instead of querying real Windows/X11.
+    from fixoflow.app_identity import app_scope
+    monkeypatch.setattr(core, 'get_stable_app_identity', app_scope)
     config = FixoflowConfig(cache_dir=str(tmp_path), mode='auto', spoken_commands=True)
     instance = core.FixoflowCoordinator(config, enable_overlay=False)
     instance.recorder = Mock()
