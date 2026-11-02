@@ -309,7 +309,9 @@ claiming that Fixo Small beats SpeakType as a product.
 Evidence: `small-versus-native-speaktype-quality.json` and
 `tiny-versus-native-speaktype-quality.json` under `/tmp/fixoflow-public-benchmark/`;
 these include model artifact/revision identities, source-report hashes and paired
-bootstrap metadata. All reports stay local; no speech was uploaded.
+bootstrap metadata. The final reports and pinned public-corpus metadata are also
+preserved in the draft preview's `Benchmark-evidence-0.4.0.zip`, with attribution.
+The archive contains no audio; no speech was uploaded.
 
 Latest targeted harness verification: **14 tests passed**, including pinned
 public-source path/host checks, failed decodes, pair mismatches, speaker-cluster

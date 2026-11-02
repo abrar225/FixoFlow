@@ -135,6 +135,29 @@ process status; it never uses POSIX-style signal-zero probing on Windows.
   This is a locally signed, unnotarized candidate, not verified public Gatekeeper trust.
 - [Draft pull request](https://github.com/abrar225/FixoFlow/pull/2) contains the reviewable source; unrelated user release-document edits remain local and uncommitted.
 
+## Unpublished preview package
+
+The user explicitly selected clearly labeled preview builds because public
+signing credentials are not yet available. The [draft 0.4.0 preview](https://github.com/abrar225/FixoFlow/releases/tag/untagged-921cac76f2ba0cf6c2c2)
+remains unpublished and targets application source `30d60b8`.
+
+- Apple Silicon Mac DMG, Windows x64 setup and Linux x64 Debian installer are
+  attached with `SHA256SUMS.txt` and a native inspection manifest.
+- [Artifact inspection](https://github.com/abrar225/FixoFlow/actions/runs/41439095179)
+  required the exact successful native build, matched the draft's target source,
+  checked installer formats and native UI/inference reports, and emitted hashes.
+- [Attachment](https://github.com/abrar225/FixoFlow/actions/runs/41439219417)
+  repeated those checks and required the inspected hashes before attaching files
+  without overwriting assets. GitHub's uploaded asset digests match those hashes.
+- `Benchmark-evidence-0.4.0.zip` preserves the final matched reports, alternative
+  model reports, manifest and public-source metadata/attribution. It contains no
+  audio. Temporary absolute paths in reports document the original run; use the
+  pinned corpus preparation script to recreate audio on another machine.
+
+The Mac preview is installed locally; the preceding installation is backed up.
+Windows/Linux installation checks ran in CI, not on the user's physical devices.
+The draft PR has not been merged, and public website downloads remain at 0.3.4.
+
 Required before broad public launch: meaningful native-device
 acceptance, validated installed upgrade/data migration, publisher trust where
 promised, broader representative speech evaluation, and completion or explicit
