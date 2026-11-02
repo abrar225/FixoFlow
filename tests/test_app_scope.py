@@ -28,6 +28,28 @@ def test_legacy_window_targets_are_not_guessed_as_app_scope():
     assert app_scope('com.example.Editor')=='macos:bundle:com.example.Editor'
 
 
+def test_windows_owner_liveness_never_sends_a_console_signal(monkeypatch):
+    import fixoflow.app_identity as identity
+    from unittest.mock import Mock
+    monkeypatch.setattr(identity.sys,'platform','win32')
+    query=Mock(return_value=True);monkeypatch.setattr(identity,'windows_process_alive',query)
+    monkeypatch.setattr(identity.os,'kill',lambda *a:pytest.fail('Windows process queries must not send console events'))
+    assert identity.process_alive(123)
+    query.assert_called_once_with(123)
+
+
+@pytest.mark.parametrize('exit_code,alive',[(259,True),(0,False),(1,False)])
+def test_windows_liveness_uses_exit_code_and_closes_handle(exit_code,alive):
+    import ctypes as c
+    from ctypes import wintypes as w
+    from unittest.mock import Mock
+    from fixoflow.app_identity import windows_process_alive
+    def code(handle,ptr):c.cast(ptr,c.POINTER(w.DWORD)).contents.value=exit_code;return True
+    kernel=Mock();kernel.OpenProcess.return_value=123;kernel.GetExitCodeProcess.side_effect=code
+    assert windows_process_alive(42,kernel)==alive
+    kernel.CloseHandle.assert_called_once_with(123)
+
+
 def test_additive_scope_migration_preserves_old_records_without_global_rules(tmp_path):
     path=tmp_path/'old.sqlite'
     with sqlite3.connect(path) as c:

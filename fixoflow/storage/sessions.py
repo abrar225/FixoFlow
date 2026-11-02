@@ -68,7 +68,7 @@ class SessionStore:
                 ORDER BY started_at DESC LIMIT ?''',(limit,))]
 
     def recovery_source(self, sid):
-        import os
+        from fixoflow.app_identity import process_alive
         row=self.get_session(sid)
         if not row or not row['audio_path']:raise ValueError('Recovery recording not found.')
         if row['status'] in {'starting','recording','processing'}:
@@ -76,11 +76,7 @@ class SessionStore:
                 raise ValueError('This legacy recording has no verifiable owner. Use Show recording folder to inspect or copy it manually; automatic retry/delete is unavailable.')
             # A live process or unknown legacy owner must not have its WAV copied
             # while headers/samples may still be changing. PID reuse blocks safely.
-            alive = row['owner_pid'] <= 0
-            if row['owner_pid'] > 0:
-                try:os.kill(row['owner_pid'],0);alive=True
-                except ProcessLookupError:alive=False
-                except (PermissionError,OSError):alive=True
+            alive = process_alive(row['owner_pid'])
             if alive:raise ValueError('This recording may still be active. Close the owning app before recovery.')
         return row
 

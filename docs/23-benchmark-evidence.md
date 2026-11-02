@@ -174,7 +174,8 @@ alternating order, import metadata and evaluator warm/failure persistence.
 Actual Base MLX and whisper.cpp proxy inference ran as described above.
 
 VERDICT: PASS for the executed harness tests and public backend diagnostic.
-Representative product quality and actual SpeakType v2 acceptance remain open.
+Representative product quality and installed SpeakType v2 acceptance remain open;
+the subsequent native raw-recognizer comparison below is now completed.
 
 ## Follow-up: reproducible broader public diagnostic
 
@@ -232,9 +233,84 @@ manifest. New paired reports include per-stratum metrics, distinct-audio/speaker
 counts and a speaker-cluster bootstrap that does not treat repetitions as new
 speakers. Missing speaker identities produce no confidence interval.
 
-The explicit native build attempt uses Homebrew Rust/cargo 1.99.1 and
+The explicit native build uses Homebrew Rust/cargo 1.99.1 and
 `cargo build --locked --release --example transcribe_wav` in the unchanged
 temporary SpeakType checkout. Its log is retained at
-`/tmp/fixoflow-public-benchmark/speaktype-native-build.log`. Final native build/run
-outcome is recorded in the subsequent implementation evidence when available;
-the proxy results above are not renamed as SpeakType results.
+`/tmp/fixoflow-public-benchmark/speaktype-native-build.log`. The first attempt
+failed because CMake was missing; after installing Homebrew CMake 4.4.5, the
+materially changed build retry succeeded (75 s). No SpeakType source was patched.
+Its locked whisper-rs native dependency embeds whisper.cpp 1.8.3; the standalone
+proxy used 1.9.5. The proxy results above remain separately identified.
+
+## Completed native SpeakType v2 raw-recognizer comparison
+
+SpeakType source: clean `1e17f218a48d73f733fac1f15629e0345968e1ba`.
+Native example SHA-256:
+`29488f3beef59516c6f19a506dc1d5f4bd09601a933026986a3f18f02d19e3d9`.
+Fixo source: `6e5adc30da638829b81579f00a09e62a0a2a541d`.
+The final comparison froze source changes, and both before/after source
+fingerprints matched. An earlier run detected source drift during parallel
+development and was explicitly superseded rather than used as the final result.
+
+Both use the same 20 prepared audio files from 20 declared LibriSpeech speakers,
+three fresh-process repetitions each, alternating recognizer order. Each backend
+completed 60/60 runs with no failure. There are still only 20 independent clips
+and 340 distinct reference words; repetition produces 1,020 aggregate reference
+words per backend, not 60 speakers.
+
+- **Fixo Base English MLX:** 87/1,020 word errors = **8.53%** normalized WER.
+  Normalized CER 3.37%. Process wall-time p50 **0.970 s**, p95 **1.055 s**.
+- **Actual SpeakType v2 Base English:** 72/1,020 word errors = **7.06%** normalized
+  WER. Normalized CER 2.50%. Process wall-time p50 **0.556 s**, p95 **0.564 s**.
+- Descriptive paired speaker-cluster bootstrap (1,000 draws, seed 0),
+  SpeakType-minus-Fixo WER 95% interval: **−3.30 to −0.29 percentage points**.
+  SpeakType Base had fewer errors on this sampled read-English corpus. This
+  finding does not establish a universal accuracy ranking.
+
+Clean WER: Fixo 5.26%, SpeakType 4.74%. Other WER: Fixo 12.67%, SpeakType 10.00%.
+The native example performs raw recognition only: it does not launch either UI,
+record a microphone, run product postprocessing, access personal dictionaries or
+histories, paste text or exercise installed app acceptance. SpeakType's example
+forces auto language; Fixo uses explicit English. They use different model
+conversions, decoder settings and audio preprocessing even within the Base English
+family. These are recorded implementation differences, not controlled acoustic-
+weight isolation. Fresh-process timing includes Python/native startup and model
+load, excludes UI/paste, and has uncontrolled filesystem caches; it must not be
+advertised as stop-to-cursor performance. Pretrained-model exposure to this public
+benchmark corpus is unknown, even though no tuning occurred in this task.
+
+Final evidence:
+`/tmp/fixoflow-public-benchmark/librispeech-native-speaktype-stable-report.json`.
+The earlier drift-detected report remains retained under the name without
+`-stable`; it is not the release comparison.
+
+## Model alternatives versus native SpeakType Base: quality only
+
+The separately executed pinned MLX Small/Tiny model qualifications used the same
+20 audio hashes, references, languages and speaker IDs. Pair validation matched
+each to the first native SpeakType repetition. Model qualification used warm
+reused workers, while the native report used fresh processes, so **no cross-report
+timing ranking is made**. The comparison is a model-choice tradeoff, not a
+same-size/backend-only comparison.
+
+- Fixo **Small English MLX:** 16/340 word errors = **4.71%**, versus SpeakType
+  Base 24/340 = **7.06%**. Speaker-cluster bootstrap SpeakType-minus-Small WER
+  interval **+0.59 to +4.66 percentage points**. Small has fewer errors on this
+  limited subset, with substantially larger model/resource requirements.
+- Fixo **Tiny English MLX:** 37/340 = **10.88%**, versus SpeakType Base **7.06%**.
+  SpeakType-minus-Tiny interval **−7.45 to −1.15 percentage points**. Tiny's smaller
+  footprint/speed role carries a measured recognition-quality cost here.
+
+Both alternatives completed 20/20 decodes. These are predeclared candidates, not
+weights fine-tuned to this subset. The same coverage limits and unknown pretraining
+exposure apply. Compare SpeakType's stronger available models separately before
+claiming that Fixo Small beats SpeakType as a product.
+
+Evidence: `small-versus-native-speaktype-quality.json` and
+`tiny-versus-native-speaktype-quality.json` under `/tmp/fixoflow-public-benchmark/`;
+these include model artifact/revision identities, source-report hashes and paired
+bootstrap metadata. All reports stay local; no speech was uploaded.
+
+Latest targeted harness verification: **14 tests passed**, including pinned
+public-source path/host checks, failed decodes, pair mismatches, speaker-cluster
+uncertainty, repeated-run handling and warm evaluator persistence.
