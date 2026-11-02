@@ -88,9 +88,27 @@
     </section>
     <section id="viewHistory" class="view-panel hidden" aria-labelledby="historyTitle">
       <div class="heading-row"><h1 id="historyTitle" class="view-title">Your words, kept here.</h1><button class="action-btn delete" onclick="clearHistory()">Clear history</button></div>
-      <p class="subtitle">Find, copy, and manage your recent transcripts.</p>
+      <p class="subtitle">Find, copy, and manage your recent transcripts. Edit a transcript to propose a correction, then approve it below. Approved corrections match the exact sentence in the same app, language and mode; Raw and Verbatim stay unchanged.</p>
+      <div id="correctionEditor" class="card-section hidden">
+        <label for="correctedTranscript">Correct this dictation</label>
+        <textarea id="correctedTranscript" rows="5" maxlength="20000" style="width:100%;box-sizing:border-box"></textarea>
+        <p id="correctionOriginal" style="white-space:pre-wrap"></p>
+        <div id="contextualSuggestions" aria-live="polite"></div>
+        <button class="primary-btn" onclick="proposeCorrection()">Propose correction</button>
+        <button class="action-btn" onclick="closeCorrectionEditor()">Cancel</button>
+      </div>
+      <details class="card-section"><summary>Correction memory — approval required</summary>
+        <p>Nothing is learned from other apps automatically. Approve only corrections you want reused. Forget removes the rule; deleting its source transcript removes its memory too.</p>
+        <div id="correctionMemory"></div>
+      </details>
+      <details class="card-section"><summary>Recent session status</summary>
+        <p>Paste sent means a keystroke was dispatched, not verified insertion. Unfinished sessions may belong to another running instance.</p>
+        <div id="sessionJournal"></div>
+      </details>
+      <details class="card-section" ontoggle="if(this.open) post('getRecovery')"><summary>Recovery inbox</summary><p>Retry an owned recording with the currently selected model, language and style. A new result is saved to History without pasting; the original recording is preserved. Active or uncertain recordings cannot be retried or deleted.</p><div id="recoveryInbox"></div></details>
       <div class="search-bar"><input type="search" id="historySearch" placeholder="Search transcripts" aria-label="Search transcripts" oninput="filterHistory()"></div>
       <p id="historyResult" role="status"></p><div id="historyList" class="item-list"><div class="empty-state">Loading history…</div></div><button id="historyMore" class="action-btn" hidden onclick="post('getHistory',{offset:historyOffset,search:document.getElementById('historySearch').value})">Load more transcripts</button>
+      <div id="historyPlayback" class="card-section hidden"><p id="playbackStatus" role="status"></p><audio id="historyAudio" controls preload="none" style="max-width:100%"></audio><button class="action-btn" onclick="stopHistoryAudio()">Close playback</button></div>
     </section>
     <section id="viewDictionary" class="view-panel hidden" aria-labelledby="dictionaryTitle">
       <div class="heading-row"><h1 id="dictionaryTitle" class="view-title">Make it your language.</h1><button class="primary-btn" onclick="toggleAddWordModal()">Add word</button></div>
@@ -99,6 +117,20 @@
       <div class="search-bar"><input id="dictionarySearch" type="search" aria-label="Search dictionary" placeholder="Search all words" oninput="post('getDictionary',{search:this.value})"></div><div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div><button id="dictionaryMore" class="action-btn" hidden onclick="post('getDictionary',{offset:dictionaryOffset,search:document.getElementById('dictionarySearch').value})">Load more words</button>
     </section>
     <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
+      <div class="card-section"><label class="setting-title" for="cfgRole">Optional starting preset</label><select id="cfgRole"><option value="everyday">Everyday — writing, natural style</option><option value="developer">Developer — coding, literal identifiers</option><option value="writer">Writer — writing, natural paragraphs</option><option value="business">Business — writing, professional rules</option><option value="accessibility">Hands-free access — writing, visible controls and sounds</option></select><button class="action-btn" onclick="applyRolePreset()">Apply preset</button><p class="setting-desc">Changes mode/style and turns spoken commands off. Hands-free access also enables visible controls and sounds. You can change every setting afterwards; this does not infer your profession or train a model.</p></div>
+      <div class="card-section"><label class="setting-title" for="cfgTheme">Appearance</label><select id="cfgTheme"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></div>
+      <details id="setupServices" class="card-section" ontoggle="if(this.open) post('getServices')"><summary>Microphone check and local model downloads</summary>
+        <p>Run a five-second signal check before dictating. It checks levels and clipping, not recognition accuracy. No checkup audio is saved.</p>
+        <button class="action-btn" onclick="post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop / retry cleanup</button>
+        <meter id="micCheckLevel" min="0" max="1" value="0" aria-label="Microphone signal level"></meter><p id="micCheckStatus" role="status"></p>
+        <h2>English model candidates</h2><p>Downloads are explicit and verified. Labels describe candidates, not proven accuracy rankings. Select an installed model, wait for Saved, then warm it before dictating.</p>
+        <button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel model operation</button><div id="catalogModels"></div>
+      </details>
+      <div class="card-section"><label class="setting-title" for="cfgInputDevice">Microphone</label>
+        <p class="setting-desc">Choose the system default or a specific microphone. A missing saved microphone stops recording rather than switching devices. Devices must support 16 kHz mono capture.</p>
+        <select id="cfgInputDevice"><option value="">System default at recording start</option></select>
+        <button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button><p id="inputDeviceStatus" role="status"></p>
+      </div>
       <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
       <div class="card-section"><div class="section-header">Startup</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgStartAtLogin">Start Fixo Flow when I sign in</label><span class="setting-desc">Start quietly with dictation controls available. The main window stays closed or minimized.</span><span id="startupStatus" class="setting-desc" role="status">Checking startup registration…</span><button id="manageStartup" class="action-btn" hidden onclick="post('openStartupSettings')">Manage in system settings</button></div><label class="switch"><input id="cfgStartAtLogin" type="checkbox" checked disabled><span aria-hidden="true"></span></label></div></div>
       <div class="card-section"><div class="section-header">Controls</div><div class="setting-group">
@@ -156,6 +188,7 @@
     function switchTab(tab) {
       const names = {dashboard:'Dashboard',insights:'Insights',style:'Style',history:'History',dictionary:'Dictionary',settings:'Settings'};
       if (!names[tab]) return;
+      if (tab !== 'history') stopHistoryAudio();
       if (shortcutRecording) stopShortcutRecording();
       activeTab = tab;
       for (const [key, suffix] of Object.entries(names)) {
@@ -174,7 +207,7 @@
       if (tab === 'dashboard') post('getDashboard');
       else if (tab === 'insights') post('getInsights');
       else if (tab === 'style') { if (!configLoaded) post('getConfig'); else renderStyleOptions(); }
-      else if (tab === 'history') filterHistory();
+      else if (tab === 'history') { filterHistory(); post('getCorrections'); post('getSessionJournal'); post('getRecovery'); }
       else if (tab === 'dictionary') post('getDictionary');
       else if (!configLoaded) post('getConfig');
       post('getControlStatus');
@@ -214,6 +247,14 @@
         copy.onclick = () => copyText(item.final_text);
         actions.append(copy);
         if (allowDelete) {
+          if (item.audio_path) {
+            const play = element('button','action-btn','Play recording');
+            play.onclick = () => loadHistoryAudio(item.id);
+            actions.append(play);
+          }
+          const correct = element('button', 'action-btn', 'Correct / remember');
+          correct.onclick = () => openCorrectionEditor(item);
+          actions.append(correct);
           const remove = element('button', 'action-btn delete', 'Delete');
           remove.onclick = () => deleteHistoryItem(item.id);
           actions.append(remove);
@@ -226,6 +267,145 @@
       if (!list.childElementCount) empty(list, emptyMessage);
     }
     let historyItems=[],historyOffset=0,dictionaryOffset=0;
+    let correctionSessionId = null;
+    let playbackSessionId = null;
+    function stopHistoryAudio() {
+      playbackSessionId = null;
+      const player = document.getElementById('historyAudio');
+      player.pause(); player.removeAttribute('src'); player.load();
+      document.getElementById('historyPlayback').classList.add('hidden');
+    }
+    function loadHistoryAudio(id) {
+      stopHistoryAudio(); playbackSessionId = id;
+      document.getElementById('historyPlayback').classList.remove('hidden');
+      document.getElementById('playbackStatus').textContent = 'Loading owned recording…';
+      post('getHistoryAudio',{id});
+    }
+    function onHistoryAudioData(id,uri,error) {
+      if (id !== playbackSessionId) return;
+      document.getElementById('playbackStatus').textContent = error || 'Recording ready. Press Play to listen; seeking and playback speed depend on your system player.';
+      if (uri) document.getElementById('historyAudio').src = uri;
+    }
+    function onInputDeviceData(items,error,selected) {
+      const select = document.getElementById('cfgInputDevice');
+      const wanted = selected === undefined ? select.value : selected;
+      select.replaceChildren(element('option','','System default at recording start'));
+      select.firstChild.value = '';
+      for (const item of items) {
+        const option = element('option','',item.name); option.value = item.id; select.append(option);
+      }
+      if (wanted && ![...select.options].some(o=>o.value===wanted)) {
+        const option = element('option','','Saved microphone · refresh to check availability');
+        option.value = wanted; select.append(option);
+      }
+      select.value = wanted || '';
+      document.getElementById('inputDeviceStatus').textContent = error || '';
+    }
+    function applyTheme(theme) { document.documentElement.dataset.theme=theme || 'light'; }
+    function applyRolePreset() {
+      currentConfig.role_preset=document.getElementById('cfgRole').value;
+      selectMode(currentConfig.role_preset==='developer'?'coding':'writing',false);
+      currentConfig.output_style=currentConfig.role_preset==='business'?'professional':'natural';
+      styleSelection=currentConfig.output_style;renderStyleOptions();
+      document.getElementById('cfgSpokenCommands').checked=false;
+      if (currentConfig.role_preset==='accessibility') {
+        document.getElementById('cfgAlwaysShow').checked=true;document.getElementById('cfgSounds').checked=true;
+      }
+      markUnsaved();
+    }
+    function onServiceData(data) {
+      const mic=data.microphone;
+      document.getElementById('micCheckLevel').value=mic.level || 0;
+      document.getElementById('micCheckStatus').textContent=mic.state + ' · ' + mic.message + (mic.clipping?' · Clipping detected':'') + (mic.no_signal===true?' · No signal detected':'');
+      const container=document.getElementById('catalogModels');container.replaceChildren();
+      for (const item of data.models.filter(x=>x.compatible)) {
+        const row=element('div','list-item');
+        row.append(element('strong','',item.name),element('p','',Math.ceil(item.download_bytes/1000000)+' MB · '+item.purpose),element('p','',item.state+' · '+item.message));
+        const action=element('button','action-btn',item.installed?'Select installed model':'Download model');
+        action.disabled=data.busy;
+        action.onclick=()=>{
+          if (!item.installed) { post('installCatalogModel',{id:item.id});return; }
+          const select=document.getElementById('cfgModel');
+          if (![...select.options].some(o=>o.value===item.model_name)) { const option=element('option','',item.name);option.value=item.model_name;select.append(option); }
+          select.value=item.model_name;markUnsaved();
+        };
+        row.append(action);container.append(row);
+      }
+    }
+    setInterval(()=>{if(activeTab==='settings' && document.getElementById('setupServices').open && !document.hidden) post('getServices');},500);
+    function openCorrectionEditor(item) {
+      correctionSessionId = item.id;
+      document.getElementById('correctedTranscript').value = item.final_text;
+      document.getElementById('correctionOriginal').textContent = 'Recognizer output: ' + item.asr_text;
+      document.getElementById('correctionEditor').classList.remove('hidden');
+      document.getElementById('correctedTranscript').focus();
+      document.getElementById('contextualSuggestions').replaceChildren();
+      post('getContextualSuggestions',{id:item.id});
+    }
+    function onContextualSuggestions(id,items) {
+      if (id!==correctionSessionId) return;
+      const container=document.getElementById('contextualSuggestions');container.replaceChildren();
+      for (const item of items) {
+        const row=element('div','list-item');
+        const text=element('p','',item.text);text.style.whiteSpace='pre-wrap';
+        const use=element('button','action-btn','Review this suggestion');
+        use.onclick=()=>{document.getElementById('correctedTranscript').value=item.text;document.getElementById('correctedTranscript').focus();};
+        row.append(text,element('p','',item.explanation),use);container.append(row);
+      }
+    }
+    function closeCorrectionEditor() {
+      correctionSessionId = null;
+      document.getElementById('correctionEditor').classList.add('hidden');
+      document.getElementById('correctedTranscript').value = '';
+      document.getElementById('correctionOriginal').textContent = '';
+    }
+    function proposeCorrection() {
+      if (!correctionSessionId) return;
+      post('proposeCorrection', {session_id:correctionSessionId,text:document.getElementById('correctedTranscript').value});
+    }
+    function onCorrectionData(items) {
+      const container = document.getElementById('correctionMemory');
+      container.replaceChildren();
+      for (const item of items) {
+        const row = element('div','list-item');
+        const source = element('p', '', item.original_text);
+        const target = element('p', '', 'Correction: ' + item.corrected_text);
+        source.style.whiteSpace = target.style.whiteSpace = 'pre-wrap';
+        row.append(source,target,element('p','',item.state + ' · ' + item.language + ' · ' + item.mode + ' · same original app'));
+        if (item.state === 'proposed') {
+          const approve = element('button','action-btn','Approve exact-sentence correction');
+          approve.onclick = () => post('approveCorrection',{id:item.id});
+          row.append(approve);
+        } else {
+          const undo=element('button','action-btn','Undo approval');
+          undo.onclick=()=>post('undoCorrectionApproval',{id:item.id});row.append(undo);
+        }
+        const forget = element('button','action-btn delete','Forget');
+        forget.onclick = () => post('forgetCorrection',{id:item.id});
+        row.append(forget); container.append(row);
+      }
+      if (!items.length) empty(container,'No corrections saved. Propose a correction from a new dictation to begin.');
+    }
+    function onSessionJournalData(items) {
+      const container = document.getElementById('sessionJournal');
+      container.replaceChildren();
+      for (const item of items) {
+        container.append(element('p','',new Date(item.started_at).toLocaleString() + ' · ' + item.app_name + ' · ' + item.status + ' · ' + item.delivery_status));
+      }
+      if (!items.length) empty(container,'New recording sessions will appear here.');
+    }
+    function onRecoveryData(items) {
+      const container=document.getElementById('recoveryInbox');container.replaceChildren();
+      for (const item of items) {
+        const row=element('div','list-item');row.append(element('p','',item.app_name+' · '+item.status+' · '+new Date(item.started_at).toLocaleString()));
+        const retry=element('button','action-btn','Retry into History');retry.onclick=()=>post('retryRecovery',{id:item.id});
+        retry.hidden=item.status==='recovered';
+        const reveal=element('button','action-btn','Show recording folder');reveal.onclick=()=>post('revealRecovery',{id:item.id});
+        const remove=element('button','action-btn delete','Delete recovery recording');remove.onclick=()=>{if(confirm('Delete this session and its owned recording?')){stopHistoryAudio();post('deleteRecovery',{id:item.id});}};
+        row.append(retry,reveal,remove);container.append(row);
+      }
+      if (!items.length) empty(container,'No sessions need recovery.');
+    }
     function onHistoryData(items, page={offset:0,has_more:false}) {
       historyOffset=page.offset+items.length;
       historyItems=page.offset ? [...historyItems,...items] : items;
@@ -275,7 +455,7 @@
       const state = data.state || 'IDLE';
       if (state === 'IDLE' && ['RECORDING','PROCESSING'].includes(lastRuntimeState)) {
         if (activeTab === 'dashboard') post('getDashboard');
-        else if (activeTab === 'history') filterHistory();
+        else if (activeTab === 'history') { filterHistory();post('getRecovery');post('getSessionJournal'); }
         else if (activeTab === 'insights') post('getInsights');
       }
       lastRuntimeState = state;
@@ -292,6 +472,9 @@
       savedConfig = {...cfg};
       cfg = {...cfg, ...protectedDraft};
       currentConfig = {...cfg};
+      applyTheme(cfg.theme || 'light');document.getElementById('cfgTheme').value=cfg.theme || 'light';
+      document.getElementById('cfgRole').value=cfg.role_preset || 'everyday';
+      onInputDeviceData([], '', cfg.input_device || '');
       configLoaded = true;
       renderShortcutRecorder();
       const model = document.getElementById('cfgModel');
@@ -322,6 +505,9 @@
     }
     function preferenceValues() {
       return {mode:currentConfig.mode, hold_shortcut:currentConfig.hold_shortcut,
+        theme:document.getElementById('cfgTheme').value,
+        role_preset:currentConfig.role_preset || 'everyday',
+        input_device:document.getElementById('cfgInputDevice').value,
         hands_free_shortcut:currentConfig.hands_free_shortcut,output_style:currentConfig.output_style,
         overlay_position:currentConfig.overlay_position,
         language:document.getElementById('cfgLanguage').value==='auto'?null:(document.getElementById('cfgLanguage').value || currentConfig.language),
@@ -338,6 +524,7 @@
     const sameSetting = (a,b) => JSON.stringify(a) === JSON.stringify(b);
     function markUnsaved() {
       if (!configLoaded) return;
+      applyTheme(document.getElementById('cfgTheme').value);
       const values = preferenceValues();
       for (const [key,value] of Object.entries(values)) {
         const baseline = settingsRequest && key in settingsRequest.config ? settingsRequest.config[key] : savedConfig[key];
@@ -638,9 +825,9 @@
     }
     function deleteWord(phrase) { post('deleteWord', { phrase }); }
     function filterHistory() { post('getHistory', {search:document.getElementById('historySearch').value}); }
-    function deleteHistoryItem(id) { if (confirm('Delete this transcript and its linked recording from this device?')) post('deleteHistory', { id }); }
+    function deleteHistoryItem(id) { if (confirm('Delete this transcript and its linked recording from this device?')) { stopHistoryAudio(); closeCorrectionEditor(); post('deleteHistory', { id }); } }
     function onHistoryResult(message) { document.getElementById('historyResult').textContent=message; }
-    function clearHistory() { if (confirm('Delete all History transcripts and their linked audio from this device?')) post('clearHistory'); }
+    function clearHistory() { if (confirm('Delete all History transcripts and their linked audio from this device?')) { stopHistoryAudio(); closeCorrectionEditor(); post('clearHistory'); } }
     function copyText(text) { post('copyText', {text}); }
     document.addEventListener('keydown', event => {
       const radio = event.target.closest('[role="radio"]');

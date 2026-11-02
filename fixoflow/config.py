@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import sys
+import platform
 import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -30,7 +31,7 @@ OUTPUT_STYLES = ("natural", "concise", "professional", "verbatim")
 @dataclass
 class FixoflowConfig:
     # Model configuration
-    model_name: str = "mlx-community/whisper-base.en-mlx" if sys.platform == "darwin" else "bundled-base.en"
+    model_name: str = "mlx-community/whisper-base.en-mlx" if sys.platform == "darwin" and platform.machine().lower() in {'arm64','aarch64'} else "bundled-base.en"
     cpu_threads: int = 2  # Windows/Linux CPU budget; recognition settings stay unchanged.
     language: Optional[str] = "en"  # "en" for English, or None for auto-detect
     initial_prompt: str = ""
@@ -43,6 +44,7 @@ class FixoflowConfig:
     # Audio settings
     sample_rate: int = 16000
     channels: int = 1
+    input_device: str = ''  # Empty follows the system default at recording start.
     max_continuous_segment_sec: float = 24.0
 
     # Session audio recovery directory (persistence is always on)
@@ -66,6 +68,8 @@ class FixoflowConfig:
     # or "bottom-right".
     overlay_position: str = "bottom-center"
     sound_enabled: bool = True
+    theme: str = 'light'
+    role_preset: str = 'everyday'
 
     # Logging
     log_level: str = "INFO"
@@ -110,7 +114,7 @@ class FixoflowConfig:
         if legacy and 'hold_shortcut' not in data and 'hands_free_shortcut' not in data:
             saved = Shortcut.from_text(legacy).as_dict()
             data['hold_shortcut'] = saved
-            candidates = ['<alt>+<space>', '<cmd>+<shift>+<f12>', '<ctrl>+<alt>+<f11>']
+            candidates = ['<alt>+<space>','<cmd>+<shift>+<f12>','<ctrl>+<alt>+<f11>']
             for candidate in candidates:
                 alternate = Shortcut.from_text(candidate).as_dict()
                 try:
@@ -138,7 +142,7 @@ class FixoflowConfig:
             normalized["polishing_engine"] = "rules"
         from fixoflow.languages import LANGUAGES
         language = normalized.get('language', 'en')
-        if language is None or (isinstance(language, str) and language in LANGUAGES and language != 'en'):
+        if language is None or (isinstance(language,str) and language in LANGUAGES and language != 'en'):
             normalized['deferred_language'] = language or 'auto'
             normalized['language'] = 'en'
         if normalized.get('model_name') == 'multilingual-base':
@@ -151,6 +155,10 @@ class FixoflowConfig:
         require_released_language(self.language, self.model_name)
 
     def validate(self) -> None:
+        from fixoflow.appearance import validate_theme
+        validate_theme(self.theme)
+        if self.role_preset not in {'everyday','developer','writer','business','accessibility'}:
+            raise ValueError('Choose a supported role preset.')
         from fixoflow.languages import LANGUAGES, ENGLISH_VARIANTS
         if self.language is not None and self.language not in LANGUAGES:
             raise ValueError('Choose a supported recognition language.')
@@ -158,7 +166,7 @@ class FixoflowConfig:
             raise ValueError('Choose a supported English regional preference.')
         if not isinstance(self.deferred_language, str) or self.deferred_language not in {'', 'auto', *LANGUAGES}:
             raise ValueError('Invalid deferred language preference.')
-        if self.language != 'en' and self.model_name in {'bundled-base.en', 'mlx-community/whisper-base.en-mlx', 'mlx-community/whisper-small.en-mlx'}:
+        if self.language != 'en' and self.model_name in {'bundled-base.en','mlx-community/whisper-base.en-mlx','mlx-community/whisper-small.en-mlx'}:
             raise ValueError('Install and choose the Base multilingual pack for this language or auto detection.')
         for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "start_at_login", "login_setup_done"):
             if type(getattr(self, name)) is not bool:
@@ -173,6 +181,15 @@ class FixoflowConfig:
             raise ValueError("Only offline polishing engines are supported")
         if self.sample_rate != 16000 or self.channels != 1:
             raise ValueError("Fixoflow requires 16 kHz mono audio")
+        if not isinstance(self.input_device, str) or len(self.input_device) > 4096:
+            raise ValueError('Choose a valid microphone.')
+        if self.input_device:
+            try:
+                device = json.loads(self.input_device)
+            except (ValueError, TypeError) as error:
+                raise ValueError('Choose a valid microphone.') from error
+            if not isinstance(device, list) or len(device) != 2 or not all(isinstance(x,str) and x for x in device):
+                raise ValueError('Choose a valid microphone.')
         if not 1 <= self.max_continuous_segment_sec <= 24:
             raise ValueError("Audio chunks must be between 1 and 24 seconds")
         if type(self.cpu_threads) is not int or not 1 <= self.cpu_threads <= 4:

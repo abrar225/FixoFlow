@@ -3,16 +3,17 @@ import json
 from fixoflow.config import FixoflowConfig
 from fixoflow.platform import permission_snapshot, request_all_permissions, copy_to_clipboard, open_permission_settings
 
-
 class HubController:
     def close_model_packs(self):
         if getattr(self, 'preferences_pending', False):
-            self._eval_js(
-                "flushPreferences(); onSettingsResult(true,'Preferences are still saving. Please retry Quit after they finish.');")
+            self._eval_js("flushPreferences(); onSettingsResult(true,'Preferences are still saving. Please retry Quit after they finish.');")
             return False
-        manager = getattr(self, 'model_packs', None)
-        if manager is None or manager.close():
-            return True
+        coordinator=getattr(self,'coordinator',None)
+        if coordinator is not None and not coordinator.close_services():
+            self._eval_js("onSettingsResult(false,'Microphone or model cleanup is still pending. Retry Quit shortly.');")
+            return False
+        manager=getattr(self,'model_packs',None)
+        if manager is None or manager.close():return True
         self._eval_js("onSettingsResult(false,'Model download is stopping or needs cleanup. Please retry Quit in a moment.');")
         return False
 
@@ -21,9 +22,81 @@ class HubController:
 
     def handle_action(self, action: str, payload):
         """Processes IPC messages coming from hub.html UI."""
-        if action == 'preferencesPending':
+        if action in {'getRecovery','retryRecovery','deleteRecovery','revealRecovery'}:
+            try:
+                if action=='retryRecovery':
+                    callback=getattr(self,'on_recovery',None)
+                    if callback is None:raise ValueError('Open the full application to retry recovery.')
+                    callback(str(payload.get('id','')))
+                    self._eval_js("onHistoryResult('Recovery queued. Results will be saved in History; nothing will be pasted.');")
+                elif action=='deleteRecovery':
+                    status=self.on_control_status() if self.on_control_status else {}
+                    if status.get('state','IDLE')!='IDLE':raise ValueError('Finish the current operation before deleting recovery audio.')
+                    self.db.delete_recovery_item(str(payload.get('id','')))
+                    self.handle_action('getHistory',{})
+                elif action=='revealRecovery':self.db.reveal_recovery_audio(str(payload.get('id','')))
+                self._eval_js('onRecoveryData('+json.dumps(self.db.get_recovery_items())+');')
+            except (ValueError,OSError,RuntimeError) as error:
+                self._eval_js(f'onHistoryResult({json.dumps(str(error))});')
+        elif action in {'startMicCheck','cancelMicCheck','getServices','installCatalogModel','warmSelectedModel','cancelCatalogModel'}:
+            coordinator=getattr(self,'coordinator',None)
+            configure=getattr(self,'on_maintenance',None)
+            if coordinator is None:
+                self._eval_js("onSettingsResult(false,'Open the full app to use microphone checks and model management.');")
+                return
+            try:
+                if action=='startMicCheck':
+                    if configure is None:raise ValueError('Dictation control is unavailable.')
+                    configure(lambda:coordinator.checkup.start(self.config.input_device))
+                elif action=='cancelMicCheck':coordinator.checkup.close()
+                elif action=='installCatalogModel':
+                    if configure is None:raise ValueError('Dictation control is unavailable.')
+                    configure(lambda:coordinator.model_manager.start_install(str(payload.get('id',''))))
+                elif action=='warmSelectedModel':
+                    if configure is None:raise ValueError('Dictation control is unavailable.')
+                    if not self.config.model_name.startswith('catalog:'):raise ValueError('Select an installed catalog model before warming it.')
+                    configure(lambda:coordinator.model_manager.start_warm_up(self.config.model_name.removeprefix('catalog:'),coordinator.stt))
+                elif action=='cancelCatalogModel':coordinator.model_manager.cancel()
+                self._eval_js('onServiceData('+json.dumps({'microphone':coordinator.checkup.snapshot(),'models':coordinator.model_manager.snapshot(),'busy':coordinator.maintenance_busy})+');')
+            except Exception as error:
+                self._eval_js(f'onSettingsResult(false,{json.dumps(str(error))});')
+        elif action == 'getInputDevices':
+            try:
+                from fixoflow.audio.devices import input_devices
+                self._eval_js(f'onInputDeviceData({json.dumps(input_devices())}, "");')
+            except Exception:
+                self._eval_js('onInputDeviceData([], "Microphone list unavailable. Refresh after connecting your microphone.");')
+        elif action == 'getHistoryAudio':
+            import base64
+            sid = str(payload.get('id',''))
+            try:
+                data = self.db.read_history_audio(sid)
+                uri = 'data:audio/wav;base64,' + base64.b64encode(data).decode('ascii')
+                self._eval_js(f'onHistoryAudioData({json.dumps(sid)}, {json.dumps(uri)}, "");')
+            except (ValueError, OSError) as error:
+                self._eval_js(f'onHistoryAudioData({json.dumps(sid)}, null, {json.dumps(str(error))});')
+        elif action == 'getContextualSuggestions':
+            self._eval_js(f'onContextualSuggestions({json.dumps(str(payload.get("id","")))}, {json.dumps(self.db.contextual_suggestions(str(payload.get("id",""))))});')
+        elif action in {'getCorrections', 'proposeCorrection', 'approveCorrection', 'forgetCorrection', 'undoCorrectionApproval'}:
+            try:
+                if action == 'proposeCorrection':
+                    self.db.propose_correction(str(payload.get('session_id', '')), payload.get('text'))
+                elif action == 'approveCorrection':
+                    self.db.approve_correction(str(payload.get('id', '')))
+                elif action == 'forgetCorrection':
+                    self.db.forget_correction(str(payload.get('id', '')))
+                elif action == 'undoCorrectionApproval':
+                    self.db.undo_correction_approval(str(payload.get('id','')))
+                self._eval_js(f'onCorrectionData({json.dumps(self.db.get_corrections())});')
+                if action != 'getCorrections':
+                    self._eval_js("onHistoryResult('Correction memory updated. Raw transcripts are preserved.');")
+            except (ValueError, OSError) as error:
+                self._eval_js(f'onHistoryResult({json.dumps(str(error))});')
+        elif action == 'getSessionJournal':
+            self._eval_js(f'onSessionJournalData({json.dumps(self.db.get_session_journal())});')
+        elif action == 'preferencesPending':
             self.preferences_pending = payload.get('pending') is True
-        elif action in {'getStartupStatus', 'openStartupSettings'}:
+        elif action in {'getStartupStatus','openStartupSettings'}:
             if action == 'openStartupSettings':
                 callback = getattr(self, 'on_open_startup_settings', None)
                 if callback:
@@ -35,25 +108,23 @@ class HubController:
             callback = getattr(self, 'on_startup_status', None)
             if callback:
                 self._eval_js(f"onStartupData({json.dumps(callback())});")
-        elif action in {'getLanguageOptions', 'installModelPack', 'cancelModelPack'}:
+        elif action in {'getLanguageOptions','installModelPack','cancelModelPack'}:
             from fixoflow.languages import options, ENGLISH_VARIANTS, MULTILINGUAL_MESSAGE
-            manager = getattr(self, 'model_packs', None)
-            if action == 'cancelModelPack' and manager:
-                manager.cancel()
-            data = {'languages': options(), 'variants': ENGLISH_VARIANTS, 'message': MULTILINGUAL_MESSAGE,
-                    'deferred_language': self.config.deferred_language}
+            manager=getattr(self,'model_packs',None)
+            if action=='cancelModelPack' and manager:manager.cancel()
+            data={'languages':options(),'variants':ENGLISH_VARIANTS,'message':MULTILINGUAL_MESSAGE,
+                  'deferred_language':self.config.deferred_language}
             self._eval_js(f"onLanguageData({json.dumps(data)});")
         elif action == "startShortcutCapture":
             field = payload.get('field')
-            if field not in {'hold_shortcut', 'hands_free_shortcut'}:
+            if field not in {'hold_shortcut','hands_free_shortcut'}:
                 return
             try:
                 if self.on_shortcut_capture is None:
                     raise RuntimeError('Open the full Fixo Flow app to record a shortcut.')
                 self.on_shortcut_capture(field)
             except Exception as error:
-                self._eval_js(
-                    f"onShortcutCaptured({json.dumps({'field': field, 'binding': None, 'message': str(error)})});")
+                self._eval_js(f"onShortcutCaptured({json.dumps({'field':field,'binding':None,'message':str(error)})});")
         elif action == "cancelShortcutCapture":
             if self.on_cancel_capture:
                 self.on_cancel_capture()
@@ -101,8 +172,7 @@ class HubController:
                 self.on_restart()
         elif action == "openPermissionSettings":
             section = payload.get("section", "")
-            allowed = {"microphone": "Privacy_Microphone",
-                       "accessibility": "Privacy_Accessibility", "input": "Privacy_ListenEvent"}
+            allowed = {"microphone": "Privacy_Microphone", "accessibility": "Privacy_Accessibility", "input": "Privacy_ListenEvent"}
             if section in allowed:
                 open_permission_settings(section)
         elif action == "copyText":
@@ -131,34 +201,35 @@ class HubController:
 
         elif action == "getHistory":
             search = payload.get("search", "") if hasattr(payload, "get") else ""
-            offset = max(0, int(payload.get("offset", 0)))
+            offset=max(0,int(payload.get("offset",0)))
             items = self.db.get_history(limit=51, search=str(search or ""), offset=offset)
-            js = f"onHistoryData({json.dumps(items[:50])}, {json.dumps({'offset': offset, 'has_more': len(items) > 50})});"
+            js = f"onHistoryData({json.dumps(items[:50])}, {json.dumps({'offset':offset,'has_more':len(items)>50})});"
             self._eval_js(js)
 
         elif action == "deleteHistory":
             sess_id = payload.get("id") if hasattr(payload, "get") else None
             if sess_id:
-                try:
-                    self.db.delete_history_item(str(sess_id), cache_root=self.config.cache_dir)
-                except (OSError, ValueError) as error:
+                try:self.db.delete_history_item(str(sess_id),cache_root=self.config.cache_dir)
+                except (OSError,ValueError) as error:
                     self._eval_js(f"onHistoryResult({json.dumps(str(error))});")
                     return
                 self.handle_action("getHistory", {})
                 self.handle_action("getDashboard", {})
+                self.handle_action('getCorrections', {})
+                self.handle_action('getSessionJournal', {})
 
         elif action == "clearHistory":
-            try:
-                self.db.clear_all_history(cache_root=self.config.cache_dir)
-            except (OSError, ValueError) as error:
-                self._eval_js(f"onHistoryResult({json.dumps(str(error))});")
+            try:self.db.clear_all_history(cache_root=self.config.cache_dir)
+            except (OSError,ValueError) as error:self._eval_js(f"onHistoryResult({json.dumps(str(error))});")
             self.handle_action("getHistory", {})
             self.handle_action("getDashboard", {})
+            self.handle_action('getCorrections', {})
+            self.handle_action('getSessionJournal', {})
 
         elif action == "getDictionary":
-            offset = max(0, int(payload.get('offset', 0)))
-            words = self.db.get_dictionary(limit=101, offset=offset, search=str(payload.get('search', '')))
-            js = f"onDictionaryData({json.dumps(words[:100])}, {json.dumps({'offset': offset, 'has_more': len(words) > 100})});"
+            offset=max(0,int(payload.get('offset',0)))
+            words = self.db.get_dictionary(limit=101,offset=offset,search=str(payload.get('search','')))
+            js = f"onDictionaryData({json.dumps(words[:100])}, {json.dumps({'offset':offset,'has_more':len(words)>100})});"
             self._eval_js(js)
 
         elif action == "addWord":
@@ -193,19 +264,16 @@ class HubController:
             from fixoflow.settings import SettingsBusy
             automatic = action == 'autosaveConfig'
             request_id = payload.get('request_id')
-
             def reply(status, message):
                 if automatic:
-                    self._eval_js(
-                        f"onPreferencesResult({json.dumps({'request_id': request_id, 'status': status, 'message': message})});")
+                    self._eval_js(f"onPreferencesResult({json.dumps({'request_id':request_id,'status':status,'message':message})});")
                 else:
                     self._eval_js(f"onSettingsResult({str(status == 'saved').lower()}, {json.dumps(message)});")
             cfg_dict = payload.get("config") if hasattr(payload, "get") else {}
             if isinstance(cfg_dict, dict) and cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position",
-                               "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login"}
+                    allowed = {"mode", "role_preset", "theme", "input_device", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)

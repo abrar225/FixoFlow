@@ -201,8 +201,8 @@ class MenuDelegate(NSObject):
 
 
 class FixoflowApp:
-    def __init__(self):
-        self.config = FixoflowConfig.load()
+    def __init__(self, config=None, diagnostic=False):
+        self.config = config if config is not None else FixoflowConfig.load()
         from fixoflow.startup import StartupService
         self.startup = StartupService()
         self._login_launch = False
@@ -224,6 +224,9 @@ class FixoflowApp:
             self._delegate, "reopen:", "com.fixoflow.showHub", None
         )
         self.hub.config = self.config
+        self.hub.coordinator = self.daemon.coordinator
+        self.hub.on_maintenance = self.daemon.controls.configure
+        self.hub.on_recovery = self.daemon.controls.recover
         self.hub.on_config_change = self.apply_config
         self.hub.on_startup_status = self.startup.snapshot
         self.hub.on_open_startup_settings = self.startup.open_settings
@@ -236,8 +239,8 @@ class FixoflowApp:
         self.hub.on_primary_mouse_capture = self.daemon.capture_primary_mouse
         from fixoflow.updates import UpdateService
         from fixoflow.platform.macos_updates import load_signed_updater
-        self.updates = UpdateService(lambda value: self.hub._eval_js(f"onUpdateData({json.dumps(value)});"),
-                                     dispatch=lambda fn: NSOperationQueue.mainQueue().addOperationWithBlock_(fn), signed_updater=load_signed_updater())
+        self.updates = UpdateService(lambda value:self.hub._eval_js(f"onUpdateData({json.dumps(value)});"),
+            dispatch=lambda fn:NSOperationQueue.mainQueue().addOperationWithBlock_(fn),signed_updater=load_signed_updater())
         self.hub.on_update_check = self.check_updates
         self.hub.on_update_status = self.updates.snapshot
         self.hub.on_open_release = self.open_release
@@ -249,13 +252,13 @@ class FixoflowApp:
         self._shortcut_error = "Shortcut needs Accessibility and Input Monitoring. Grant them, then restart Fixoflow if the status stays red."
         self._last_permission_probe = 0.0
         self._running = False
-        request_notification_authorization()
+        if not diagnostic:request_notification_authorization()
 
         self._setup_menu_bar()
         self._setup_application_menu()
         self.daemon.coordinator.overlay.configure(self.config, on_toggle=self.daemon.controls.toggle,
-                                                  on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show,
-                                                  on_position_change=self.set_overlay_position)
+            on_cancel=self.daemon.controls.cancel, on_open_hub=self.hub.show,
+            on_position_change=self.set_overlay_position)
 
     def show_overlay(self):
         overlay = self.daemon.coordinator.overlay
@@ -273,6 +276,7 @@ class FixoflowApp:
         return {"state": state, "shortcut": shortcut_label(self.config.hold_shortcut), "hands_free_shortcut": shortcut_label(self.config.hands_free_shortcut), "shortcut_active": active, "detail": detail}
 
     def refresh_status(self):
+        self.daemon.controls.poll_capture()
         self.daemon._hub_focused = bool(self.hub._window and self.hub._window.isKeyWindow())
         self.daemon.expire_capture()
         status = self.control_status()
@@ -281,7 +285,7 @@ class FixoflowApp:
             self._status_cache = serialized
             self.hub._eval_js(f"onControlStatus({serialized});")
             self._toggle_menu_item.setTitle_("Stop dictation" if status["state"] == "RECORDING" else
-                                             "Transcribing…" if status["state"] == "PROCESSING" else f"Start dictation ({status['shortcut']})")
+                "Transcribing…" if status["state"] == "PROCESSING" else f"Start dictation ({status['shortcut']})")
             self._toggle_menu_item.setEnabled_(status["state"] != "PROCESSING")
         self._activate_shortcut_when_permitted(status)
 
@@ -327,7 +331,7 @@ class FixoflowApp:
             raise RuntimeError(message)
 
         def captured(binding, message):
-            value = {'field': field, 'binding': binding, 'message': message}
+            value = {'field':field,'binding':binding,'message':message}
             NSOperationQueue.mainQueue().addOperationWithBlock_(
                 lambda: self.hub._eval_js(f"onShortcutCaptured({json.dumps(value)});"))
         self.daemon.begin_capture(captured)
@@ -361,7 +365,7 @@ class FixoflowApp:
 
         def update():
             self.startup.commit(self.config, candidate,
-                                lambda: self.daemon.coordinator.apply_config(candidate), explicit=startup_requested)
+                lambda: self.daemon.coordinator.apply_config(candidate), explicit=startup_requested)
             if bindings_changed:
                 self.daemon.configure_shortcuts()
         try:
@@ -379,18 +383,18 @@ class FixoflowApp:
     def _setup_application_menu(self):
         # A regular Dock app also needs the standard application/edit menu.
         bar = AppKit.NSMenu.alloc().init()
-        root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Fixo Flow', None, '')
+        root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Fixo Flow',None,'')
         menu = AppKit.NSMenu.alloc().initWithTitle_('Fixo Flow')
-        for title, action, key, target in [('Open Fixo Flow', 'openHub:', '0', self._delegate), ('Settings…', 'openSettings:', ',', self._delegate), ('Check for Updates…', 'checkUpdates:', '', self._delegate), ('Quit Fixo Flow', 'quitApp:', 'q', self._delegate)]:
-            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key)
+        for title,action,key,target in [('Open Fixo Flow','openHub:','0',self._delegate),('Settings…','openSettings:',',',self._delegate),('Check for Updates…','checkUpdates:','',self._delegate),('Quit Fixo Flow','quitApp:','q',self._delegate)]:
+            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title,action,key)
             item.setTarget_(target)
             menu.addItem_(item)
         root.setSubmenu_(menu)
         bar.addItem_(root)
-        edit_root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Edit', None, '')
+        edit_root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Edit',None,'')
         edit = AppKit.NSMenu.alloc().initWithTitle_('Edit')
-        for title, action, key in [('Undo', 'undo:', 'z'), ('Cut', 'cut:', 'x'), ('Copy', 'copy:', 'c'), ('Paste', 'paste:', 'v'), ('Select All', 'selectAll:', 'a')]:
-            edit.addItem_(AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key))
+        for title,action,key in [('Undo','undo:','z'),('Cut','cut:','x'),('Copy','copy:','c'),('Paste','paste:','v'),('Select All','selectAll:','a')]:
+            edit.addItem_(AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title,action,key))
         edit_root.setSubmenu_(edit)
         bar.addItem_(edit_root)
         self.ns_app.setMainMenu_(bar)
@@ -564,7 +568,7 @@ class FixoflowApp:
             subprocess.Popen(command, start_new_session=True)
         except OSError:
             logger.exception('Could not restart Fixoflow; shutdown completed safely')
-            notify('Fixo Flow', 'Could not restart automatically. Please open Fixo Flow again from Applications.')
+            notify('Fixo Flow','Could not restart automatically. Please open Fixo Flow again from Applications.')
             return
         logger.info("Restarting Fixoflow with a fresh process")
         os._exit(0)
@@ -587,7 +591,7 @@ def main(argv=None):
         from fixoflow.stt.engine import create_stt_engine
         with tempfile.TemporaryDirectory() as directory:
             FixoflowDB._instance = FixoflowDB(Path(directory) / "check.sqlite")
-            app = FixoflowApp()
+            app = FixoflowApp(config=FixoflowConfig(cache_dir=str(Path(directory)/'audio')),diagnostic=True)
             assert app.ns_app.activationPolicy() == AppKit.NSApplicationActivationPolicyRegular
             assert app.ns_app.applicationIconImage() is not None
             assert app.ns_app.mainMenu() is not None
