@@ -69,10 +69,15 @@ uncontrolled host/cache conditions. Existing JFK sequential tests also support
 Tiny as a speed candidate. Small's lower observed WER on this subset supports
 continuing its quality qualification, not claiming universal accuracy superiority.
 
-The paired Base backend speaker-bootstrap interval for right-minus-left WER
-crossed zero. These data do not establish a product winner. The whisper.cpp
-reference is initially a proxy, not SpeakType's complete application. Native
-SpeakType runner work and any later results are recorded in docs/23.
+The initial paired proxy bootstrap interval crossed zero. Subsequently, the
+actual SpeakType v2 Rust runner was built from unchanged 1e17f21, and a clean
+matched run froze Fixo source at 6e5adc3. Both native paths completed 60/60 raw
+decodes (20 clips, three repetitions). SpeakType Base had 7.06% WER versus Fixo
+Base 8.53%; the speaker-cluster bootstrap difference was -3.30 to -0.29 percentage
+points on this subset. Fixo Small's quality-only paired comparison against native
+SpeakType Base was 4.71% versus 7.06%, with SpeakType-minus-Small interval +0.59
+to +4.66 points. These compare particular models/paths on read English, not whole
+products or SpeakType's stronger model options. Details and provenance: docs/23.
 
 Read speech from 20 clips does not cover everyday phrasing, personal names,
 developer identifiers, Hindi/Hinglish, device changes or long dictation. No
@@ -108,7 +113,7 @@ refreshed at 1e17f21. Product/workflow inspiration, not a source transplant.
 
 ## Verification and remaining launch gates
 
-Local source suite most recently passed **310 tests, 3 skipped**. Native isolated
+Local source suite most recently passed **316 tests, 3 skipped**. Native isolated
 Cocoa/WebKit checks passed six panels plus correction approval/Forget, journal,
 owned audio loading, mic selection, themes and service/recovery rendering. No
 physical microphone/speaker or global input/paste was exercised by these checks.
@@ -118,8 +123,19 @@ bundled synthetic inference and Cocoa/WebKit window/overlay checks, with tempora
 HOME/DB and no microphone or shortcut start. Original installed app was backed up
 under `dist/.previous-builds/`. The local DMG passed `hdiutil verify`.
 
-Final source-commit/provenance build and Windows/Linux CI status are appended
-after completion. Required before broad public launch: meaningful native-device
+Final candidate application source is **30d60b8c0fba46e6cb3136467d8058908079e471**.
+Upstream main's formatting/platform test guards were integrated without removing
+the new behavior. The final Windows fix queries process liveness through native
+process status; it never uses POSIX-style signal-zero probing on Windows.
+
+- [Portable CI](https://github.com/abrar225/FixoFlow/actions/runs/41437218237): passed macOS, Windows and Ubuntu.
+- [Native installers](https://github.com/abrar225/FixoFlow/actions/runs/41437218555): both Windows and Linux passed source contracts, native freezing, installer creation, installed UI and bundled-model execution.
+- Local Mac source provenance, installed checks and DMG verification passed.
+  DMG SHA-256: `1fc2125ddba33df875d8dbba79cc4281b7917af7e84091834ab61990ad3f2ede`.
+  This is a locally signed, unnotarized candidate, not verified public Gatekeeper trust.
+- [Draft pull request](https://github.com/abrar225/FixoFlow/pull/2) contains the reviewable source; unrelated user release-document edits remain local and uncommitted.
+
+Required before broad public launch: meaningful native-device
 acceptance, validated installed upgrade/data migration, publisher trust where
 promised, broader representative speech evaluation, and completion or explicit
 scope reduction of the remaining feature checklist above. This is a substantial
