@@ -63,6 +63,10 @@ class STTEngine:
         return str(model_path.resolve())
 
     def resolve_model_path(self) -> str:
+        if self.model_name.startswith('catalog:'):
+            from fixoflow.languages import validate_language_selection
+            try:validate_language_selection(self.language, self.model_name)
+            except ValueError as error:raise TranscriptionError(str(error)) from error
         from fixoflow.models.manager import resolve_catalog_model
         try:
             catalog_path = resolve_catalog_model(self.model_name, 'mlx')
@@ -214,6 +218,14 @@ class STTEngine:
 
 
 def create_stt_engine(config):
+    if config.model_name.startswith('catalog:'):
+        from fixoflow.models.catalog import CATALOG, compatible_backend
+        spec = CATALOG.get(config.model_name.removeprefix('catalog:'))
+        if spec is None or not compatible_backend(spec):
+            raise TranscriptionError('Selected model is incompatible with this computer/backend.')
+        if spec.backend == 'onnx':
+            from fixoflow.stt.parakeet import ParakeetEngine
+            return ParakeetEngine(config)
     from fixoflow.models.catalog import runtime_backend
     if sys.platform == 'darwin' and runtime_backend() == 'mlx':
         return STTEngine(config)

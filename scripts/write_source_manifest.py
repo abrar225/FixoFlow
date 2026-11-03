@@ -7,7 +7,7 @@ import subprocess
 root=Path(__file__).resolve().parents[1]
 paths=[root/'pyproject.toml']
 for folder in ('fixoflow','packaging','scripts'):
-    paths.extend(p for p in (root/folder).rglob('*') if p.is_file() and p.suffix in {'.py','.spec','.sh','.html','.css','.woff2','.png','.icns','.ico'})
+    paths.extend(p for p in (root/folder).rglob('*') if p.is_file() and p.suffix in {'.py','.spec','.sh','.html','.css','.woff2','.png','.icns','.ico','.txt','.md'})
 files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(paths)}
 commit=subprocess.run(['git','rev-parse','HEAD'],cwd=root,capture_output=True,text=True,check=True).stdout.strip()
 manifest={'schema_version':1,'git_commit':commit,'files':files}

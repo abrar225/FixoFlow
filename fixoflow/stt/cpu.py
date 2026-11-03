@@ -19,6 +19,10 @@ class CPUWhisperEngine(STTEngine):
         self._loaded_path=None
 
     def resolve_model_path(self):
+        if self.model_name.startswith('catalog:'):
+            from fixoflow.languages import validate_language_selection
+            try:validate_language_selection(self.language, self.model_name)
+            except ValueError as error:raise TranscriptionError(str(error)) from error
         from fixoflow.models.manager import resolve_catalog_model
         try:catalog_path = resolve_catalog_model(self.model_name, 'cpu')
         except (ValueError,OSError) as error:raise TranscriptionError(str(error)) from error
@@ -32,10 +36,12 @@ class CPUWhisperEngine(STTEngine):
                 raise TranscriptionError('Install the Base multilingual pack in Settings first.') from error
         if self.model_name == 'bundled-base.en':
             path=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parents[2]))/'models'/'whisper'
-        required=('model.bin','config.json','tokenizer.json','vocabulary.txt')
+        required=('model.bin','config.json','tokenizer.json')
         if not path.is_dir() or any(not (path/name).is_file() or (path/name).stat().st_size==0 for name in required):
             raise TranscriptionError('Choose a complete local CTranslate2 Whisper model directory containing ' +
                                      ', '.join(required)+'. Mac MLX weights cannot be used directly. No model was downloaded.')
+        if not any((path/name).is_file() and (path/name).stat().st_size>0 for name in ('vocabulary.txt','vocabulary.json')):
+            raise TranscriptionError('Choose a complete local CTranslate2 model with vocabulary.txt or vocabulary.json. No model was downloaded.')
         if self.language != 'en':
             from fixoflow.model_packs import validate_model_language
             try:

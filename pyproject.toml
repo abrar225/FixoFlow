@@ -19,6 +19,7 @@ dependencies = [
   "mlx-whisper>=0.4.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
   "faster-whisper>=1.1,<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "pynput>=1.7.6",
+  "onnx-asr[cpu]==0.12.0; sys_platform != 'darwin' or platform_machine == 'arm64'",
   "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
   "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
   "pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'",
@@ -43,8 +44,8 @@ where = ["."]
 include = ["fixoflow*"]
 
 [project.optional-dependencies]
-windows = ["faster-whisper>=1.1,<2; sys_platform == 'win32'", "pywebview>=5,<7; sys_platform == 'win32'"]
-linux = ["faster-whisper>=1.1,<2; sys_platform == 'linux'", "pywebview>=5,<7; sys_platform == 'linux'"]
+windows = ["faster-whisper>=1.1,<2; sys_platform == 'win32'", "pywebview>=5,<7; sys_platform == 'win32'", "pystray==0.19.5; sys_platform == 'win32'", "Pillow>=10,<13; sys_platform == 'win32'"]
+linux = ["faster-whisper>=1.1,<2; sys_platform == 'linux'", "pywebview>=5,<7; sys_platform == 'linux'", "pystray==0.19.5; sys_platform == 'linux'", "Pillow>=10,<13; sys_platform == 'linux'"]
 packaging = ["pyinstaller==6.20.0"]
 dev = ["pytest>=8,<10"]
 

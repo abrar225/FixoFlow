@@ -17,11 +17,14 @@ macOS Apple Silicon · Windows x64 preview · Ubuntu X11 preview
 
 </div>
 
-**Development source: 0.4.0 candidate.** The public downloads below remain the
-0.3.4 preview until the new installed builds pass release acceptance. Current
-source adds explicit correction approval/undo, persistent app scope, recovery
-retry, microphone signal check, themes and verified English model downloads.
-These changes do not establish representative speech accuracy or platform parity.
+**Development source: 0.5.0 preview.** Public downloads below remain at0.3.4.
+The new source includes guided setup, model-aware multilingual Whisper and
+Parakeet choices, ownership-checked clipboard preservation with confirmed
+restoration, and native tray controls. Intel Mac, RPM and AppImage build paths
+are included; native qualification is tracked in
+[the implementation evidence](docs/28-parity-implementation.md).
+Language capability is not a promise of measured accuracy for every language.
+The unpublished0.4 preview and its earlier recovery improvements remain distinct.
 
 > **Experimental preview — 0.3.4.** English dictation is available. Multilingual
 > dictation, including Hindi and Roman Hinglish, is **coming soon**, not delivered

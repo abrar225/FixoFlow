@@ -154,6 +154,14 @@ class MenuDelegate(NSObject):
         if self.app_instance:
             self.app_instance.refresh_status()
 
+    def menuNeedsUpdate_(self, menu):
+        if self.app_instance:self.app_instance.refresh_tray_menu(menu)
+
+    def trayAction_(self, sender):
+        if self.app_instance:
+            action,value=json.loads(str(sender.representedObject()))
+            self.app_instance.tray_action(action,value)
+
     def openHub_(self, sender):
         if self.app_instance:
             self.app_instance.hub.show()
@@ -237,6 +245,11 @@ class FixoflowApp:
         self.hub.on_shortcut_capture = self.begin_shortcut_capture
         self.hub.on_cancel_capture = self.daemon.cancel_capture
         self.hub.on_primary_mouse_capture = self.daemon.capture_primary_mouse
+        self.hub.on_practice = lambda:self.daemon.controls.toggle_preview(
+            lambda text,error:NSOperationQueue.mainQueue().addOperationWithBlock_(
+                lambda:self.hub._eval_js('onPracticeResult('+json.dumps({'text':text,'error':error})+');')))
+        self.hub.on_cancel_practice = self.daemon.controls.cancel_preview
+        self.hub.on_tray_status = lambda:{'available':True,'message':'Available in the Mac menu bar. Closing the window keeps dictation available.'}
         from fixoflow.updates import UpdateService
         from fixoflow.platform.macos_updates import load_signed_updater
         self.updates = UpdateService(lambda value:self.hub._eval_js(f"onUpdateData({json.dumps(value)});"),
@@ -400,81 +413,65 @@ class FixoflowApp:
         self.ns_app.setMainMenu_(bar)
 
     def _setup_menu_bar(self):
-        status_bar = AppKit.NSStatusBar.systemStatusBar()
-        self.status_item = status_bar.statusItemWithLength_(AppKit.NSVariableStatusItemLength)
+        self.status_item = AppKit.NSStatusBar.systemStatusBar().statusItemWithLength_(AppKit.NSVariableStatusItemLength)
         button = self.status_item.button()
         if button:
-            symbol = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_("waveform", "Fixoflow")
+            symbol = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_("waveform", "Fixo Flow")
             symbol.setTemplate_(True)
             button.setImage_(symbol)
-
         menu = AppKit.NSMenu.alloc().init()
-
-        title_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Fixoflow (Active)", None, ""
-        )
-        title_item.setEnabled_(False)
-        menu.addItem_(title_item)
-
-        menu.addItem_(AppKit.NSMenuItem.separatorItem())
-
-        hub_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Open Hub Window...", "openHub:", ""
-        )
-        hub_item.setTarget_(self._delegate)
-        menu.addItem_(hub_item)
-
-        toggle_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            f"Hands-free ({shortcut_label(self.config.hands_free_shortcut)})", "toggleDictation:", ""
-        )
-        toggle_item.setTarget_(self._delegate)
-        self._toggle_menu_item = toggle_item
-        menu.addItem_(toggle_item)
-
-        menu.addItem_(AppKit.NSMenuItem.separatorItem())
-
-        # Mode Selection
-        self.mode_coding_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Coding & AI agents", "setModeCoding:", ""
-        )
-        self.mode_coding_item.setTarget_(self._delegate)
-        menu.addItem_(self.mode_coding_item)
-
-        self.mode_writing_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Writing & documents", "setModeWriting:", ""
-        )
-        self.mode_writing_item.setTarget_(self._delegate)
-        menu.addItem_(self.mode_writing_item)
-
-        self.mode_auto_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Automatic mode", "setModeAuto:", ""
-        )
-        self.mode_auto_item.setTarget_(self._delegate)
-        menu.addItem_(self.mode_auto_item)
-
-        self._update_menu_mode_checks()
-
-        menu.addItem_(AppKit.NSMenuItem.separatorItem())
-
-        restart_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Restart Fixoflow", "restartApp:", ""
-        )
-        restart_item.setTarget_(self._delegate)
-        menu.addItem_(restart_item)
-
-        quit_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Quit Fixoflow", "quitApp:", "q"
-        )
-        quit_item.setTarget_(self._delegate)
-        menu.addItem_(quit_item)
-
+        menu.setDelegate_(self._delegate)
+        self.refresh_tray_menu(menu)
         self.status_item.setMenu_(menu)
 
+    def refresh_tray_menu(self, menu):
+        from fixoflow.tray import entries
+        from fixoflow.platform import clipboard_restore_status
+        from fixoflow.audio.devices import input_devices
+        try: devices=input_devices()
+        except Exception: devices=[]
+        status={**self.control_status(),'busy':self.daemon.coordinator.maintenance_busy}
+        items=entries(self.config,status,self.daemon.coordinator.model_manager.snapshot(),devices,clipboard_restore_status()['pending'])
+        menu.removeAllItems()
+        def build(entry):
+            item=AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(entry.label,'trayAction:' if entry.action else None,'')
+            item.setEnabled_(entry.enabled and bool(entry.action or entry.children))
+            if entry.action:
+                item.setTarget_(self._delegate)
+                item.setRepresentedObject_(json.dumps([entry.action,entry.value]))
+            if entry.checked is not None:item.setState_(1 if entry.checked else 0)
+            if entry.action=='toggle':self._toggle_menu_item=item
+            if entry.children:
+                submenu=AppKit.NSMenu.alloc().init()
+                for child in entry.children:submenu.addItem_(build(child))
+                item.setSubmenu_(submenu)
+            return item
+        for entry in items:menu.addItem_(build(entry))
+
     def _update_menu_mode_checks(self):
-        mode = self.config.mode
-        self.mode_coding_item.setState_(1 if mode == "coding" else 0)
-        self.mode_writing_item.setState_(1 if mode == "writing" else 0)
-        self.mode_auto_item.setState_(1 if mode == "auto" else 0)
+        # Entries and checked values are rebuilt from current settings on open.
+        pass
+
+    def tray_action(self, action, value=''):
+        try:
+            if action=='toggle':self.daemon.controls.toggle()
+            elif action=='cancel':self.daemon.controls.cancel()
+            elif action=='quit':self.ns_app.terminate_(None)
+            elif action=='openHub':self.hub.show()
+            elif action in {'openSettings','openRecovery','openSetup','restoreClipboard'}:
+                self.hub.show()
+                if action=='openSetup':self.hub._eval_js('openOnboarding();')
+                elif action=='restoreClipboard':self.hub._eval_js('confirmClipboardRestore();')
+                elif action=='openRecovery':self.hub._eval_js("switchTab('history');document.getElementById('recoveryInbox').closest('details').open=true;")
+                else:self.hub._eval_js("switchTab('settings');document.getElementById('setupServices').open=true;")
+            elif action in {'selectModel','selectLanguage','selectMicrophone','selectMode'}:
+                if getattr(self.hub,'preferences_pending',False):raise ValueError('Wait for preference changes to finish saving.')
+                from fixoflow.tray import choice_config
+                self.apply_config(choice_config(self.config,action,value))
+                self.hub.handle_action('getConfig',{})
+        except Exception as error:
+            self.hub.show()
+            self.hub._eval_js('onSettingsResult(false,'+json.dumps(str(error))+');')
 
     def set_overlay_position(self, zone: str):
         """Persist a pill snap zone chosen by dragging (no engine rebuild)."""
@@ -545,6 +542,8 @@ class FixoflowApp:
             self.hub.show()
             return False
         self._running = False
+        from fixoflow.platform import discard_previous_clipboard
+        discard_previous_clipboard()
         self.ns_app.stop_(None)
         if getattr(self, "updates", None):
             self.updates.close()

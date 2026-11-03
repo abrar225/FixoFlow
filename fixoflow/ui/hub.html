@@ -20,9 +20,10 @@
   <main class="content-area">
     <header class="topbar">
       <div><div class="status" role="status"><span id="runtimeDot" class="status-dot" aria-hidden="true"></span><span id="runtimeStatus">Connecting to Fixo Flow…</span></div><div id="runtimeShortcut" class="shortcut-label">Checking keyboard shortcut…</div></div>
-      <button class="action-btn" onclick="post('showOverlay')">Show floating bar</button>
+      <div class="button-row"><button class="action-btn" onclick="openOnboarding()">Guided setup</button><button class="action-btn" onclick="post('showOverlay')">Show floating bar</button></div>
     </header>
     <div id="updateBanner" class="update-banner hidden" role="status"><span id="updateBannerText"></span><button class="action-btn" onclick="post('openRelease')">View update</button></div>
+    <div id="clipboardConfirmation" class="update-banner hidden" role="alertdialog" aria-labelledby="clipboardConfirmationTitle"><div><strong id="clipboardConfirmationTitle">Have your words appeared in the target app?</strong><p>Confirm paste before restoring the previous clipboard. Newer copied content will be preserved.</p></div><div class="button-row"><button id="confirmClipboardYes" class="primary-btn" onclick="post('restorePreviousClipboard',{confirmed:true});document.getElementById('clipboardConfirmation').classList.add('hidden')">Yes, restore previous clipboard</button><button class="action-btn" onclick="document.getElementById('clipboardConfirmation').classList.add('hidden')">Keep dictated text</button></div></div>
     <section id="viewDashboard" class="view-panel" aria-labelledby="dashboardTitle">
       <h1 id="dashboardTitle" class="view-title">Make room for your voice.</h1>
       <p class="subtitle">Your thoughts have places to be. Let’s get them there.</p>
@@ -117,13 +118,18 @@
       <div class="search-bar"><input id="dictionarySearch" type="search" aria-label="Search dictionary" placeholder="Search all words" oninput="post('getDictionary',{search:this.value})"></div><div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div><button id="dictionaryMore" class="action-btn" hidden onclick="post('getDictionary',{offset:dictionaryOffset,search:document.getElementById('dictionarySearch').value})">Load more words</button>
     </section>
     <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
+      <div class="card-section"><div class="section-header">Clipboard and tray</div>
+        <div class="setting-row"><div class="setting-copy"><label for="cfgRestoreClipboard" class="setting-title">Preserve my previous clipboard</label><span class="setting-desc">Keep a supported clipboard snapshot in memory during dictation. After confirming your words were pasted, choose Restore previous clipboard. Newer clipboard content is never replaced.</span></div><input id="cfgRestoreClipboard" type="checkbox"></div>
+        <p id="clipboardStatus" role="status"></p><button id="restoreClipboardButton" class="action-btn" disabled onclick="confirmClipboardRestore()">Restore previous clipboard after paste</button>
+        <div class="setting-row"><div class="setting-copy"><label for="cfgCloseToTray" class="setting-title">Keep running when I close the window</label><span class="setting-desc">On Windows and supported Linux desktops, close to the tray when its menu is available. Use Quit in the tray to exit. The Mac menu bar remains available when its window closes.</span></div><input id="cfgCloseToTray" type="checkbox"></div><p id="trayStatus" role="status"></p>
+      </div>
       <div class="card-section"><label class="setting-title" for="cfgRole">Optional starting preset</label><select id="cfgRole"><option value="everyday">Everyday — writing, natural style</option><option value="developer">Developer — coding, literal identifiers</option><option value="writer">Writer — writing, natural paragraphs</option><option value="business">Business — writing, professional rules</option><option value="accessibility">Hands-free access — writing, visible controls and sounds</option></select><button class="action-btn" onclick="applyRolePreset()">Apply preset</button><p class="setting-desc">Changes mode/style and turns spoken commands off. Hands-free access also enables visible controls and sounds. You can change every setting afterwards; this does not infer your profession or train a model.</p></div>
       <div class="card-section"><label class="setting-title" for="cfgTheme">Appearance</label><select id="cfgTheme"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></div>
       <details id="setupServices" class="card-section" ontoggle="if(this.open) post('getServices')"><summary>Microphone check and local model downloads</summary>
         <p>Run a five-second signal check before dictating. It checks levels and clipping, not recognition accuracy. No checkup audio is saved.</p>
         <button class="action-btn" onclick="post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop / retry cleanup</button>
         <meter id="micCheckLevel" min="0" max="1" value="0" aria-label="Microphone signal level"></meter><p id="micCheckStatus" role="status"></p>
-        <h2>English model candidates</h2><p>Downloads are explicit and verified. Labels describe candidates, not proven accuracy rankings. Select an installed model, wait for Saved, then warm it before dictating.</p>
+        <h2>Local speech models</h2><p>Downloads are explicit and verified. Select an installed model and a compatible language, wait for Saved, then warm it before dictating. Language support describes model capability; quality varies by speech and hardware.</p>
         <button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel model operation</button><div id="catalogModels"></div>
       </details>
       <div class="card-section"><label class="setting-title" for="cfgInputDevice">Microphone</label>
@@ -149,7 +155,7 @@
         <button id="modeWriting" class="mode-option" aria-pressed="false" onclick="selectMode('writing')"><span class="mode-name">Writing</span><span class="mode-desc">Apply local punctuation and cleanup rules for messages and documents.</span></button>
         <button id="modeRaw" class="mode-option" aria-pressed="false" onclick="selectMode('raw')"><span class="mode-name">Raw transcript</span><span class="mode-desc">Use the speech engine’s transcript without additional polishing.</span></button>
       </div></div>
-      <div class="card-section"><div class="section-header">Language &amp; recognition</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgLanguage">Dictation language</label><span class="setting-desc">English is available now.</span></div><select id="cfgLanguage" disabled><option value="en">English</option></select></div><div class="setting-row"><label for="cfgEnglishVariant">English variety / shared recognizer</label><select id="cfgEnglishVariant"><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="en-IN">English (India)</option></select></div><p class="setting-desc">US, UK and India English share the English recognizer. Regional spelling is not forced.</p><p id="languageAvailability" role="status">Multilingual dictation: Coming soon. Other languages and Roman Hinglish are in accuracy research.</p><p class="setting-desc">Clear sequences such as &ldquo;Firstly, ... Second, ... Third, ...&rdquo; become numbered lists in Writing mode and Automatic messaging mode. Verbatim keeps the recognizer's wording.</p><div class="setting-row"><div class="setting-copy"><label for="cfgSpokenCommands">Spoken formatting commands</label><span class="setting-desc">Optional punctuation words such as period, colon and new line. Off by default; numbered sequences do not need this switch.</span></div><input id="cfgSpokenCommands" type="checkbox"></div></div><div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
+      <div class="card-section"><div class="section-header">Language &amp; recognition</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgLanguage">Dictation language</label><span class="setting-desc">Languages depend on the selected model.</span></div><select id="cfgLanguage"><option value="en">English</option></select></div><div class="setting-row"><label for="cfgEnglishVariant">English variety / shared recognizer</label><select id="cfgEnglishVariant"><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="en-IN">English (India)</option></select></div><p class="setting-desc">US, UK and India English share the English recognizer. Regional spelling is not forced.</p><p id="languageAvailability" role="status">Choose a compatible multilingual model to transcribe other languages. Recognition quality and mixed-language spelling vary.</p><p class="setting-desc">Clear sequences such as &ldquo;Firstly, ... Second, ... Third, ...&rdquo; become numbered lists in Writing mode and Automatic messaging mode. Verbatim keeps the recognizer's wording.</p><div class="setting-row"><div class="setting-copy"><label for="cfgSpokenCommands">Spoken formatting commands</label><span class="setting-desc">Optional punctuation words such as period, colon and new line. Off by default; numbered sequences do not need this switch.</span></div><input id="cfgSpokenCommands" type="checkbox"></div></div><div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local speech model</label><span class="setting-desc">Base English is bundled. Download additional verified models using the catalog above.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
       <div class="card-section"><div class="section-header">A little introduction to your Mac</div><p id="permissionStatus" role="status">Checking permissions…</p>
         <div class="permission-cards">
           <div class="permission-card"><strong>Microphone</strong><span id="permissionMicrophone" class="permission-state">Checking…</span><p>Hear your voice when you start a dictation.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Open settings</button></div>
@@ -166,6 +172,20 @@
       <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes save automatically after a short pause.</p><button class="action-btn" data-settings-retry hidden onclick="retryPreferences()">Retry saving</button></div>
     </section>
   </main>
+  <div id="onboardingBackdrop" class="onboarding-backdrop hidden">
+    <section id="onboardingDialog" class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" tabindex="-1">
+      <div class="heading-row"><h1 id="onboardingTitle">Make Fixo Flow yours.</h1><button class="action-btn" onclick="closeOnboarding()" aria-label="Close guided setup and resume later">Resume later</button></div>
+      <p id="onboardingProgress" class="setting-desc"></p>
+      <div class="onboarding-page" data-setup-step="0"><h2>A few choices, then your first words.</h2><p>Speech processing stays on this computer. Model downloads are optional and explicit. You can skip any step and return here from the window or tray.</p><label for="setupRole">Optional starting preset</label><select id="setupRole"><option value="everyday">Everyday</option><option value="developer">Developer</option><option value="writer">Writer</option><option value="business">Business</option><option value="accessibility">Hands-free access</option></select><button class="action-btn" onclick="document.getElementById('cfgRole').value=document.getElementById('setupRole').value;applyRolePreset()">Apply starting preset</button><p class="setting-desc">A preset changes mode/style and spoken commands. Every setting stays editable.</p></div>
+      <div class="onboarding-page hidden" data-setup-step="1"><h2>Allow only what you need.</h2><p id="setupPermissions" role="status">Checking permissions…</p><p>Microphone access lets Fixo hear you. On Mac, Accessibility permits paste and Input Monitoring enables shortcuts. On Windows, desktop microphone access is controlled in Settings. Linux shortcut and paste support depends on your desktop session.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('getPermissions')">Refresh status</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'microphone'})">Microphone settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'accessibility'})">Paste settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'input'})">Shortcut settings</button></div></div>
+      <div class="onboarding-page hidden" data-setup-step="2"><h2>Check your microphone.</h2><label for="setupMicrophone">Input device</label><select id="setupMicrophone" onchange="document.getElementById('cfgInputDevice').value=this.value;markUnsaved()"><option value="">System default at recording start</option></select><div class="button-row"><button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button><button class="primary-btn" onclick="flushPreferences();post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop check</button></div><meter id="setupMicLevel" min="0" max="1" value="0" aria-label="Setup microphone signal"></meter><p id="setupMicStatus" role="status"></p><p class="setting-desc">Five-second level/clipping check; no test audio is saved. Wait for preferences to save before checking a changed microphone.</p></div>
+      <div class="onboarding-page hidden" data-setup-step="3"><h2>Choose a model and language.</h2><p>Base English is bundled. Other models require an explicit download. Larger models need more storage and memory; the catalog shows the download size.</p><label for="setupModel">Selected model</label><select id="setupModel" onchange="chooseModel(this.value)"></select><label for="setupLanguage">Language supported by this model</label><select id="setupLanguage" onchange="document.getElementById('cfgLanguage').value=this.value;markUnsaved()"></select><p id="setupLanguageNote" class="setting-desc"></p><div class="button-row"><button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel download / warm-up</button></div><p class="setting-desc">The bundled model loads when you start the practice test. Catalog models show their explicit warm-up state below.</p><div id="setupCatalog"></div></div>
+      <div class="onboarding-page hidden" data-setup-step="4"><h2>Try a safe dictation.</h2><p>Click Start test, say a sentence, then click Stop test. The result appears here and is saved to local History. It is never pasted into another application.</p><p id="setupShortcuts" class="setting-desc"></p><div class="button-row"><button id="practiceButton" class="primary-btn" onclick="post('practiceDictation')">Start test</button><button class="action-btn" onclick="post('cancelPractice')">Cancel test</button><button class="action-btn" onclick="post('enableShortcut')">Enable / retry shortcuts</button></div><label for="practiceTranscript">Your practice transcript</label><textarea id="practiceTranscript" rows="4" readonly></textarea><p id="practiceStatus" role="status"></p></div>
+      <div class="onboarding-page hidden" data-setup-step="5"><h2>Your controls are within reach.</h2><p>For everyday dictation, focus a text field, hold your hold-to-talk shortcut and release to write. Hands-free starts and stops with a tap. The tray/menu bar has quick access to models, language, microphone and recovery.</p><p>Check important text before sending. If paste fails, open History or Recovery. A setup completion marker means your choices are saved; it does not grant missing system permissions.</p><button class="action-btn" onclick="post('showOverlay')">Show floating controls</button></div>
+      <p id="onboardingError" class="warning" role="status" aria-live="polite"></p><p data-settings-result role="status"></p>
+      <div class="onboarding-footer"><button id="setupBack" class="action-btn" onclick="advanceOnboarding(-1)">Back</button><button id="setupNext" class="primary-btn" onclick="advanceOnboarding(1)">Continue</button></div>
+    </section>
+  </div>
   <script>
     let activeTab = 'dashboard';
     let lastRuntimeState = null;
@@ -177,6 +197,87 @@
     let settingsSequence = 0;
     let settingsTimer = null;
     let settingsFailed = false;
+    let modelLanguagePending = false;
+    let onboardingState = null;
+    let onboardingDismissed = false;
+    let onboardingForce = false;
+    let onboardingFinishing = false;
+    let onboardingFocus = null;
+    function openOnboarding() {
+      onboardingForce=true;onboardingDismissed=false;
+      post('getOnboarding');post('getInputDevices');post('getServices');post('getPermissions');
+    }
+    function closeOnboarding() {
+      onboardingDismissed=true;onboardingForce=false;
+      document.getElementById('onboardingBackdrop').classList.add('hidden');
+      document.querySelector('aside').inert=false;document.querySelector('main').inert=false;
+      post('cancelPractice');post('cancelMicCheck');
+      if(onboardingFocus?.isConnected) onboardingFocus.focus();
+    }
+    function onOnboardingData(data) {
+      onboardingState=data;
+      if(onboardingFinishing && data.completed){onboardingFinishing=false;closeOnboarding();return;}
+      const backdrop=document.getElementById('onboardingBackdrop');
+      if(backdrop.classList.contains('hidden')) {
+        if(!onboardingForce && (data.completed || onboardingDismissed)) return;
+        onboardingFocus=document.activeElement;backdrop.classList.remove('hidden');
+        document.querySelector('aside').inert=true;document.querySelector('main').inert=true;
+        document.getElementById('onboardingDialog').focus();
+      }
+      document.getElementById('onboardingProgress').textContent='Step '+(data.step+1)+' of '+data.steps.length+' · '+data.steps[data.step];
+      document.querySelectorAll('[data-setup-step]').forEach(page=>page.classList.toggle('hidden',Number(page.dataset.setupStep)!==data.step));
+      document.getElementById('setupBack').disabled=data.step===0;
+      document.getElementById('setupNext').textContent=data.step===data.steps.length-1?'Finish setup':'Continue / skip';
+      document.getElementById('onboardingError').textContent='';syncSetupChoices();
+    }
+    function onOnboardingError(message){onboardingFinishing=false;document.getElementById('onboardingError').textContent=message;}
+    function advanceOnboarding(delta) {
+      if(!onboardingState)return;
+      flushPreferences();
+      if(settingsRequest || Object.keys(pendingSettings).length || modelLanguagePending){onOnboardingError('Wait for your changes to finish saving, then continue.');return;}
+      onboardingFinishing=delta>0 && onboardingState.step===5;
+      post('saveOnboarding',{step:Math.max(0,Math.min(5,onboardingState.step+delta)),complete:onboardingFinishing});
+    }
+    function syncSetupChoices() {
+      for(const [source,target] of [['cfgModel','setupModel'],['cfgLanguage','setupLanguage'],['cfgInputDevice','setupMicrophone']]) {
+        const original=document.getElementById(source),copy=document.getElementById(target);
+        copy.replaceChildren(...[...original.options].map(option=>option.cloneNode(true)));copy.value=original.value;copy.disabled=original.disabled;
+      }
+      document.getElementById('setupRole').value=currentConfig.role_preset || 'everyday';
+      document.getElementById('setupLanguageNote').textContent=document.getElementById('languageAvailability').textContent;
+      document.getElementById('setupShortcuts').textContent='Hold to talk: '+(currentConfig.hold_shortcut?.label || 'not set')+' · Hands-free: '+(currentConfig.hands_free_shortcut?.label || 'not set')+'. Change bindings in Settings.';
+    }
+    function onPracticeResult(data) {
+      document.getElementById('practiceTranscript').value=data.text || '';
+      document.getElementById('practiceStatus').textContent=data.error || (data.text?'Test completed locally. Nothing was pasted.':'No speech was recognized. Check your microphone and try again.');
+    }
+    function onClipboardStatus(data) {
+      document.getElementById('clipboardStatus').textContent=data.message;
+      document.getElementById('restoreClipboardButton').disabled=!data.pending;
+    }
+    function confirmClipboardRestore() {
+      document.getElementById('clipboardConfirmation').classList.remove('hidden');
+      document.querySelector('.content-area').scrollTop=0;
+      document.getElementById('confirmClipboardYes').focus();
+    }
+    function onTrayStatus(data){document.getElementById('trayStatus').textContent=data.message;}
+    function chooseModel(value) {
+      const model=document.getElementById('cfgModel');
+      if(![...model.options].some(option=>option.value===value))return;
+      model.value=value;modelLanguagePending=true;
+      post('getLanguageOptions',{model_name:value});
+    }
+    document.addEventListener('keydown',event=>{
+      const dialog=document.getElementById('onboardingDialog');
+      if(document.getElementById('onboardingBackdrop').classList.contains('hidden'))return;
+      if(event.key==='Escape'){event.preventDefault();closeOnboarding();}
+      if(event.key==='Tab'){
+        const focusable=[...dialog.querySelectorAll('button:not(:disabled),select:not(:disabled),textarea,[tabindex="0"]')].filter(node=>node.getClientRects().length);
+        if(!focusable.length)return;
+        if(event.shiftKey && (document.activeElement===focusable[0] || document.activeElement===dialog)){event.preventDefault();focusable[focusable.length-1].focus();}
+        else if(!event.shiftKey && document.activeElement===focusable[focusable.length-1]){event.preventDefault();focusable[0].focus();}
+      }
+    });
     function post(action, payload = {}) {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fixoflow) {
         window.webkit.messageHandlers.fixoflow.postMessage({ action, ...payload });
@@ -300,6 +401,7 @@
       }
       select.value = wanted || '';
       document.getElementById('inputDeviceStatus').textContent = error || '';
+      syncSetupChoices();
     }
     function applyTheme(theme) { document.documentElement.dataset.theme=theme || 'light'; }
     function applyRolePreset() {
@@ -317,7 +419,10 @@
       const mic=data.microphone;
       document.getElementById('micCheckLevel').value=mic.level || 0;
       document.getElementById('micCheckStatus').textContent=mic.state + ' · ' + mic.message + (mic.clipping?' · Clipping detected':'') + (mic.no_signal===true?' · No signal detected':'');
-      const container=document.getElementById('catalogModels');container.replaceChildren();
+      document.getElementById('setupMicLevel').value=mic.level || 0;
+      document.getElementById('setupMicStatus').textContent=document.getElementById('micCheckStatus').textContent;
+      for(const container of [document.getElementById('catalogModels'),document.getElementById('setupCatalog')]) {
+      container.replaceChildren();
       for (const item of data.models.filter(x=>x.compatible)) {
         const row=element('div','list-item');
         row.append(element('strong','',item.name),element('p','',Math.ceil(item.download_bytes/1000000)+' MB · '+item.purpose),element('p','',item.state+' · '+item.message));
@@ -327,12 +432,14 @@
           if (!item.installed) { post('installCatalogModel',{id:item.id});return; }
           const select=document.getElementById('cfgModel');
           if (![...select.options].some(o=>o.value===item.model_name)) { const option=element('option','',item.name);option.value=item.model_name;select.append(option); }
-          select.value=item.model_name;markUnsaved();
+          chooseModel(item.model_name);
         };
         row.append(action);container.append(row);
       }
+      }
+      syncSetupChoices();
     }
-    setInterval(()=>{if(activeTab==='settings' && document.getElementById('setupServices').open && !document.hidden) post('getServices');},500);
+    setInterval(()=>{if(!document.hidden && ((activeTab==='settings' && document.getElementById('setupServices').open) || !document.getElementById('onboardingBackdrop').classList.contains('hidden'))) {post('getServices');post('getControlStatus');}},500);
     function openCorrectionEditor(item) {
       correctionSessionId = item.id;
       document.getElementById('correctedTranscript').value = item.final_text;
@@ -450,6 +557,7 @@
       } else {
       document.getElementById('permissionStatus').textContent = Object.values(values).every(value => value === 'Allowed') ? 'All set. Your Mac is ready for your voice.' : 'Each permission has a purpose. You control them in System Settings.';
       }
+      document.getElementById('setupPermissions').textContent=document.getElementById('permissionStatus').textContent+' Microphone: '+mic+'.';
     }
     function onControlStatus(data) {
       const state = data.state || 'IDLE';
@@ -465,6 +573,9 @@
       document.getElementById('runtimeDot').className = 'status-dot ' + (state === 'RECORDING' ? 'recording' : state === 'PROCESSING' ? 'processing' : ready ? 'ready' : '');
       document.getElementById('runtimeShortcut').textContent = 'Hold: ' + (data.shortcut || '—') + ' · Hands-free: ' + (data.hands_free_shortcut || '—') + (ready ? '' : ' · unavailable');
       document.getElementById('runtimeDetail').textContent = data.detail || (ready ? 'Your keyboard shortcut and floating bar are ready.' : 'Use the floating bar, or check permissions in Settings to enable your shortcut.');
+      document.getElementById('practiceButton').textContent=state==='RECORDING'?'Stop test':state==='PROCESSING'?'Transcribing…':'Start test';
+      document.getElementById('practiceButton').disabled=state==='PROCESSING';
+      if(state==='IDLE')post('getClipboardStatus');
     }
     function onConfigData(cfg) {
       // Native refreshes (for example dragging the pill) never replace a draft.
@@ -489,9 +600,11 @@
       document.getElementById('cfgSpokenCommands').checked = cfg.spoken_commands === true;
       document.getElementById('cfgLanguage').value=cfg.language || 'auto';
       document.getElementById('cfgEnglishVariant').value=cfg.english_variant || 'en-US';
-      post('getLanguageOptions');
+      post('getLanguageOptions',{model_name:modelName});
       document.getElementById('cfgStartAtLogin').checked = cfg.start_at_login !== false;
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
+      document.getElementById('cfgRestoreClipboard').checked = cfg.restore_clipboard === true;
+      document.getElementById('cfgCloseToTray').checked = cfg.close_to_tray !== false;
       document.getElementById('cfgCheckUpdates').checked = cfg.check_updates_on_launch === true;
       document.getElementById('cfgAutoInstall').checked = cfg.auto_install_updates === true;
       document.getElementById('cfgCpuThreads').value=String(cfg.cpu_threads || 2);
@@ -502,6 +615,7 @@
       currentConfig.output_style = styleSelection;
       renderStyleOptions();
       selectMode(cfg.mode || 'auto', false);
+      post('getOnboarding');post('getClipboardStatus');post('getTrayStatus');syncSetupChoices();
     }
     function preferenceValues() {
       return {mode:currentConfig.mode, hold_shortcut:currentConfig.hold_shortcut,
@@ -517,6 +631,8 @@
         model_name:document.getElementById('cfgModel').value,
         always_show_overlay:document.getElementById('cfgAlwaysShow').checked,
         sound_enabled:document.getElementById('cfgSounds').checked,
+        restore_clipboard:document.getElementById('cfgRestoreClipboard').checked,
+        close_to_tray:document.getElementById('cfgCloseToTray').checked,
         start_at_login:document.getElementById('cfgStartAtLogin').checked,
         check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,
         auto_install_updates:document.getElementById('cfgAutoInstall').checked};
@@ -545,7 +661,7 @@
     }
     function flushPreferences() {
       clearTimeout(settingsTimer);
-      if (settingsRequest || !configLoaded || settingsFailed) return;
+      if (settingsRequest || !configLoaded || settingsFailed || modelLanguagePending) return;
       if (!Object.keys(pendingSettings).length) {
         post('preferencesPending',{pending:false});
         onSettingsResult(true,'All changes saved.');
@@ -843,14 +959,19 @@
     });
     function onLanguageData(data) {
       const language=document.getElementById('cfgLanguage');
+      if(data.model_name && data.model_name!==document.getElementById('cfgModel').value)return;
+      const previous=language.value || currentConfig.language || 'auto';
       language.replaceChildren();
       for (const item of data.languages) {
         const option=element('option','',item.label);option.value=item.value;language.append(option);
       }
-      language.value='en';
-      language.disabled=true;
+      const values=data.languages.map(item=>item.value);
+      language.value=values.includes(previous)?previous:values.includes('en')?'en':values[0];
+      language.disabled=values.length===1;
       document.getElementById('languageAvailability').textContent=data.message +
-        (data.deferred_language ? ' Your previous language choice is saved for future support.' : '');
+        (data.deferred_language ? ' A legacy language preference remains saved; select your preferred language explicitly.' : '');
+      if(modelLanguagePending){modelLanguagePending=false;markUnsaved();}
+      syncSetupChoices();
     }
     function onDesktopPlatform(name) {
       document.getElementById('cpuBudget').classList.remove('hidden');
@@ -869,7 +990,7 @@
     }
     window.addEventListener('pywebviewready', () => { post('getConfig');post('getUpdateStatus');switchTab('dashboard'); });
     window.onload = () => {
-      document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('change', markUnsaved));
+      document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('change',()=>input.id==='cfgModel'?chooseModel(input.value):markUnsaved()));
       post('getConfig');
       post('getUpdateStatus');
       switchTab('dashboard');

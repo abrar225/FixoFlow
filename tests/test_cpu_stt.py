@@ -58,3 +58,11 @@ def test_warmup_loads_local_weights_once_without_decoding(tmp_path):
     assert engine.warm_up()==str(tmp_path)
     engine.warm_up()
     assert builds==[str(tmp_path)] and engine.capabilities.local_only
+
+
+def test_cpu_turbo_vocabulary_json_is_supported(tmp_path):
+    import json
+    for name in ('model.bin','tokenizer.json','vocabulary.json'):(tmp_path/name).write_bytes(b'fixture')
+    (tmp_path/'config.json').write_text(json.dumps({'lang_ids':list(range(50259,50359))}))
+    engine=CPUWhisperEngine(FixoflowConfig(model_name=str(tmp_path),language='es'))
+    assert engine.resolve_model_path()==str(tmp_path)

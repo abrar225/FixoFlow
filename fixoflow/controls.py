@@ -21,6 +21,9 @@ class DictationControls:
         self._hold_session = None
         self._closed = False
         self._cancel_requested = threading.Event()
+        self._auto_paste = True
+        self._preview_callback = None
+        self._preview_active = False
 
     @property
     def state(self):
@@ -38,30 +41,61 @@ class DictationControls:
                 # was opening. Do not overwrite that newer processing intent.
                 if self._intent == 'RECORDING' and self.coordinator.state != 'RECORDING':
                     self._intent = 'IDLE'
+                    callback = self._preview_callback
+                    self._preview_callback = None
+                    self._preview_active = False
+                    if callback:
+                        callback('', getattr(self.coordinator, 'last_error', '') or 'The microphone could not start. Check permissions and your selected device.')
             self.on_change()
 
     def _finish(self, cancel=False):
+        callback = self._preview_callback
+        text, error = '', ''
         try:
             if cancel or self._cancel_requested.is_set():
                 self.coordinator.cancel_recording()
             else:
-                self.coordinator.stop_and_process(auto_paste=True)
-        except Exception:
+                text = self.coordinator.stop_and_process(auto_paste=self._auto_paste) or ''
+                error = self.coordinator.last_error if hasattr(self.coordinator, 'last_error') else ''
+        except Exception as failure:
+            error = str(failure)
             logger.exception('Could not finish dictation')
         finally:
             with self._lock:
                 self._intent = 'IDLE'
+                self._preview_callback = None
+                self._preview_active = False
+            if callback:
+                try: callback(text, error or ('Test recording cancelled.' if cancel else ''))
+                except Exception: logger.exception('Could not display setup test result')
             self.on_change()
 
-    def _begin_locked(self):
+    def _begin_locked(self, *, auto_paste=True, on_result=None):
         if getattr(self.coordinator,'maintenance_busy',False) is True:
             self.coordinator.last_error = 'Finish the microphone check or model operation before dictating.'
             return False
         self._session_id += 1
         self._cancel_requested = threading.Event()
         self._intent = 'RECORDING'
+        self._auto_paste = auto_paste
+        self._preview_callback = on_result
+        self._preview_active = not auto_paste
         self.executor.submit(self._start, self._cancel_requested)
         return True
+
+    def toggle_preview(self, on_result):
+        """An explicit setup recording shares ownership but can never auto-paste."""
+        with self._lock:
+            if self._closed:
+                raise RuntimeError('Dictation is shutting down.')
+            if self._intent == 'IDLE':
+                if not self._begin_locked(auto_paste=False, on_result=on_result):
+                    raise RuntimeError(self.coordinator.last_error)
+            elif self._intent == 'RECORDING' and self._preview_active:
+                self._end_locked()
+            else:
+                raise RuntimeError('Finish the current dictation before a setup test.')
+        self.on_change()
 
     def _end_locked(self, cancel=False):
         if self._intent == 'RECORDING':
@@ -109,6 +143,12 @@ class DictationControls:
                 self.coordinator.request_cancel()
             self._end_locked(cancel=True)
         self.on_change()
+
+    def cancel_preview(self):
+        with self._lock:
+            if not self._preview_active:
+                return
+            self.cancel()
 
     def configure(self, update):
         """Exclude new gestures while applying settings to an idle session."""

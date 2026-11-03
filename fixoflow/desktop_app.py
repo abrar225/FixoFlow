@@ -7,6 +7,7 @@ import queue
 from pathlib import Path
 import sys
 import threading
+import time
 import webbrowser
 
 from fixoflow.config import FixoflowConfig
@@ -43,11 +44,18 @@ class Bridge:
 
 
 class DesktopApplication:
-    def __init__(self,config,background=False,self_check=False,report=None):
+    def __init__(self,config,background=False,self_check=False,report=None,tray_check=False):
         import webview
         self._actions=threading.RLock()
         self._audio_level=0.0
         self._captures=queue.SimpleQueue()
+        self._tray_actions=queue.SimpleQueue()
+        self._quitting=False
+        self.tray=None
+        self._tray_cache=None
+        self._tray_devices=[]
+        self._tray_device_time=0.0
+        self._tray_check=tray_check
         self.config=config;self.hub=DesktopHub(config);self._closed=threading.Event();self._loaded=threading.Event();self._error='';self._self_check=self_check;self.check_passed=False;self.report=report;self.restarting=False
         from fixoflow.startup import StartupService
         self.startup=StartupService()
@@ -78,6 +86,12 @@ class DesktopApplication:
         self.hub.on_update_status=self.updates.snapshot
         self.hub.on_open_release=lambda:webbrowser.open(self.updates.release_url()) if self.updates.release_url() else None
         self.hub.on_restart=self.restart
+        self.hub.on_practice=self.practice
+        self.hub.on_cancel_practice=self.controls.cancel_preview
+        self.hub.on_tray_status=lambda:self.tray.snapshot() if self.tray else {'available':False,'message':'Tray is not active in diagnostic mode.'}
+        if not self_check or tray_check:
+            from fixoflow.tray import DesktopTray
+            self.tray=DesktopTray(self.tray_menu,lambda action,value:self._tray_actions.put((action,value)))
 
     def loaded(self):
         try:
@@ -101,6 +115,10 @@ class DesktopApplication:
         self.hub.handle_action('getConfig',{});self.hub.handle_action('getDashboard',{});self.hub.handle_action('getUpdateStatus',{})
         self.hub._eval_js('onDesktopPlatform('+json.dumps('Windows' if sys.platform=='win32' else 'Linux')+');')
         if self._self_check:
+            if self._tray_check:
+                self.tray.start()
+                if not self.tray._ready.wait(5):raise RuntimeError(self.tray.error or 'Native tray did not become ready.')
+                self.tray.refresh()
             result=self.hub.window.evaluate_js("({views:document.querySelectorAll('.view-panel').length,logo:!!document.querySelector('img'),bridge:typeof window.pywebview.api.post})")
             # UI/model resolution check never activates input, audio or network.
             self.coordinator.stt.resolve_model_path()
@@ -111,10 +129,13 @@ class DesktopApplication:
             assert result['bridge']=='function' and result['views']==6,result
             self.check_passed=True
             evidence={'ui':'ok','platform':sys.platform,'version':__version__,'microphone_opened':False,'input_started':False,'local_inference':'executed'}
+            if self._tray_check:evidence['tray_backend']='ready'
             if self.report:self.report.write_text(json.dumps(evidence))
             if sys.stdout:print(json.dumps(evidence),flush=True)
             self.hub.window.destroy()
         else:
+            if self.tray:self.tray.start()
+            self.hub.handle_action('getTrayStatus',{})
             self.hub._eval_js('onStartupData('+json.dumps(self.startup.snapshot())+');')
             self.enable_shortcut()
             if self.config.always_show_overlay:self.pill.show()
@@ -124,19 +145,66 @@ class DesktopApplication:
         if self.controls.state!='IDLE':
             self.hub._eval_js("onSettingsResult(false,'Finish dictation before restarting.');")
             return
-        self.restarting=True;self.hub.window.destroy()
+        self.restarting=True;self._quitting=True;self.hub.window.destroy()
+
+    def practice(self):
+        self.controls.toggle_preview(lambda text,error:self._tray_actions.put(('practiceResult',json.dumps({'text':text,'error':error}))))
+
+    def tray_menu(self):
+        from fixoflow.tray import entries
+        from fixoflow.platform import clipboard_restore_status
+        if time.monotonic()-self._tray_device_time>10:
+            try:
+                from fixoflow.audio.devices import input_devices
+                self._tray_devices=input_devices()
+            except Exception:self._tray_devices=[]
+            self._tray_device_time=time.monotonic()
+        return entries(self.config,{**self.status(),'busy':self.coordinator.maintenance_busy},
+                       self.coordinator.model_manager.snapshot(),self._tray_devices,clipboard_restore_status()['pending'])
+
+    def tray_action(self,action,value=''):
+        try:
+            if action=='openHub':self.hub.show()
+            elif action=='toggle':self.controls.toggle()
+            elif action=='cancel':self.controls.cancel()
+            elif action=='quit':self._quitting=True;self.hub.window.destroy()
+            elif action=='practiceResult':self.hub._eval_js('onPracticeResult('+value+');')
+            elif action in {'openSettings','openRecovery','openSetup','restoreClipboard'}:
+                self.hub.show()
+                if action=='openSetup':self.hub._eval_js('openOnboarding();')
+                elif action=='restoreClipboard':self.hub._eval_js('confirmClipboardRestore();')
+                elif action=='openRecovery':self.hub._eval_js("switchTab('history'); document.querySelector('#recoveryInbox').closest('details').open=true;")
+                else:self.hub._eval_js("switchTab('settings'); document.getElementById('setupServices').open=true;")
+            elif action in {'selectModel','selectLanguage','selectMicrophone','selectMode'}:
+                if getattr(self.hub,'preferences_pending',False):raise ValueError('Wait for preference changes to finish saving.')
+                from fixoflow.tray import choice_config
+                self.apply_config(choice_config(self.config,action,value))
+                self.hub.handle_action('getConfig',{})
+        except Exception as error:
+            self._quitting=False
+            self._error=str(error)
+            self.hub.show()
+            self.hub._eval_js('onSettingsResult(false,'+json.dumps(str(error))+');')
 
     def closing(self):
-        if not self.hub.close_model_packs():return False
+        if not getattr(self,'_self_check',False) and not getattr(self,'_quitting',False) and self.config.close_to_tray and self.tray and self.tray.can_hide:
+            self.hub.window.hide()
+            return False
+        if not self.hub.close_model_packs():
+            self._quitting=False;self.restarting=False
+            return False
         self._closed.set()
         # Shutdown is allowed to drain processing; never abandon audio on exit.
         self.inputs.stop();self.controls.shutdown();self.updates.close()
+        if self.tray:self.tray.close()
+        from fixoflow.platform import discard_previous_clipboard
+        discard_previous_clipboard()
         try:self.pill.destroy()
         except Exception:pass
         return True
 
     def status(self):
-        return {'state':self.controls.state,'shortcut':shortcut_label(self.config.hold_shortcut),'hands_free_shortcut':shortcut_label(self.config.hands_free_shortcut),'shortcut_active':self.inputs.active,'detail':self.coordinator.last_error or self._error}
+        return {'state':self.controls.state,'theme':self.config.theme,'shortcut':shortcut_label(self.config.hold_shortcut),'hands_free_shortcut':shortcut_label(self.config.hands_free_shortcut),'shortcut_active':self.inputs.active,'detail':self.coordinator.last_error or self._error}
 
     def enable_shortcut(self):
         try:self.inputs.start();self._error='';return None
@@ -198,6 +266,18 @@ class DesktopApplication:
         while not self._closed.wait(0.2):
             if not self._loaded.is_set():continue
             self.controls.poll_capture()
+            while True:
+                try:action,value=self._tray_actions.get_nowait()
+                except queue.Empty:break
+                with self._actions:self.tray_action(action,value)
+            if self.tray:
+                from fixoflow.platform import clipboard_restore_status
+                tray_status=self.tray.snapshot()
+                signature=(self.controls.state,self.coordinator.maintenance_busy,json.dumps(self.config.__dict__,sort_keys=True),
+                           str(self.coordinator.model_manager.snapshot()),clipboard_restore_status()['pending'],str(tray_status))
+                if signature!=self._tray_cache:
+                    self._tray_cache=signature;self.tray.refresh()
+                    self.hub._eval_js('onTrayStatus('+json.dumps(tray_status)+');')
             self.inputs.expire_capture();status=self.status()
             while True:
                 try:captured=self._captures.get_nowait()
@@ -216,7 +296,8 @@ class DesktopApplication:
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser();parser.add_argument('--background',action='store_true');parser.add_argument('--self-check',action='store_true');parser.add_argument('--check-report',type=Path);args=parser.parse_args(argv)
+    parser=argparse.ArgumentParser();parser.add_argument('--background',action='store_true');parser.add_argument('--self-check',action='store_true');parser.add_argument('--check-report',type=Path);parser.add_argument('--tray-check',action='store_true');args=parser.parse_args(argv)
+    if args.tray_check and not args.self_check:parser.error('--tray-check requires --self-check')
     from logging.handlers import RotatingFileHandler
     log_dir=FixoflowConfig.get_config_path().parent/'logs';log_dir.mkdir(exist_ok=True)
     logging.basicConfig(level=logging.INFO,handlers=[RotatingFileHandler(log_dir/'fixoflow.log',maxBytes=2_000_000,backupCount=2,encoding='utf-8')])
@@ -230,7 +311,7 @@ def main(argv=None):
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('FixoFlow.Desktop')
         if sys.stdout:print('Creating desktop windows',flush=True)
-        app=DesktopApplication(FixoflowConfig.load(),args.background,args.self_check,args.check_report)
+        app=DesktopApplication(FixoflowConfig.load(),args.background,args.self_check,args.check_report,args.tray_check)
         worker=threading.Thread(target=app.poll,name='FixoFlow-status',daemon=True);worker.start()
         icon=Path(__file__).parent/'ui/assets'/('flow-fold.ico' if sys.platform=='win32' else 'flow-fold.png')
         if sys.stdout:print('Starting native event loop',flush=True)

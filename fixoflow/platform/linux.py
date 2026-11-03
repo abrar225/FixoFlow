@@ -97,8 +97,21 @@ def copy_to_clipboard(text):
         return False
 
 
-def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None):
-    if not copy_to_clipboard(text):
+def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None,restore_clipboard=False):
+    from dataclasses import replace
+    if restore_clipboard and os.environ.get('XDG_SESSION_TYPE')!='wayland':
+        from fixoflow.clipboard_x11 import X11ClipboardAdapter
+        return insert_with_restoration(_insert_text_at_cursor,copy_to_clipboard,_clipboard_restoration,
+            X11ClipboardAdapter,text,delay_sec,expected_target,cancelled,True)
+    _clipboard_restoration.discard()
+    outcome=_insert_text_at_cursor(text,delay_sec,expected_target,cancelled)
+    if restore_clipboard:
+        return replace(outcome,clipboard_restore_unavailable='Previous clipboard restoration is unavailable with the current X11/Wayland clipboard tools. Dictated text is kept for manual paste.')
+    return outcome
+
+
+def _insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None,_copy=None):
+    if not (_copy or copy_to_clipboard)(text):
         return InsertionOutcome(False, False, 'clipboard-failed')
     if cancelled and cancelled():
         return InsertionOutcome(False, True, 'cancelled')
@@ -119,6 +132,35 @@ def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=Non
         return InsertionOutcome(True,True,'inserted')
     except Exception:
         return InsertionOutcome(False, True, 'event-failed')
+
+
+from fixoflow.clipboard import ClipboardRestoration,insert_with_restoration,restore_status,copy_with_restoration
+
+_clipboard_restoration=ClipboardRestoration()
+
+
+def copy_to_clipboard_preserving(text):
+    if os.environ.get('XDG_SESSION_TYPE')=='wayland':
+        _clipboard_restoration.discard()
+        return copy_to_clipboard(text)
+    from fixoflow.clipboard_x11 import X11ClipboardAdapter
+    return copy_with_restoration(copy_to_clipboard,_clipboard_restoration,X11ClipboardAdapter,text).copied
+
+
+def clipboard_restore_status():
+    if os.environ.get('XDG_SESSION_TYPE')=='wayland':
+        return {'pending':False,'message':'Previous clipboard restoration is unavailable in Wayland sessions.'}
+    return _clipboard_restoration.status()
+
+
+def restore_previous_clipboard(insertion_confirmed=False):
+    if os.environ.get('XDG_SESSION_TYPE')=='wayland':
+        return {'restored':False,**clipboard_restore_status()}
+    return restore_status(_clipboard_restoration,insertion_confirmed)
+
+
+def discard_previous_clipboard():
+    _clipboard_restoration.discard()
 
 
 def permission_snapshot():

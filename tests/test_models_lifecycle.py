@@ -108,9 +108,9 @@ def test_busy_operation_deduplicates_and_close_retains_worker_ownership(tmp_path
 
 
 def test_catalog_entries_have_hashes_and_both_runtime_variants():
-    assert len(CATALOG)==6
-    assert {spec.backend for spec in CATALOG.values()}=={'mlx','cpu'}
-    assert all(spec.language=='en' and spec.license=='MIT' for spec in CATALOG.values())
+    assert len(CATALOG)>=16
+    assert {spec.backend for spec in CATALOG.values()}=={'mlx','cpu','onnx'}
+    assert all(spec.license in {'MIT','CC-BY-4.0'} for spec in CATALOG.values())
     assert all(asset.sha256 and asset.bytes>0 for spec in CATALOG.values() for asset in spec.assets)
 
 
@@ -120,3 +120,31 @@ def test_incompatible_models_never_start_download(tmp_path,fixture_spec):
     store.backend='cpu'
     with pytest.raises(ValueError,match='incompatible'):store.start_install(spec.id)
     assert not calls
+
+
+def test_multilingual_and_parakeet_capabilities_are_model_specific():
+    from fixoflow.languages import available_languages, options, validate_language_selection
+    assert available_languages('catalog:base-en-mlx',backend='mlx')==('en',)
+    assert 'hi' in available_languages('catalog:base-multi-mlx',backend='mlx')
+    assert len(options('catalog:base-multi-mlx',backend='mlx'))==100
+    assert available_languages('catalog:parakeet-v3-onnx')==(None,)
+    assert len(CATALOG['parakeet-v3-onnx'].supported_languages)==25
+    assert 'hi' not in CATALOG['parakeet-v3-onnx'].supported_languages
+    for language,model in [('hi','catalog:base-en-mlx'),('en','catalog:parakeet-v3-onnx')]:
+        with pytest.raises(ValueError):validate_language_selection(language,model,backend='mlx')
+    validate_language_selection('hi','catalog:base-multi-mlx',backend='mlx')
+    validate_language_selection(None,'catalog:parakeet-v3-onnx')
+
+
+def test_catalog_language_selection_survives_config_save_and_restart(tmp_path,monkeypatch):
+    from fixoflow.config import FixoflowConfig
+    from fixoflow.models.catalog import runtime_backend
+    config_path=tmp_path/'config.json'
+    monkeypatch.setattr(FixoflowConfig,'get_config_path',classmethod(lambda cls:config_path))
+    cfg=FixoflowConfig(model_name='catalog:base-multi-'+runtime_backend(),language='es',cache_dir=str(tmp_path/'audio'))
+    cfg.save()
+    loaded=FixoflowConfig.load()
+    assert loaded.language=='es' and loaded.model_name==cfg.model_name and loaded.deferred_language==''
+    cfg=FixoflowConfig(model_name='catalog:parakeet-v3-onnx',language=None,cache_dir=str(tmp_path/'audio'))
+    cfg.save()
+    assert FixoflowConfig.load().language is None

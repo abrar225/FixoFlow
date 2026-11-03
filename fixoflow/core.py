@@ -39,6 +39,12 @@ logger = logging.getLogger("fixoflow.core")
 
 
 class FixoflowCoordinator:
+    def _copy_transcript(self, text):
+        if self.config.restore_clipboard:
+            from fixoflow.platform import copy_to_clipboard_preserving
+            return copy_to_clipboard_preserving(text)
+        return copy_to_clipboard(text)
+
     def __init__(self, config: Optional[FixoflowConfig] = None, enable_overlay: bool = True):
         self.config = config or FixoflowConfig.load()
         self.config.validate_product()
@@ -75,7 +81,9 @@ class FixoflowCoordinator:
 
     def close_services(self):
         check_closed = self.checkup.close()
-        model_closed = self.model_manager.close()
+        # A timed-out quit leaves a usable application. Drain/cancel operations
+        # without permanently closing a service while the window remains open.
+        model_closed = self.model_manager.close(terminal=False)
         return check_closed and model_closed
 
     def _journal(self, **changes):
@@ -96,6 +104,9 @@ class FixoflowCoordinator:
             replacement = create_stt_engine(candidate)
             replacement.resolve_model_path()  # local-only validation, no inference/download
         candidate.save()
+        if self.config.restore_clipboard and not candidate.restore_clipboard:
+            from fixoflow.platform import discard_previous_clipboard
+            discard_previous_clipboard()
         self.config.__dict__.update(candidate.__dict__)
         if replacement is not None:
             self.stt = replacement
@@ -187,7 +198,10 @@ class FixoflowCoordinator:
                 return ""
 
             # 2. Transcribe with prompt conditioning and pause slicing
-            prompt = self.learner.get_vocabulary_prompt()
+            # An English dictionary/polisher must not rewrite valid words in
+            # another language (e.g. German "um"). Auto detection has no reliable
+            # returned language in this text-only contract, so retain raw output.
+            prompt = self.learner.get_vocabulary_prompt() if self.config.language == 'en' else ''
             raw_text = self.stt.transcribe_file(session_path, initial_prompt=prompt, cancelled=self._cancel_requested.is_set)
             if not raw_text:
                 self._journal(status='no_speech')
@@ -202,10 +216,11 @@ class FixoflowCoordinator:
             # 3. Apply mode formatting, dictionary replacements and polishing
             fixes_vocab = fixes_polish = 0
             try:
-                formatted_text, fixes_vocab = ((raw_text.strip(), 0) if self.config.output_style == "verbatim"
+                formatted_text, fixes_vocab = ((raw_text.strip(), 0) if self.config.output_style == "verbatim" or self.config.language != 'en'
                     else self.learner.format_for_mode_counted(raw_text, mode=self.config.mode, app_name=target_app, spoken_commands=self.config.spoken_commands))
                 effective_mode = self.learner.effective_mode(self.config.mode, target_app)
-                final_text, fixes_polish = self.polisher.polish_counted(formatted_text, app_context=target_app, mode=effective_mode)
+                final_text, fixes_polish = ((formatted_text, 0) if self.config.language != 'en' else
+                    self.polisher.polish_counted(formatted_text, app_context=target_app, mode=effective_mode))
                 if self.config.output_style != 'verbatim':
                     final_text, correction_id = self.db.apply_approved_correction(
                         final_text, self._target_app_id, self.config.language, self.config.mode)
@@ -239,7 +254,7 @@ class FixoflowCoordinator:
                 )
             except Exception as dbe:
                 logger.error("Failed to record session in database: %s", dbe)
-                copied=bool(auto_paste and copy_to_clipboard(final_text))
+                copied=bool(auto_paste and self._copy_transcript(final_text))
                 self.delivery_status='clipboard_only' if copied else 'not_attempted'
                 self._journal(status='history_failed',delivery_status=self.delivery_status)
                 self.last_error=('Transcript could not be saved in History; recording retained in Recovery.'
@@ -297,11 +312,11 @@ class FixoflowCoordinator:
         target_bundle = self._target_bundle_id
         if self._cancel_requested.is_set():
             self.delivery_status = 'cancelled'
-            copy_to_clipboard(text)
+            self._copy_transcript(text)
             self.last_error = 'Cancelled before paste; transcript saved in History.'
             return False, 'Cancelled · open History'
         if not target_bundle:
-            copied = copy_to_clipboard(text)
+            copied = self._copy_transcript(text)
             self.delivery_status = 'clipboard_only' if copied else 'failed'
             self.last_error = ("Target application was not identified; transcript copied to clipboard and saved in History" if copied else "Target application was not identified; transcript saved in History")
             notify("Fixoflow", self.last_error)
@@ -315,18 +330,19 @@ class FixoflowCoordinator:
                 current_bundle = get_frontmost_app_info()[1]
         if self._cancel_requested.is_set():
             self.delivery_status = 'cancelled'
-            copy_to_clipboard(text)
+            self._copy_transcript(text)
             self.last_error = 'Cancelled before paste; transcript saved in History.'
             return False, 'Cancelled · open History'
         if current_bundle != target_bundle:
-            copied = copy_to_clipboard(text)
+            copied = self._copy_transcript(text)
             self.delivery_status = 'clipboard_only' if copied else 'failed'
             self.last_error = ("Focus moved to another app; transcript is on the clipboard and in History"
                                if copied else "Focus moved to another app; transcript saved in History")
             notify("Fixoflow", self.last_error)
             return False, "Saved · open History"
 
-        outcome = insert_text_at_cursor(text, expected_target=target_bundle, cancelled=self._cancel_requested.is_set)
+        outcome = insert_text_at_cursor(text, expected_target=target_bundle, cancelled=self._cancel_requested.is_set,
+                                        restore_clipboard=self.config.restore_clipboard)
         self.delivery_status = ('dispatch_sent' if outcome.inserted else 'cancelled'
             if outcome.reason == 'cancelled' else 'clipboard_only' if outcome.copied else 'failed')
         if outcome.inserted:

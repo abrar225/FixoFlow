@@ -197,14 +197,18 @@ def test_public_language_controls_offer_english_and_never_download(monkeypatch):
         ui.handle_action(action, {})
         data = json.loads(ui._eval_js.call_args.args[0][len('onLanguageData('):-2])
         assert data['languages'] == [{'value': 'en', 'label': 'English'}]
-        assert 'coming soon' in data['message']
+        assert 'compatible multilingual model' in data['message']
     download.assert_not_called()
 
 
-def test_public_autosave_rejects_multilingual_and_preserves_current_english():
+def test_autosave_accepts_multilingual_but_rejects_unsupported_language_on_english_model():
     ui = manager()
     ui.on_config_change = Mock()
     ui.handle_action('autosaveConfig', {'request_id': 10, 'config': {
                      'language': 'hi', 'model_name': 'multilingual-base'}})
+    ui.on_config_change.assert_called_once()
+    assert ui.on_config_change.call_args.args[0].language == 'hi'
+    ui.on_config_change.reset_mock()
+    ui.handle_action('autosaveConfig', {'request_id': 11, 'config': {'language':'hi','model_name':ui.config.model_name}})
     ui.on_config_change.assert_not_called()
-    assert ui.config.language == 'en' and 'coming soon' in ui._eval_js.call_args.args[0]
+    assert ui.config.language == 'en'

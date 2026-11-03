@@ -70,6 +70,10 @@ class FixoflowConfig:
     sound_enabled: bool = True
     theme: str = 'light'
     role_preset: str = 'everyday'
+    restore_clipboard: bool = False
+    close_to_tray: bool = True
+    onboarding_version: int = 0
+    onboarding_step: int = 0
 
     # Logging
     log_level: str = "INFO"
@@ -142,11 +146,13 @@ class FixoflowConfig:
             normalized["polishing_engine"] = "rules"
         from fixoflow.languages import LANGUAGES
         language = normalized.get('language', 'en')
-        if language is None or (isinstance(language,str) and language in LANGUAGES and language != 'en'):
+        # Only old, unavailable English-model language choices need deferral.
+        # A valid multilingual catalog selection must survive restarting.
+        model = normalized.get('model_name', cls.__dataclass_fields__['model_name'].default)
+        if (language is None or (isinstance(language,str) and language in LANGUAGES and language != 'en')) and model in {
+                'bundled-base.en', 'mlx-community/whisper-base.en-mlx', 'mlx-community/whisper-small.en-mlx'}:
             normalized['deferred_language'] = language or 'auto'
             normalized['language'] = 'en'
-        if normalized.get('model_name') == 'multilingual-base':
-            normalized['model_name'] = cls.__dataclass_fields__['model_name'].default
         return normalized
 
     def validate_product(self):
@@ -168,9 +174,13 @@ class FixoflowConfig:
             raise ValueError('Invalid deferred language preference.')
         if self.language != 'en' and self.model_name in {'bundled-base.en','mlx-community/whisper-base.en-mlx','mlx-community/whisper-small.en-mlx'}:
             raise ValueError('Install and choose the Base multilingual pack for this language or auto detection.')
-        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "start_at_login", "login_setup_done"):
+        for name in ("always_show_overlay", "sound_enabled", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "start_at_login", "login_setup_done", "restore_clipboard", "close_to_tray"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"{name} must be a boolean")
+        if type(self.onboarding_version) is not int or not 0 <= self.onboarding_version <= 100:
+            raise ValueError('Invalid setup version.')
+        if type(self.onboarding_step) is not int or not 0 <= self.onboarding_step <= 5:
+            raise ValueError('Invalid setup step.')
         if self.mode not in {"auto", "coding", "writing", "raw"}:
             raise ValueError("Unsupported dictation mode")
         if self.output_style not in OUTPUT_STYLES:

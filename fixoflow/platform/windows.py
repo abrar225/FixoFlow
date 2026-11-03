@@ -28,6 +28,21 @@ u.SetClipboardData.argtypes = [w.UINT, w.HANDLE]
 u.SetClipboardData.restype = w.HANDLE
 u.GetWindowTextLengthW.argtypes = [w.HWND]
 u.GetWindowTextW.argtypes = [w.HWND,w.LPWSTR,c.c_int]
+u.GetClipboardData.argtypes = [w.UINT]
+u.GetClipboardData.restype = w.HANDLE
+u.EnumClipboardFormats.argtypes = [w.UINT]
+u.EnumClipboardFormats.restype = w.UINT
+u.RegisterClipboardFormatW.argtypes = [w.LPCWSTR]
+u.RegisterClipboardFormatW.restype = w.UINT
+u.GetClipboardSequenceNumber.restype = w.DWORD
+u.CreateWindowExW.argtypes = [w.DWORD,w.LPCWSTR,w.LPCWSTR,w.DWORD,c.c_int,c.c_int,c.c_int,c.c_int,w.HWND,w.HMENU,w.HINSTANCE,c.c_void_p]
+u.CreateWindowExW.restype = w.HWND
+u.DestroyWindow.argtypes = [w.HWND]
+u.DestroyWindow.restype = w.BOOL
+u.OpenClipboard.argtypes = [w.HWND]
+u.OpenClipboard.restype = w.BOOL
+k.GlobalSize.argtypes = [w.HGLOBAL]
+k.GlobalSize.restype = c.c_size_t
 clipboard_lock = threading.Lock()
 
 
@@ -108,33 +123,11 @@ def get_stable_app_identity(identity):
 
 
 def copy_to_clipboard(text):
-    # Clipboard handles transfer ownership only after SetClipboardData succeeds.
-    data = (text+'\0').encode('utf-16-le')
-    owned = None
-    with clipboard_lock:
-        for _ in range(10):
-            if u.OpenClipboard(None):
-                break
-            time.sleep(0.01)
-        else:
-            return False
-        try:
-            owned=k.GlobalAlloc(0x0002,len(data))
-            if not owned:
-                return False
-            ptr=k.GlobalLock(owned)
-            if not ptr:
-                return False
-            c.memmove(ptr, data, len(data))
-            k.GlobalUnlock(owned)
-            if not u.EmptyClipboard() or not u.SetClipboardData(13, owned):
-                return False
-            owned=None
-            return True
-        finally:
-            if owned:
-                k.GlobalFree(owned)
-            u.CloseClipboard()
+    from fixoflow.clipboard import WindowsClipboardAdapter
+    try:
+        return WindowsClipboardAdapter(u,k,c,clipboard_lock).copy_text(text)
+    except Exception:
+        return False
 
 
 class KEYBDINPUT(c.Structure):
@@ -164,8 +157,8 @@ u.SendInput.argtypes=[w.UINT,c.POINTER(INPUT),c.c_int]
 u.SendInput.restype=w.UINT
 
 
-def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None):
-    if not copy_to_clipboard(text):
+def _insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None,_copy=None):
+    if not (_copy or copy_to_clipboard)(text):
         return InsertionOutcome(False, False, 'clipboard-failed')
     if cancelled and cancelled():
         return InsertionOutcome(False, True, 'cancelled')
@@ -192,6 +185,34 @@ def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=Non
                              INPUT(type=1, ki=KEYBDINPUT(wVk=0x11, dwFlags=2)))
         u.SendInput(2,releases,c.sizeof(INPUT))
     return InsertionOutcome(sent==4,True,'inserted' if sent==4 else 'event-failed')
+
+
+from fixoflow.clipboard import (ClipboardRestoration, WindowsClipboardAdapter,
+                                insert_with_restoration, restore_status, copy_with_restoration)
+
+_clipboard_restoration = ClipboardRestoration()
+
+
+def insert_text_at_cursor(text,delay_sec=0.05,expected_target=None,cancelled=None,restore_clipboard=False):
+    return insert_with_restoration(_insert_text_at_cursor,copy_to_clipboard,_clipboard_restoration,
+        lambda:WindowsClipboardAdapter(u,k,c,clipboard_lock),text,delay_sec,expected_target,cancelled,restore_clipboard)
+
+
+def clipboard_restore_status():
+    return _clipboard_restoration.status()
+
+
+def copy_to_clipboard_preserving(text):
+    return copy_with_restoration(copy_to_clipboard,_clipboard_restoration,
+        lambda:WindowsClipboardAdapter(u,k,c,clipboard_lock),text).copied
+
+
+def restore_previous_clipboard(insertion_confirmed=False):
+    return restore_status(_clipboard_restoration,insertion_confirmed)
+
+
+def discard_previous_clipboard():
+    _clipboard_restoration.discard()
 
 
 def permission_snapshot():

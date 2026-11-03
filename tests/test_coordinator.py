@@ -51,6 +51,18 @@ def test_coordinator_lifecycle(coordinator):
     assert coordinator.db.get_session(coordinator.session_id)['delivery_status'] == 'not_attempted'
 
 
+@pytest.mark.parametrize('language',['de',None])
+def test_other_languages_and_auto_skip_english_dictionary_and_polish(coordinator,language):
+    coordinator.config.language=language
+    coordinator.config.mode='writing'
+    coordinator.stt.transcribe_file.return_value='Es geht um das Haus.'
+    coordinator.learner.get_vocabulary_prompt=Mock(side_effect=AssertionError('English hints must not be injected'))
+    coordinator.polisher.polish_counted=Mock(side_effect=AssertionError('English rules must not remove German um'))
+    coordinator.start_recording()
+    assert coordinator.stop_and_process(auto_paste=False)=='Es geht um das Haus.'
+    assert coordinator.stt.transcribe_file.call_args.kwargs['initial_prompt']==''
+
+
 def test_session_records_measured_fix_counts(coordinator):
     coordinator.start_recording()
     coordinator.stop_and_process(auto_paste=False)
@@ -92,7 +104,7 @@ def test_focus_restore_returns_text_to_original_app(coordinator, monkeypatch):
     monkeypatch.setattr(core, 'get_frontmost_app_info', lambda: next(responses))
     assert coordinator.stop_and_process() == 'parseConfig'
     insert.assert_called_once_with('parseConfig', expected_target='test.antigravity',
-                                   cancelled=coordinator._cancel_requested.is_set)
+                                   cancelled=coordinator._cancel_requested.is_set, restore_clipboard=False)
     coordinator.overlay.show_success.assert_called_with('Paste sent')
 
 

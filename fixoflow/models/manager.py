@@ -14,7 +14,7 @@ import tempfile
 import threading
 from urllib.request import Request, urlopen
 
-from fixoflow.models.catalog import CATALOG, ModelSpec, runtime_backend
+from fixoflow.models.catalog import CATALOG, ModelSpec, runtime_backend, compatible_backend
 
 _VERIFIED = {}
 _VERIFY_LOCK = threading.Lock()
@@ -84,7 +84,7 @@ class ModelManager:
         with self._lock:
             result = []
             for spec in self.catalog.values():
-                compatible = spec.backend == self.backend
+                compatible = compatible_backend(spec, self.backend)
                 installed = (self.root / spec.id).is_dir()
                 result.append({**spec.public(), 'compatible': compatible, 'installed': installed,
                     'state': 'installed' if installed else 'absent', 'bytes_received':0,
@@ -94,7 +94,7 @@ class ModelManager:
 
     def _spec(self, key):
         spec = self.catalog.get(key)
-        if spec is None or spec.backend != self.backend:
+        if spec is None or not compatible_backend(spec, self.backend):
             raise ValueError('This model is incompatible with the current computer/backend.')
         return spec
 
@@ -201,9 +201,9 @@ class ModelManager:
     def cancel(self):
         self._cancel.set()
 
-    def close(self, timeout=2):
+    def close(self, timeout=2, *, terminal=True):
         with self._lock:
-            self._closed = True
+            self._closed = terminal
             self.cancel()
             worker = self._worker
         if worker:

@@ -2,7 +2,7 @@ name: Desktop preview packages
 on:
   push:
     branches: ['main', 'codex/multiplatform-release']
-    paths: ['fixoflow/**', 'tests/**', 'pyproject.toml', 'packaging/Desktop.spec', 'packaging/desktop_entry.py', 'packaging/windows.iss', 'packaging/offline_hook.py', 'scripts/prepare_cpu_model.py', 'scripts/check_desktop_installer.py', 'scripts/package_linux.py', '.github/workflows/desktop-preview.yml']
+    paths: ['fixoflow/**', 'tests/**', 'pyproject.toml', 'packaging/**', 'scripts/**', '.github/workflows/desktop-preview.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,18 +19,19 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install -e ".[windows,packaging,dev]"
       - name: Test portable and Windows integration contracts
-        run: python -m pytest tests/test_config.py tests/test_startup.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_languages.py tests/test_session_deletion.py tests/test_stt.py tests/test_app_scope.py tests/test_models_lifecycle.py tests/test_checkup.py tests/test_appearance.py tests/test_benchmark_comparison.py tests/test_desktop.py tests/test_hub_controls.py tests/test_coordinator.py tests/test_session_memory.py tests/test_evaluation.py tests/test_devices_and_playback.py -q
+        run: python -m pytest tests -q
       - name: Stage pinned local speech model
         run: python scripts/prepare_cpu_model.py --output build/model
       - name: Freeze native application
         shell: pwsh
         run: |
           $env:FIXOFLOW_BUILD_MODEL_DIR = (Resolve-Path build/model).Path
+          python scripts/write_source_manifest.py
           python -m PyInstaller --noconfirm --clean packaging/Desktop.spec
       - name: Frozen UI and bundled model smoke check
         shell: pwsh
         run: |
-          $process = Start-Process -FilePath dist/Fixoflow/Fixoflow.exe -ArgumentList '--self-check --check-report build/self-check.json' -PassThru -RedirectStandardOutput build/self-check.log -RedirectStandardError build/self-check-error.log
+          $process = Start-Process -FilePath dist/Fixoflow/Fixoflow.exe -ArgumentList '--self-check --tray-check --check-report build/self-check.json' -PassThru -RedirectStandardOutput build/self-check.log -RedirectStandardError build/self-check-error.log
           if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'UI smoke check timed out' }
           Get-Content build/self-check.log
           Get-Content build/self-check-error.log
@@ -51,6 +52,7 @@ jobs:
           path: |
             dist/*-setup.exe
             build/self-check*
+            build/installed-windows-check.json
             build/Fixoflow/warn-Fixoflow.txt
           if-no-files-found: error
   linux:
@@ -59,35 +61,150 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Linux build and native runtime dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-venv python3-dev python3-gi python3-gi-cairo gir1.2-webkit2-4.1 libwebkit2gtk-4.1-dev libportaudio2 xclip libnotify-bin xvfb openbox
+        run: sudo apt-get update && sudo apt-get install -y python3-venv python3-dev python3-gi python3-gi-cairo gir1.2-webkit2-4.1 gir1.2-ayatanaappindicator3-0.1 libwebkit2gtk-4.1-dev libportaudio2 xclip libnotify-bin xvfb openbox dbus-x11 desktop-file-utils squashfs-tools
       - name: Install build dependencies
         run: |
           /usr/bin/python3 -m venv --system-site-packages .venv
           .venv/bin/python -m pip install -e ".[linux,packaging,dev]"
       - name: Test shared contracts
-        run: .venv/bin/python -m pytest tests/test_config.py tests/test_startup.py tests/test_controls.py tests/test_updates.py tests/test_cpu_stt.py tests/test_learner_and_db.py tests/test_polisher.py tests/test_audio_filter.py tests/test_audio_slicer.py tests/test_languages.py tests/test_session_deletion.py tests/test_stt.py tests/test_app_scope.py tests/test_models_lifecycle.py tests/test_checkup.py tests/test_appearance.py tests/test_benchmark_comparison.py tests/test_desktop.py tests/test_hub_controls.py tests/test_coordinator.py tests/test_session_memory.py tests/test_evaluation.py tests/test_devices_and_playback.py -q
+        run: .venv/bin/python -m pytest tests -q
+      - name: Test real X11 clipboard formats on a disposable display
+        run: xvfb-run -a env FIXOFLOW_TEST_X11_ISOLATED=1 .venv/bin/python -m pytest tests/test_clipboard_x11_native.py -q
       - name: Stage pinned local speech model
         run: .venv/bin/python scripts/prepare_cpu_model.py --output build/model
       - name: Freeze native application
-        run: FIXOFLOW_BUILD_MODEL_DIR="$PWD/build/model" .venv/bin/python -m PyInstaller --noconfirm --clean packaging/Desktop.spec
+        run: |
+          .venv/bin/python scripts/write_source_manifest.py
+          FIXOFLOW_BUILD_MODEL_DIR="$PWD/build/model" .venv/bin/python -m PyInstaller --noconfirm --clean packaging/Desktop.spec
       - name: Frozen UI and bundled model smoke check
         run: |
-          xvfb-run -a sh -c 'openbox > /tmp/openbox.log 2>&1 & timeout 120 dist/Fixoflow/Fixoflow --self-check --check-report build/self-check.json' 2>&1 | tee build/self-check.log
+          xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox.log 2>&1 & timeout 180 dist/Fixoflow/Fixoflow --self-check --tray-check --check-report build/self-check.json' 2>&1 | tee build/self-check.log
           test "${PIPESTATUS[0]}" = 0
           grep -q '"ui": "ok"' build/self-check.json
-      - name: Create Debian installer
-        run: .venv/bin/python scripts/package_linux.py
-      - name: Install and test Debian package
+      - name: Create DEB and pinned-tool AppImage previews
+        run: |
+          .venv/bin/python scripts/package_linux.py --format deb
+          .venv/bin/python scripts/package_linux.py --format appimage
+      - name: Install and test Debian package from an empty working directory
         run: |
           sudo apt-get install -y ./dist/*.deb
-          xvfb-run -a sh -c 'openbox > /tmp/openbox-installed.log 2>&1 & cd /tmp && timeout 120 /opt/fixoflow/Fixoflow --self-check --check-report /tmp/fixoflow-installed-check.json'
-          grep -q '"local_inference": "executed"' /tmp/fixoflow-installed-check.json
+          xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-installed.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/installed-deb-check.json'
+      - name: Execute actual AppImage runtime without FUSE
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-appimage.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable "$(echo dist/*.AppImage)" --report build/appimage-check.json'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: linux-preview
           path: |
             dist/*.deb
+            dist/*.AppImage
+            dist/*.json
+            build/installed-deb-check*
+            build/appimage-check*
             build/self-check*
+            build/Fixoflow/warn-Fixoflow.txt
+          if-no-files-found: error
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x86_64
+            python_arch: x64
+          - runner: macos-15
+            arch: arm64
+            python_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      FIXOFLOW_BUILD_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: ${{ matrix.python_arch }}
+      - name: Install native build dependencies
+        run: |
+          python -c 'import os,platform; assert platform.machine()==os.environ["FIXOFLOW_BUILD_ARCH"]'
+          python -m venv .venv
+          .venv/bin/python -m pip install -e ".[packaging,dev]"
+      - name: Test shared and Mac contracts
+        run: .venv/bin/python -m pytest tests -q
+      - name: Stage pinned native model explicitly
+        run: |
+          if [[ "$FIXOFLOW_BUILD_ARCH" == x86_64 ]]; then
+            .venv/bin/python scripts/prepare_cpu_model.py --output "build/bundled-model-$FIXOFLOW_BUILD_ARCH"
+          else
+            .venv/bin/python -c 'from huggingface_hub import snapshot_download; snapshot_download("mlx-community/whisper-base.en-mlx", revision="aa0678c3466ed62c5c6114ec600a0e1f96820089")'
+          fi
+      - name: Build architecture-specific ad-hoc preview app and DMG
+        run: |
+          bash scripts/build_app.sh
+          bash scripts/build_dmg.sh
+      - name: Validate installed copy from actual read-only DMG
+        run: .venv/bin/python scripts/check_native_preview.py --dmg dist/Fixoflow.dmg --report build/installed-mac-check.json
+      - name: Name architecture-specific preview artifact
+        run: |
+          version=$(.venv/bin/python -c 'from fixoflow.version import __version__; print(__version__)')
+          cp dist/Fixoflow.dmg "dist/Fixoflow-$version-macos-$FIXOFLOW_BUILD_ARCH-preview.dmg"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-${{ matrix.arch }}-preview
+          path: |
+            dist/*-preview.dmg
+            dist/macos-artifact.json
+            build/installed-mac-check.json
+            build/source-manifest.json
+            build/pyinstaller/Fixoflow/warn-Fixoflow.txt
+          if-no-files-found: error
+  fedora-rpm:
+    runs-on: ubuntu-24.04
+    container:
+      image: registry.fedoraproject.org/fedora@sha256:1a1f5d76c6095ed6d6bf195b69138e38b8d8436a05138d09d5f19374e55cc608
+      options: --security-opt seccomp=unconfined
+    timeout-minutes: 45
+    steps:
+      - name: Install Fedora native build/runtime tools
+        run: dnf install -y git python3 python3-pip python3-devel python3-gobject gtk3 webkit2gtk4.1 libayatana-appindicator-gtk3 portaudio xclip libnotify rpm-build desktop-file-utils xorg-x11-server-Xvfb xorg-x11-xauth openbox dbus-x11 gcc findutils util-linux
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/python -m pip install -e ".[linux,packaging,dev]"
+      - name: Test Fedora contracts
+        run: .venv/bin/python -m pytest tests -q
+      - name: Test real X11 clipboard formats on a disposable display
+        run: xvfb-run -a env FIXOFLOW_TEST_X11_ISOLATED=1 .venv/bin/python -m pytest tests/test_clipboard_x11_native.py -q
+      - name: Freeze Fedora native application
+        run: |
+          .venv/bin/python scripts/prepare_cpu_model.py --output build/model
+          .venv/bin/python scripts/write_source_manifest.py
+          FIXOFLOW_BUILD_MODEL_DIR="$PWD/build/model" .venv/bin/python -m PyInstaller --noconfirm --clean packaging/Desktop.spec
+      - name: Build and install actual RPM
+        run: |
+          .venv/bin/python scripts/package_linux.py --format rpm
+          dnf install -y ./dist/*.rpm
+          rpm -V fixoflow
+      - name: Test installed RPM as an unprivileged desktop user
+        run: |
+          useradd --create-home preview
+          chmod -R a+rX /opt/fixoflow
+          mkdir -p build/rpm-check
+          chmod 777 build/rpm-check
+          runuser -u preview -- xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-rpm.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/rpm-check/installed-rpm-check.json'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fedora-rpm-preview
+          path: |
+            dist/*.rpm
+            dist/*.rpm.json
+            build/rpm-check/*
+            build/source-manifest.json
             build/Fixoflow/warn-Fixoflow.txt
           if-no-files-found: error

@@ -53,6 +53,17 @@ def check(hub):
     })"""))
     assert resources == {'brand': True, 'font': True, 'fontCount': 1,
                          'palette': '#eee9fb', 'panels': 6}, resources
+    assert not evaluate(view,"document.getElementById('onboardingBackdrop').classList.contains('hidden')")
+    assert evaluate(view,"document.querySelectorAll('[data-setup-step]').length")==6
+    evaluate(view,'advanceOnboarding(1);');pump()
+    assert hub.config.onboarding_step==1
+    evaluate(view,'closeOnboarding();openOnboarding();');pump()
+    assert 'Step 2 of 6' in evaluate(view,"document.getElementById('onboardingProgress').textContent")
+    for _ in range(4):evaluate(view,'advanceOnboarding(1);');pump()
+    assert hub.config.onboarding_step==5
+    evaluate(view,'advanceOnboarding(1);');pump()
+    assert hub.config.onboarding_version==1
+    assert evaluate(view,"document.getElementById('onboardingBackdrop').classList.contains('hidden')")
     for tab in ('dashboard', 'insights', 'style', 'history', 'dictionary', 'settings'):
         evaluate(view, f"switchTab('{tab}')")
         pump()
@@ -110,12 +121,32 @@ def check(hub):
     assert evaluate(view, "document.getElementById('cfgLanguage').options.length") == 1
     assert evaluate(view, "document.getElementById('cfgLanguage').value") == 'en'
     assert evaluate(view, "document.getElementById('cfgLanguage').disabled")
-    assert 'coming soon' in evaluate(view, "document.getElementById('languageAvailability').textContent")
+    assert 'compatible multilingual model' in evaluate(view, "document.getElementById('languageAvailability').textContent")
     assert not evaluate(view, "document.querySelector('[onclick*=installModelPack]') !== null")
     assert not evaluate(view, "document.getElementById('cfgSpokenCommands').checked")
-    evaluate(view, "post('autosaveConfig',{request_id:9999,config:{language:'hi',model_name:'multilingual-base'}})")
+    evaluate(view, "post('autosaveConfig',{request_id:9999,config:{language:'hi',model_name:'mlx-community/whisper-base.en-mlx'}})")
     pump(.2)
     assert hub.config.language == 'en'
+    # Model changes and their language capabilities save as one valid choice.
+    for model in ['catalog:base-multi-mlx','catalog:parakeet-v3-onnx']:
+        evaluate(view,"{let option=element('option','',"+json.dumps(model)+");option.value="+json.dumps(model)+";document.getElementById('cfgModel').append(option);chooseModel(option.value);}")
+        pump(.2)
+        if 'base-multi' in model:
+            assert evaluate(view,"document.getElementById('cfgLanguage').options.length")==100
+            evaluate(view,"document.getElementById('cfgLanguage').value='es';document.getElementById('cfgLanguage').dispatchEvent(new Event('change'));")
+        else:
+            assert evaluate(view,"document.getElementById('cfgLanguage').value")=='auto'
+            assert evaluate(view,"document.getElementById('cfgLanguage').disabled")
+        pump(1.1)
+        assert hub.config.model_name==model
+        assert hub.config.language==('es' if 'base-multi' in model else None)
+    evaluate(view,"chooseModel('mlx-community/whisper-base.en-mlx');");pump(1.2)
+    assert hub.config.language=='en'
+    evaluate(view,"onLanguageData({model_name:'catalog:base-multi-mlx',languages:[{value:'es',label:'Spanish'}],message:'Stale reply'});")
+    assert evaluate(view,"document.getElementById('cfgLanguage').value")=='en'
+    evaluate(view,"onClipboardStatus({pending:true,message:'Test snapshot'});confirmClipboardRestore();")
+    assert not evaluate(view,"document.getElementById('clipboardConfirmation').classList.contains('hidden')")
+    evaluate(view,"document.getElementById('clipboardConfirmation').classList.add('hidden');")
     # A late acknowledgement cannot replace a newer style selection.
     evaluate(view, "window.realPreferenceResult=onPreferencesResult; window.delayedPreferenceResult=null; onPreferencesResult=result=>{window.delayedPreferenceResult=result}; selectOutputStyle('natural');")
     pump(1.1)
@@ -238,7 +269,7 @@ def check(hub):
                       'language_and_commands': 'ok', 'history_and_dictionary_paging':'ok', 'desktop_permission_visibility':'ok',
                       'correction_approval_forget_and_literal_rendering':'ok', 'session_journal':'ok',
                       'owned_audio_playback_without_output':'ok', 'microphone_selection_rendering':'ok',
-                      'microphone_opened': False, 'user_data_modified': False}))
+                      'guided_setup_resume_and_finish':'ok', 'model_aware_spanish_and_parakeet_auto_selection':'ok', 'stale_language_reply_protection':'ok', 'clipboard_confirmation_rendering':'ok', 'microphone_opened': False, 'user_data_modified': False}))
     print('VERDICT: PASS', flush=True)
 
 
@@ -259,7 +290,7 @@ def main():
         FixoflowDB._instance = FixoflowDB(Path(directory) / 'check.sqlite')
         with patch.object(FixoflowConfig, 'load', return_value=FixoflowConfig()), \
              patch('fixoflow.ui.controller.permission_snapshot', return_value={'accessibility':False,'input':False,'microphone':'not determined'}), \
-             patch('fixoflow.model_packs.ModelPackManager', return_value=SimpleNamespace(snapshot=lambda: {'state':'ready','message':'Installed test pack'},close=lambda:True)):
+             patch('fixoflow.model_packs.ModelPackManager', return_value=SimpleNamespace(snapshot=lambda: {'state':'ready','message':'Installed test pack'},close=lambda **kwargs:True)):
             hub = HubManager()
             assert hub._window is not None and hub._webview is not None
             def apply(candidate, **kwargs):

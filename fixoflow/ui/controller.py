@@ -13,7 +13,7 @@ class HubController:
             self._eval_js("onSettingsResult(false,'Microphone or model cleanup is still pending. Retry Quit shortly.');")
             return False
         manager=getattr(self,'model_packs',None)
-        if manager is None or manager.close():return True
+        if manager is None or manager.close(terminal=False):return True
         self._eval_js("onSettingsResult(false,'Model download is stopping or needs cleanup. Please retry Quit in a moment.');")
         return False
 
@@ -22,7 +22,36 @@ class HubController:
 
     def handle_action(self, action: str, payload):
         """Processes IPC messages coming from hub.html UI."""
-        if action in {'getRecovery','retryRecovery','deleteRecovery','revealRecovery'}:
+        if action in {'getOnboarding', 'saveOnboarding', 'practiceDictation', 'cancelPractice'}:
+            from fixoflow.onboarding import snapshot, candidate
+            try:
+                if action == 'saveOnboarding':
+                    if getattr(self, 'preferences_pending', False):
+                        raise ValueError('Wait for your preference changes to finish saving, then continue.')
+                    callback = getattr(self, 'on_config_change', None)
+                    if callback is None: raise ValueError('Open the full app to save setup progress.')
+                    callback(candidate(self.config, payload.get('step'), payload.get('complete', False)))
+                elif action == 'practiceDictation':
+                    if getattr(self, 'preferences_pending', False):
+                        raise ValueError('Wait for your model and language choices to finish saving.')
+                    callback = getattr(self, 'on_practice', None)
+                    if callback is None: raise ValueError('Open the full app to test dictation.')
+                    callback()
+                elif action == 'cancelPractice':
+                    callback = getattr(self, 'on_cancel_practice', None)
+                    if callback: callback()
+                self._eval_js('onOnboardingData('+json.dumps(snapshot(self.config))+');')
+            except Exception as error:
+                self._eval_js('onOnboardingError('+json.dumps(str(error))+');')
+        elif action in {'getClipboardStatus','restorePreviousClipboard'}:
+            from fixoflow.platform import clipboard_restore_status, restore_previous_clipboard
+            status = (restore_previous_clipboard(insertion_confirmed=True) if action == 'restorePreviousClipboard'
+                      and payload.get('confirmed') is True else clipboard_restore_status())
+            self._eval_js('onClipboardStatus('+json.dumps(status)+');')
+        elif action == 'getTrayStatus':
+            callback = getattr(self, 'on_tray_status', None)
+            self._eval_js('onTrayStatus('+json.dumps(callback() if callback else {'available':False,'message':'Open the full app to use its native tray.'})+');')
+        elif action in {'getRecovery','retryRecovery','deleteRecovery','revealRecovery'}:
             try:
                 if action=='retryRecovery':
                     callback=getattr(self,'on_recovery',None)
@@ -46,6 +75,7 @@ class HubController:
                 return
             try:
                 if action=='startMicCheck':
+                    if getattr(self,'preferences_pending',False):raise ValueError('Wait for your microphone choice to finish saving before checking it.')
                     if configure is None:raise ValueError('Dictation control is unavailable.')
                     configure(lambda:coordinator.checkup.start(self.config.input_device))
                 elif action=='cancelMicCheck':coordinator.checkup.close()
@@ -53,6 +83,7 @@ class HubController:
                     if configure is None:raise ValueError('Dictation control is unavailable.')
                     configure(lambda:coordinator.model_manager.start_install(str(payload.get('id',''))))
                 elif action=='warmSelectedModel':
+                    if getattr(self,'preferences_pending',False):raise ValueError('Wait for your model choice to finish saving before warming it.')
                     if configure is None:raise ValueError('Dictation control is unavailable.')
                     if not self.config.model_name.startswith('catalog:'):raise ValueError('Select an installed catalog model before warming it.')
                     configure(lambda:coordinator.model_manager.start_warm_up(self.config.model_name.removeprefix('catalog:'),coordinator.stt))
@@ -112,7 +143,12 @@ class HubController:
             from fixoflow.languages import options, ENGLISH_VARIANTS, MULTILINGUAL_MESSAGE
             manager=getattr(self,'model_packs',None)
             if action=='cancelModelPack' and manager:manager.cancel()
-            data={'languages':options(),'variants':ENGLISH_VARIANTS,'message':MULTILINGUAL_MESSAGE,
+            requested = payload.get('model_name', self.config.model_name)
+            # A draft-model query is read-only and cannot download or select it.
+            try: choices = options(requested)
+            except ValueError: choices = options(self.config.model_name)
+            data={'languages':choices,'variants':ENGLISH_VARIANTS,'message':MULTILINGUAL_MESSAGE,
+                  'model_name':requested,
                   'deferred_language':self.config.deferred_language}
             self._eval_js(f"onLanguageData({json.dumps(data)});")
         elif action == "startShortcutCapture":
@@ -273,7 +309,7 @@ class HubController:
             if isinstance(cfg_dict, dict) and cfg_dict:
                 try:
                     from dataclasses import asdict
-                    allowed = {"mode", "role_preset", "theme", "input_device", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login"}
+                    allowed = {"mode", "role_preset", "theme", "input_device", "cpu_threads", "hold_shortcut", "hands_free_shortcut", "model_name", "always_show_overlay", "sound_enabled", "overlay_position", "output_style", "check_updates_on_launch", "auto_install_updates", "spoken_commands", "language", "english_variant", "start_at_login", "restore_clipboard", "close_to_tray"}
                     data = asdict(self.config)
                     data.update({k: v for k, v in cfg_dict.items() if k in allowed})
                     candidate = FixoflowConfig(**data)
