@@ -68,6 +68,7 @@ if __name__ == "__main__":
                     root / "fixoflow/ui/hub.css", root / "fixoflow/ui/assets/flow-fold.png",
                     root / "fixoflow/ui/assets/Geist-Variable.woff2",
                     root / "fixoflow/ui/assets/Geist-LICENSE.txt", root / "fixoflow/ui/assets/Lucide-LICENSE.txt",
+                    root / "fixoflow/ui/assets/bootstrap-select.css", root / "fixoflow/ui/assets/Bootstrap-LICENSE.txt",
                     root / "models/whisper/config.json", root / "models/whisper/bundle-manifest.json"]
         model = root / "models/whisper"
         provenance=json.loads((root/'release/source-manifest.json').read_text())

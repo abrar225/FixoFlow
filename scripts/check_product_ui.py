@@ -55,8 +55,21 @@ def check(hub):
                          'palette': '#eee9fb', 'panels': 6}, resources
     assert not evaluate(view,"document.getElementById('onboardingBackdrop').classList.contains('hidden')")
     assert evaluate(view,"document.querySelectorAll('[data-setup-step]').length")==6
+    assert evaluate(view, "document.querySelector('#setupRail [aria-current=step]').textContent") == '01Welcome'
+    assert evaluate(view, "getComputedStyle(document.getElementById('setupMicrophone')).appearance") == 'none'
+    evaluate(view, "document.querySelector('#setupRole [value=developer]').click(); syncSetupChoices();")
+    assert evaluate(view, "document.querySelector('#setupRole input:checked').value") == 'developer'
+    assert hub.config.role_preset == 'everyday'
+    evaluate(view, "document.querySelector('#setupRole button').click(); flushPreferences();")
+    pump()
+    assert hub.config.role_preset == 'developer'
+    assert evaluate(view, "document.querySelector('#cfgRole input:checked').value") == 'developer'
+    evaluate(view, "document.querySelector('#setupRole [value=everyday]').click(); document.querySelector('#setupRole button').click(); flushPreferences();")
+    pump()
+    assert hub.config.role_preset == 'everyday'
     evaluate(view,'advanceOnboarding(1);');pump()
     assert hub.config.onboarding_step==1
+    assert evaluate(view, "document.activeElement.textContent") == 'Allow only what you need.'
     evaluate(view,'closeOnboarding();openOnboarding();');pump()
     assert 'Step 2 of 6' in evaluate(view,"document.getElementById('onboardingProgress').textContent")
     for _ in range(4):evaluate(view,'advanceOnboarding(1);');pump()

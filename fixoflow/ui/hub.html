@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fixo Flow</title>
+  <link rel="stylesheet" href="assets/bootstrap-select.css">
   <link rel="stylesheet" href="hub.css">
 </head>
 <body>
@@ -117,27 +118,33 @@
       <div id="addWordForm" class="card-section hidden"><div class="section-header">Add a dictionary entry</div><div class="word-fields"><label>Spoken phrase<input type="text" id="newPhrase" placeholder="maya desai" autocomplete="off"></label><label>Replace with<input type="text" id="newReplacement" placeholder="Maya Desai" autocomplete="off"></label><label>Category<select id="newCategory"><option value="ai">AI agent</option><option value="code">Code / tool</option><option value="acronym">Acronym</option><option value="general">General</option></select></label><div class="word-form-actions"><button class="action-btn" onclick="toggleAddWordModal()">Cancel</button><button class="primary-btn" onclick="saveNewWord()">Add entry</button></div></div><p id="dictionaryResult" role="status"></p></div>
       <div class="search-bar"><input id="dictionarySearch" type="search" aria-label="Search dictionary" placeholder="Search all words" oninput="post('getDictionary',{search:this.value})"></div><div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div><button id="dictionaryMore" class="action-btn" hidden onclick="post('getDictionary',{offset:dictionaryOffset,search:document.getElementById('dictionarySearch').value})">Load more words</button>
     </section>
-    <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
+    <section id="viewSettings" class="view-panel flow-components hidden" aria-labelledby="settingsTitle">
+      <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
+      <div class="card-section settings-card"><fieldset class="preset-picker" id="cfgRole"><legend>Starting preset <span>Optional</span></legend><div class="preset-grid">
+          <label class="preset-option"><input type="radio" name="cfgRole" value="everyday" checked><span><strong>Everyday</strong><small>Messages and quick notes</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="developer"><span><strong>Developer</strong><small>Literal identifiers and code</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="writer"><span><strong>Writer</strong><small>Drafts and longer prose</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="business"><span><strong>Business</strong><small>Professional emails and documents</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="accessibility"><span><strong>Hands-free access</strong><small>Visible controls and recording sounds</small></span></label>
+        </div><div class="preset-footer"><p class="setting-desc">Applying a preset changes writing or coding mode, sets a style, and turns off spoken commands. You can edit these settings later.</p><button class="action-btn" type="button" onclick="applyRolePreset('cfgRole')">Apply preset</button></div></fieldset></div>
+      <div class="card-section settings-card control-card"><div><label class="setting-title" for="cfgTheme">Appearance</label><p class="setting-desc">Choose a theme or follow your system.</p></div><select class="form-select" id="cfgTheme"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></div>
+      <div class="card-section settings-card"><label class="setting-title" for="cfgInputDevice">Microphone</label>
+        <p class="setting-desc">Choose the system default or a specific microphone. A missing saved microphone stops recording rather than switching devices. Devices must support 16 kHz mono capture.</p>
+        <div class="device-controls"><select class="form-select" id="cfgInputDevice"><option value="">System default at recording start</option></select>
+        <button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button></div><p id="inputDeviceStatus" role="status"></p>
+      </div>
+      <details id="setupServices" class="card-section settings-card service-card" ontoggle="if(this.open) post('getServices')"><summary><span>Microphone check and local models</span><span class="service-chevron" aria-hidden="true">⌄</span></summary><div class="service-content">
+        <p>Run a five-second signal check before dictating. It checks levels and clipping, not recognition accuracy. No checkup audio is saved.</p>
+        <div class="button-row"><button class="action-btn" onclick="post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop check</button></div>
+        <meter id="micCheckLevel" min="0" max="1" value="0" aria-label="Microphone signal level"></meter><p id="micCheckStatus" role="status"></p>
+        <h2>Local speech models</h2><p>Downloads are explicit and verified. Select an installed model and a compatible language, wait for Saved, then warm it before dictating. Language support describes model capability; quality varies by speech and hardware.</p>
+        <div class="button-row"><button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel model operation</button></div><div id="catalogModels"></div>
+      </div></details>
       <div class="card-section"><div class="section-header">Clipboard and tray</div>
         <div class="setting-row"><div class="setting-copy"><label for="cfgRestoreClipboard" class="setting-title">Preserve my previous clipboard</label><span class="setting-desc">Keep a supported clipboard snapshot in memory during dictation. After confirming your words were pasted, choose Restore previous clipboard. Newer clipboard content is never replaced.</span></div><input id="cfgRestoreClipboard" type="checkbox"></div>
         <p id="clipboardStatus" role="status"></p><button id="restoreClipboardButton" class="action-btn" disabled onclick="confirmClipboardRestore()">Restore previous clipboard after paste</button>
         <div class="setting-row"><div class="setting-copy"><label for="cfgCloseToTray" class="setting-title">Keep running when I close the window</label><span class="setting-desc">On Windows and supported Linux desktops, close to the tray when its menu is available. Use Quit in the tray to exit. The Mac menu bar remains available when its window closes.</span></div><input id="cfgCloseToTray" type="checkbox"></div><p id="trayStatus" role="status"></p>
       </div>
-      <div class="card-section"><label class="setting-title" for="cfgRole">Optional starting preset</label><select id="cfgRole"><option value="everyday">Everyday — writing, natural style</option><option value="developer">Developer — coding, literal identifiers</option><option value="writer">Writer — writing, natural paragraphs</option><option value="business">Business — writing, professional rules</option><option value="accessibility">Hands-free access — writing, visible controls and sounds</option></select><button class="action-btn" onclick="applyRolePreset()">Apply preset</button><p class="setting-desc">Changes mode/style and turns spoken commands off. Hands-free access also enables visible controls and sounds. You can change every setting afterwards; this does not infer your profession or train a model.</p></div>
-      <div class="card-section"><label class="setting-title" for="cfgTheme">Appearance</label><select id="cfgTheme"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></div>
-      <details id="setupServices" class="card-section" ontoggle="if(this.open) post('getServices')"><summary>Microphone check and local model downloads</summary>
-        <p>Run a five-second signal check before dictating. It checks levels and clipping, not recognition accuracy. No checkup audio is saved.</p>
-        <button class="action-btn" onclick="post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop / retry cleanup</button>
-        <meter id="micCheckLevel" min="0" max="1" value="0" aria-label="Microphone signal level"></meter><p id="micCheckStatus" role="status"></p>
-        <h2>Local speech models</h2><p>Downloads are explicit and verified. Select an installed model and a compatible language, wait for Saved, then warm it before dictating. Language support describes model capability; quality varies by speech and hardware.</p>
-        <button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel model operation</button><div id="catalogModels"></div>
-      </details>
-      <div class="card-section"><label class="setting-title" for="cfgInputDevice">Microphone</label>
-        <p class="setting-desc">Choose the system default or a specific microphone. A missing saved microphone stops recording rather than switching devices. Devices must support 16 kHz mono capture.</p>
-        <select id="cfgInputDevice"><option value="">System default at recording start</option></select>
-        <button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button><p id="inputDeviceStatus" role="status"></p>
-      </div>
-      <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
       <div class="card-section"><div class="section-header">Startup</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgStartAtLogin">Start Fixo Flow when I sign in</label><span class="setting-desc">Start quietly with dictation controls available. The main window stays closed or minimized.</span><span id="startupStatus" class="setting-desc" role="status">Checking startup registration…</span><button id="manageStartup" class="action-btn" hidden onclick="post('openStartupSettings')">Manage in system settings</button></div><label class="switch"><input id="cfgStartAtLogin" type="checkbox" checked disabled><span aria-hidden="true"></span></label></div></div>
       <div class="card-section"><div class="section-header">Controls</div><div class="setting-group">
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show the floating pill at all times</label><span class="setting-desc">Keep the compact dictation pill visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
@@ -173,15 +180,22 @@
     </section>
   </main>
   <div id="onboardingBackdrop" class="onboarding-backdrop hidden">
-    <section id="onboardingDialog" class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" tabindex="-1">
-      <div class="heading-row"><h1 id="onboardingTitle">Make Fixo Flow yours.</h1><button class="action-btn" onclick="closeOnboarding()" aria-label="Close guided setup and resume later">Resume later</button></div>
-      <p id="onboardingProgress" class="setting-desc"></p>
-      <div class="onboarding-page" data-setup-step="0"><h2>A few choices, then your first words.</h2><p>Speech processing stays on this computer. Model downloads are optional and explicit. You can skip any step and return here from the window or tray.</p><label for="setupRole">Optional starting preset</label><select id="setupRole"><option value="everyday">Everyday</option><option value="developer">Developer</option><option value="writer">Writer</option><option value="business">Business</option><option value="accessibility">Hands-free access</option></select><button class="action-btn" onclick="document.getElementById('cfgRole').value=document.getElementById('setupRole').value;applyRolePreset()">Apply starting preset</button><p class="setting-desc">A preset changes mode/style and spoken commands. Every setting stays editable.</p></div>
-      <div class="onboarding-page hidden" data-setup-step="1"><h2>Allow only what you need.</h2><p id="setupPermissions" role="status">Checking permissions…</p><p>Microphone access lets Fixo hear you. On Mac, Accessibility permits paste and Input Monitoring enables shortcuts. On Windows, desktop microphone access is controlled in Settings. Linux shortcut and paste support depends on your desktop session.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('getPermissions')">Refresh status</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'microphone'})">Microphone settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'accessibility'})">Paste settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'input'})">Shortcut settings</button></div></div>
-      <div class="onboarding-page hidden" data-setup-step="2"><h2>Check your microphone.</h2><label for="setupMicrophone">Input device</label><select id="setupMicrophone" onchange="document.getElementById('cfgInputDevice').value=this.value;markUnsaved()"><option value="">System default at recording start</option></select><div class="button-row"><button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button><button class="primary-btn" onclick="flushPreferences();post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop check</button></div><meter id="setupMicLevel" min="0" max="1" value="0" aria-label="Setup microphone signal"></meter><p id="setupMicStatus" role="status"></p><p class="setting-desc">Five-second level/clipping check; no test audio is saved. Wait for preferences to save before checking a changed microphone.</p></div>
-      <div class="onboarding-page hidden" data-setup-step="3"><h2>Choose a model and language.</h2><p>Base English is bundled. Other models require an explicit download. Larger models need more storage and memory; the catalog shows the download size.</p><label for="setupModel">Selected model</label><select id="setupModel" onchange="chooseModel(this.value)"></select><label for="setupLanguage">Language supported by this model</label><select id="setupLanguage" onchange="document.getElementById('cfgLanguage').value=this.value;markUnsaved()"></select><p id="setupLanguageNote" class="setting-desc"></p><div class="button-row"><button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel download / warm-up</button></div><p class="setting-desc">The bundled model loads when you start the practice test. Catalog models show their explicit warm-up state below.</p><div id="setupCatalog"></div></div>
-      <div class="onboarding-page hidden" data-setup-step="4"><h2>Try a safe dictation.</h2><p>Click Start test, say a sentence, then click Stop test. The result appears here and is saved to local History. It is never pasted into another application.</p><p id="setupShortcuts" class="setting-desc"></p><div class="button-row"><button id="practiceButton" class="primary-btn" onclick="post('practiceDictation')">Start test</button><button class="action-btn" onclick="post('cancelPractice')">Cancel test</button><button class="action-btn" onclick="post('enableShortcut')">Enable / retry shortcuts</button></div><label for="practiceTranscript">Your practice transcript</label><textarea id="practiceTranscript" rows="4" readonly></textarea><p id="practiceStatus" role="status"></p></div>
-      <div class="onboarding-page hidden" data-setup-step="5"><h2>Your controls are within reach.</h2><p>For everyday dictation, focus a text field, hold your hold-to-talk shortcut and release to write. Hands-free starts and stops with a tap. The tray/menu bar has quick access to models, language, microphone and recovery.</p><p>Check important text before sending. If paste fails, open History or Recovery. A setup completion marker means your choices are saved; it does not grant missing system permissions.</p><button class="action-btn" onclick="post('showOverlay')">Show floating controls</button></div>
+    <section id="onboardingDialog" class="onboarding-dialog flow-components" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" tabindex="-1">
+      <div class="heading-row setup-header"><div><div class="setup-brand"><svg viewBox="0 0 36 20" aria-hidden="true"><path d="M2 10h4l3-5 4 11 5-14 5 15 4-10 3 3h4"/></svg> Guided setup</div><h1 id="onboardingTitle">Make Fixo Flow yours.</h1></div><button class="action-btn" onclick="closeOnboarding()" aria-label="Close guided setup and resume later">Resume later</button></div>
+      <ol id="setupRail" aria-label="Setup steps"></ol>
+      <p id="onboardingProgress" class="setup-counter"></p>
+      <div class="onboarding-page" data-setup-step="0"><h2 tabindex="-1">A few choices, then your first words.</h2><p>Speech processing stays on this computer. Model downloads are optional and explicit. You can skip any step and return here from the window or tray.</p><fieldset class="preset-picker" id="setupRole"><legend>Starting preset <span>Optional</span></legend><div class="preset-grid">
+          <label class="preset-option"><input type="radio" name="setupRole" value="everyday" checked><span><strong>Everyday</strong><small>Messages and quick notes</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="developer"><span><strong>Developer</strong><small>Literal identifiers and code</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="writer"><span><strong>Writer</strong><small>Drafts and longer prose</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="business"><span><strong>Business</strong><small>Professional emails and documents</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="accessibility"><span><strong>Hands-free access</strong><small>Visible controls and recording sounds</small></span></label>
+        </div><div class="preset-footer"><p class="setting-desc">Applying a preset changes writing or coding mode, sets a style, and turns off spoken commands. You can edit these settings later.</p><button class="action-btn" type="button" onclick="applyRolePreset('setupRole')">Apply preset</button></div></fieldset></div>
+      <div class="onboarding-page hidden" data-setup-step="1"><h2 tabindex="-1">Allow only what you need.</h2><p id="setupPermissions" role="status">Checking permissions…</p><p>Microphone access lets Fixo hear you. On Mac, Accessibility permits paste and Input Monitoring enables shortcuts. On Windows, desktop microphone access is controlled in Settings. Linux shortcut and paste support depends on your desktop session.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('getPermissions')">Refresh status</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'microphone'})">Microphone settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'accessibility'})">Paste settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'input'})">Shortcut settings</button></div></div>
+      <div class="onboarding-page hidden" data-setup-step="2"><h2 tabindex="-1">Check your microphone.</h2><label for="setupMicrophone">Input device</label><select class="form-select" id="setupMicrophone" onchange="document.getElementById('cfgInputDevice').value=this.value;markUnsaved()"><option value="">System default at recording start</option></select><div class="button-row"><button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button><button class="primary-btn" onclick="flushPreferences();post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop check</button></div><meter id="setupMicLevel" min="0" max="1" value="0" aria-label="Setup microphone signal"></meter><p id="setupMicStatus" role="status"></p><p class="setting-desc">Five-second level/clipping check; no test audio is saved. Wait for preferences to save before checking a changed microphone.</p></div>
+      <div class="onboarding-page hidden" data-setup-step="3"><h2 tabindex="-1">Choose a model and language.</h2><p>Base English is bundled. Other models require an explicit download. Larger models need more storage and memory; the catalog shows the download size.</p><label for="setupModel">Selected model</label><select class="form-select" id="setupModel" onchange="chooseModel(this.value)"></select><label for="setupLanguage">Language supported by this model</label><select class="form-select" id="setupLanguage" onchange="document.getElementById('cfgLanguage').value=this.value;markUnsaved()"></select><p id="setupLanguageNote" class="setting-desc"></p><div class="button-row"><button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel download / warm-up</button></div><p class="setting-desc">The bundled model loads when you start the practice test. Catalog models show their explicit warm-up state below.</p><div id="setupCatalog"></div></div>
+      <div class="onboarding-page hidden" data-setup-step="4"><h2 tabindex="-1">Try a safe dictation.</h2><p>Click Start test, say a sentence, then click Stop test. The result appears here and is saved to local History. It is never pasted into another application.</p><p class="practice-example">“Let’s make room for one good idea today.”</p><p id="setupShortcuts" class="setting-desc"></p><div class="button-row"><button id="practiceButton" class="primary-btn" onclick="post('practiceDictation')">Start test</button><button class="action-btn" onclick="post('cancelPractice')">Cancel test</button><button class="action-btn" onclick="post('enableShortcut')">Enable / retry shortcuts</button></div><label for="practiceTranscript">Your practice transcript</label><textarea id="practiceTranscript" rows="4" readonly></textarea><p id="practiceStatus" role="status"></p></div>
+      <div class="onboarding-page hidden" data-setup-step="5"><h2 tabindex="-1">Your controls are within reach.</h2><p>For everyday dictation, focus a text field, hold your hold-to-talk shortcut and release to write. Hands-free starts and stops with a tap. The tray/menu bar has quick access to models, language, microphone and recovery.</p><p>Check important text before sending. If paste fails, open History or Recovery. A setup completion marker means your choices are saved; it does not grant missing system permissions.</p><button class="action-btn" onclick="post('showOverlay')">Show floating controls</button></div>
       <p id="onboardingError" class="warning" role="status" aria-live="polite"></p><p data-settings-result role="status"></p>
       <div class="onboarding-footer"><button id="setupBack" class="action-btn" onclick="advanceOnboarding(-1)">Back</button><button id="setupNext" class="primary-btn" onclick="advanceOnboarding(1)">Continue</button></div>
     </section>
@@ -215,17 +229,42 @@
       if(onboardingFocus?.isConnected) onboardingFocus.focus();
     }
     function onOnboardingData(data) {
+      const stepChanged=onboardingState?.step!==data.step;
       onboardingState=data;
       if(onboardingFinishing && data.completed){onboardingFinishing=false;closeOnboarding();return;}
       const backdrop=document.getElementById('onboardingBackdrop');
-      if(backdrop.classList.contains('hidden')) {
+      const opening=backdrop.classList.contains('hidden');
+      if(opening) {
         if(!onboardingForce && (data.completed || onboardingDismissed)) return;
         onboardingFocus=document.activeElement;backdrop.classList.remove('hidden');
         document.querySelector('aside').inert=true;document.querySelector('main').inert=true;
         document.getElementById('onboardingDialog').focus();
       }
       document.getElementById('onboardingProgress').textContent='Step '+(data.step+1)+' of '+data.steps.length+' · '+data.steps[data.step];
-      document.querySelectorAll('[data-setup-step]').forEach(page=>page.classList.toggle('hidden',Number(page.dataset.setupStep)!==data.step));
+      const rail=document.getElementById('setupRail');
+      if(!rail.children.length) {
+        data.steps.forEach((label,index)=>{
+          const item=document.createElement('li');
+          const number=document.createElement('span');
+          number.setAttribute('aria-hidden','true');
+          number.textContent=String(index+1).padStart(2,'0');
+          item.append(number,document.createTextNode(label));
+          rail.append(item);
+        });
+      }
+      [...rail.children].forEach((item,index)=>{
+        item.classList.toggle('setup-past',index<data.step);
+        if(index===data.step) item.setAttribute('aria-current','step');
+        else item.removeAttribute('aria-current');
+      });
+      document.querySelectorAll('[data-setup-step]').forEach(page=>{
+        const active=Number(page.dataset.setupStep)===data.step;
+        page.classList.toggle('hidden',!active);
+        if(active && (opening || stepChanged)) {
+          document.getElementById('onboardingDialog').scrollTop=0;
+          if(stepChanged && !opening) page.querySelector('h2').focus({preventScroll:true});
+        }
+      });
       document.getElementById('setupBack').disabled=data.step===0;
       document.getElementById('setupNext').textContent=data.step===data.steps.length-1?'Finish setup':'Continue / skip';
       document.getElementById('onboardingError').textContent='';syncSetupChoices();
@@ -241,9 +280,9 @@
     function syncSetupChoices() {
       for(const [source,target] of [['cfgModel','setupModel'],['cfgLanguage','setupLanguage'],['cfgInputDevice','setupMicrophone']]) {
         const original=document.getElementById(source),copy=document.getElementById(target);
-        copy.replaceChildren(...[...original.options].map(option=>option.cloneNode(true)));copy.value=original.value;copy.disabled=original.disabled;
+        if(original.innerHTML!==copy.innerHTML) copy.replaceChildren(...[...original.options].map(option=>option.cloneNode(true)));
+        copy.value=original.value;copy.disabled=original.disabled;
       }
-      document.getElementById('setupRole').value=currentConfig.role_preset || 'everyday';
       document.getElementById('setupLanguageNote').textContent=document.getElementById('languageAvailability').textContent;
       document.getElementById('setupShortcuts').textContent='Hold to talk: '+(currentConfig.hold_shortcut?.label || 'not set')+' · Hands-free: '+(currentConfig.hands_free_shortcut?.label || 'not set')+'. Change bindings in Settings.';
     }
@@ -272,7 +311,7 @@
       if(document.getElementById('onboardingBackdrop').classList.contains('hidden'))return;
       if(event.key==='Escape'){event.preventDefault();closeOnboarding();}
       if(event.key==='Tab'){
-        const focusable=[...dialog.querySelectorAll('button:not(:disabled),select:not(:disabled),textarea,[tabindex="0"]')].filter(node=>node.getClientRects().length);
+        const focusable=[...dialog.querySelectorAll('button:not(:disabled),select:not(:disabled),input[type=radio]:checked,textarea,[tabindex="0"]')].filter(node=>node.getClientRects().length);
         if(!focusable.length)return;
         if(event.shiftKey && (document.activeElement===focusable[0] || document.activeElement===dialog)){event.preventDefault();focusable[focusable.length-1].focus();}
         else if(!event.shiftKey && document.activeElement===focusable[focusable.length-1]){event.preventDefault();focusable[0].focus();}
@@ -404,8 +443,19 @@
       syncSetupChoices();
     }
     function applyTheme(theme) { document.documentElement.dataset.theme=theme || 'light'; }
-    function applyRolePreset() {
-      currentConfig.role_preset=document.getElementById('cfgRole').value;
+    function syncRolePreset() {
+      const value=currentConfig.role_preset || 'everyday';
+      for(const id of ['cfgRole','setupRole']) {
+        const picker=document.getElementById(id);
+        if(picker.dataset.applied===value) continue;
+        picker.dataset.applied=value;
+        const option=[...picker.querySelectorAll('input')].find(input=>input.value===value);
+        if(option) option.checked=true;
+      }
+    }
+    function applyRolePreset(id) {
+      currentConfig.role_preset=document.querySelector('#'+id+' input:checked').value;
+      syncRolePreset();
       selectMode(currentConfig.role_preset==='developer'?'coding':'writing',false);
       currentConfig.output_style=currentConfig.role_preset==='business'?'professional':'natural';
       styleSelection=currentConfig.output_style;renderStyleOptions();
@@ -584,7 +634,7 @@
       cfg = {...cfg, ...protectedDraft};
       currentConfig = {...cfg};
       applyTheme(cfg.theme || 'light');document.getElementById('cfgTheme').value=cfg.theme || 'light';
-      document.getElementById('cfgRole').value=cfg.role_preset || 'everyday';
+      syncRolePreset();
       onInputDeviceData([], '', cfg.input_device || '');
       configLoaded = true;
       renderShortcutRecorder();
@@ -990,7 +1040,7 @@
     }
     window.addEventListener('pywebviewready', () => { post('getConfig');post('getUpdateStatus');switchTab('dashboard'); });
     window.onload = () => {
-      document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('change',()=>input.id==='cfgModel'?chooseModel(input.value):markUnsaved()));
+      document.querySelectorAll('#viewSettings input:not([name=cfgRole]),#viewSettings select').forEach(input => input.addEventListener('change',()=>input.id==='cfgModel'?chooseModel(input.value):markUnsaved()));
       post('getConfig');
       post('getUpdateStatus');
       switchTab('dashboard');
