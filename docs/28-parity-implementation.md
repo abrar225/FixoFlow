@@ -70,18 +70,30 @@ support for every distro, desktop, microphone or paste target.
 
 ## Verification ledger
 
-Record final source commit and actual native runs below after integration.
-No physical microphone, synthetic global keyboard or user's clipboard may be
-used by automated checks. Native X11 tests require their own Xvfb display.
-Existing user edits in docs/08 and docs/09 are excluded from commits.
-
-- Model, download integrity, compatibility and local engine tests passed in the
-  model workstream; actual public non-English runtime reports are retained.
-- Native WebKit integration passed guided setup resume, compatible Spanish
-  selection, forced-auto Parakeet, stale-capability-reply protection, existing
-  panels, history and correction UI. Final completion checks are being recorded.
+- The local regression suite passed 374 tests with four skips. The separate
+  native WebKit test passed guided setup resume and completion, Spanish model
+  selection, Parakeet automatic language selection, stale reply protection and
+  the existing History and correction flows.
+- The frozen Apple Silicon app decoded the pinned Spanish sample offline with
+  Whisper Base, Whisper Small and Parakeet v3. The local DMG also passed its
+  read-only copied-app UI and bundled model checks. Local app source `72f33cb`
+  matches the application code in the CI candidate `08fccb0`.
 - Independent review caught and fixed stale idle-pill theme, nonterminal service
   draining, refused-restart flags, and diagnostic close-to-tray behavior. Regression
   tests cover the critical lifecycle boundaries.
-- Native Intel, Ubuntu/Fedora and Windows execution must be recorded from the
-  final integration workflow; source/fixture tests are not substitutes.
+- CI passed the installed desktop and bundled inference checks for Windows x64,
+  both Mac architectures and Ubuntu DEB. Ubuntu also ran the actual AppImage
+  using extraction mode and exercised X11 clipboard ownership on a disposable
+  display. [Native run for `08fccb0`](https://github.com/abrar225/FixoFlow/actions/runs/41775762235)
+- Fedora built, installed and verified the RPM payload. Its desktop startup test
+  timed out. The separate Bubblewrap preflight reproduced a permission denial
+  while configuring loopback in the CI container's isolated network namespace.
+  The RPM stays outside the verified release manifest pending a Fedora desktop
+  check in an environment that supports the WebKit sandbox.
+  [Fedora preflight](https://github.com/abrar225/FixoFlow/actions/runs/41777627106)
+
+Physical microphone and global paste testing remain pending. Automated checks ran
+in disposable profiles and used public or synthetic audio. The draft contains five
+installers, their native acceptance manifest and `SHA256SUMS`. Each uploaded asset
+digest matches the reviewed manifest or checksum file. [Draft release](https://github.com/abrar225/FixoFlow/releases/tag/untagged-107257e5705c6a6935b5)
+[Attachment check](https://github.com/abrar225/FixoFlow/actions/runs/41778084794)
