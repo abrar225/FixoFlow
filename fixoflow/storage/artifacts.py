@@ -1,5 +1,6 @@
 """Deletion of explicitly owned session files, never arbitrary DB paths."""
 import json
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import re
@@ -7,6 +8,19 @@ import stat
 import wave
 
 SESSION_NAME = re.compile(r'session_\d{8}_\d{6}_\d{6}\.wav\Z')
+
+
+def create_session_file(root):
+    """Reserve an owned WAV without relying on the wall clock being unique."""
+    start = datetime.now()
+    for offset in range(1000):
+        stamp = (start + timedelta(microseconds=offset)).strftime('%Y%m%d_%H%M%S_%f')
+        path = Path(root) / f'session_{stamp}.wav'
+        try:
+            return path, path.open('xb')
+        except FileExistsError:
+            continue
+    raise FileExistsError('Could not reserve a new recording filename.')
 
 
 def session_files(audio_path, root):

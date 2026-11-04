@@ -1,7 +1,6 @@
 """Bounded microphone capture with continuously persisted, recoverable PCM WAVs."""
 from __future__ import annotations
 
-import datetime
 from dataclasses import dataclass
 import logging
 import os
@@ -17,6 +16,7 @@ import sounddevice as sd
 
 from fixoflow.audio.filter import clean_audio_pipeline
 from fixoflow.config import FixoflowConfig
+from fixoflow.storage.artifacts import create_session_file
 
 logger = logging.getLogger(__name__)
 
@@ -157,13 +157,11 @@ class AudioRecorder:
                 raise RecordingError("Previous capture still needs cleanup", self._current_session_path)
         cache_dir = Path(self.config.cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-        path = cache_dir / f'session_{timestamp}.wav'
+        path, output = create_session_file(cache_dir)
         self._current_session_path = path
         self._error = None
         self._pending = queue.Queue(self.MAX_PENDING_BLOCKS)
         self._stop_requested = False
-        output = path.open('xb')
         try:
             session = wave.open(output, 'wb')
             session.setnchannels(self.channels)

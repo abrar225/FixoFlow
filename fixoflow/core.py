@@ -363,9 +363,9 @@ class FixoflowCoordinator:
 
     def recover_session(self, source_id, cancellation=None):
         """Retry into a new owned session/history entry, never into another app."""
-        import datetime
         import wave
         from fixoflow.audio.recorder import Capture
+        from fixoflow.storage.artifacts import create_session_file
         with self._lock:
             if self._state!='IDLE' or self.maintenance_busy:
                 raise RuntimeError('Finish dictation and model/microphone operations before recovery.')
@@ -381,20 +381,21 @@ class FixoflowCoordinator:
             self.session_id=self.db.begin_session(source['app_name'],'',self.config.model_name,
                 self.config.language,self.config.mode,app_id=source['app_id'])
             root=Path(self.config.cache_dir);root.mkdir(parents=True,exist_ok=True)
-            path=root/('session_'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')+'.wav')
-            with self.db.open_owned_audio(source['audio_path']) as input_audio, path.open('xb') as output:
-                self.db.register_session_artifact(path,root)
-                self._journal(audio_path=str(path))
-                before=os.fstat(input_audio.fileno());remaining=before.st_size
-                while remaining:
-                    if self._cancel_requested.is_set():raise InterruptedError('Recovery cancelled; original recording retained.')
-                    block=input_audio.read(min(remaining,1024*1024))
-                    if not block:raise ValueError('Recovery source was truncated while copying.')
-                    output.write(block);remaining-=len(block)
-                after=os.fstat(input_audio.fileno())
-                if (before.st_size,before.st_mtime_ns)!=(after.st_size,after.st_mtime_ns):
-                    raise ValueError('Recovery source changed while copying.')
-                output.flush();os.fsync(output.fileno())
+            with self.db.open_owned_audio(source['audio_path']) as input_audio:
+                path, output = create_session_file(root)
+                with output:
+                    self.db.register_session_artifact(path,root)
+                    self._journal(audio_path=str(path))
+                    before=os.fstat(input_audio.fileno());remaining=before.st_size
+                    while remaining:
+                        if self._cancel_requested.is_set():raise InterruptedError('Recovery cancelled; original recording retained.')
+                        block=input_audio.read(min(remaining,1024*1024))
+                        if not block:raise ValueError('Recovery source was truncated while copying.')
+                        output.write(block);remaining-=len(block)
+                    after=os.fstat(input_audio.fileno())
+                    if (before.st_size,before.st_mtime_ns)!=(after.st_size,after.st_mtime_ns):
+                        raise ValueError('Recovery source changed while copying.')
+                    output.flush();os.fsync(output.fileno())
             with wave.open(str(path)) as audio:
                 if (audio.getnchannels(),audio.getsampwidth(),audio.getframerate())!=(1,2,16000):
                     raise ValueError('Recovery requires 16 kHz mono PCM audio.')

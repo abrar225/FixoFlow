@@ -2,7 +2,7 @@
 import os
 import runpy
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 
 root = Path(SPECPATH).parent
 support = runpy.run_path(str(root / "packaging/build_support.py"))
@@ -15,7 +15,7 @@ backend_data = collect_data_files("mlx_whisper") + collect_data_files("mlx") if 
 backend_imports = collect_submodules("mlx") if mlx_backend else ["faster_whisper", "ctranslate2", "av"]
 if mlx_backend:
     backend_binaries += collect_dynamic_libs("onnxruntime")
-    backend_data += collect_data_files("onnx_asr")
+    backend_data += collect_data_files("onnx_asr") + copy_metadata("onnx-asr")
     backend_imports += ["onnxruntime", "onnx_asr"]
 model = Path(os.environ["FIXOFLOW_BUILD_MODEL_DIR"])
 release = runpy.run_path(str(root / "fixoflow/version.py"))

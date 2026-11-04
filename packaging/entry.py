@@ -75,6 +75,8 @@ if __name__ == "__main__":
         if architecture == "arm64":
             import mlx.core
             import mlx_whisper
+            import onnx_asr
+            import onnxruntime
             required += [root / "mlx/lib/mlx.metallib", root / "mlx_whisper/assets/gpt2.tiktoken", root / "mlx_whisper/assets/mel_filters.npz"]
             assert any((model / n).is_file() for n in ("weights.npz", "weights.safetensors")), "Missing bundled model weights"
         elif architecture == "x86_64":

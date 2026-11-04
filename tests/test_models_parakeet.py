@@ -9,6 +9,13 @@ from fixoflow.stt.engine import TranscriptionError, create_stt_engine
 from fixoflow.stt.parakeet import ParakeetEngine
 
 
+@pytest.fixture(autouse=True)
+def parakeet_capable_fixture(monkeypatch):
+    # These fake-engine contracts do not depend on native ONNX availability.
+    from fixoflow.models import catalog
+    monkeypatch.setattr(catalog.platform, 'machine', lambda: 'arm64')
+
+
 def test_parakeet_reuses_local_model_without_hint_or_forced_language(monkeypatch,tmp_path):
     from fixoflow.models import manager
     monkeypatch.setattr(manager,'resolve_catalog_model',lambda name,expected_backend:str(tmp_path))

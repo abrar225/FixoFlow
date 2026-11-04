@@ -115,6 +115,8 @@ class DesktopApplication:
         self.hub.handle_action('getConfig',{});self.hub.handle_action('getDashboard',{});self.hub.handle_action('getUpdateStatus',{})
         self.hub._eval_js('onDesktopPlatform('+json.dumps('Windows' if sys.platform=='win32' else 'Linux')+');')
         if self._self_check:
+            import onnx_asr
+            import onnxruntime
             if self._tray_check:
                 self.tray.start()
                 if not self.tray._ready.wait(5):raise RuntimeError(self.tray.error or 'Native tray did not become ready.')

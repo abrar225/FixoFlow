@@ -82,7 +82,7 @@ def test_mac_spec_selects_only_compatible_backend(architecture, monkeypatch, tmp
     license_file = tmp_path / 'LICENSE'
     license_file.write_text('test fixture license')
     monkeypatch.setattr(metadata, 'distribution', lambda name: SimpleNamespace(files=[Path('LICENSE')], locate_file=lambda _: license_file))
-    for method in ('collect_data_files', 'collect_dynamic_libs'):
+    for method in ('collect_data_files', 'collect_dynamic_libs', 'copy_metadata'):
         monkeypatch.setattr(hooks, method, lambda name, **kwargs: [(name, name)])
     monkeypatch.setattr(hooks, 'collect_submodules', lambda name: [name])
     captured = {}

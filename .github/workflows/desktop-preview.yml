@@ -182,6 +182,7 @@ jobs:
         run: xvfb-run -a env FIXOFLOW_TEST_X11_ISOLATED=1 .venv/bin/python -m pytest tests/test_clipboard_x11_native.py -q
       - name: Freeze Fedora native application
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           .venv/bin/python scripts/prepare_cpu_model.py --output build/model
           .venv/bin/python scripts/write_source_manifest.py
           FIXOFLOW_BUILD_MODEL_DIR="$PWD/build/model" .venv/bin/python -m PyInstaller --noconfirm --clean packaging/Desktop.spec

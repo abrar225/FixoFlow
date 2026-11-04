@@ -122,7 +122,9 @@ def test_incompatible_models_never_start_download(tmp_path,fixture_spec):
     assert not calls
 
 
-def test_multilingual_and_parakeet_capabilities_are_model_specific():
+def test_multilingual_and_parakeet_capabilities_are_model_specific(monkeypatch):
+    from fixoflow.models import catalog
+    monkeypatch.setattr(catalog.platform, 'machine', lambda: 'arm64')
     from fixoflow.languages import available_languages, options, validate_language_selection
     assert available_languages('catalog:base-en-mlx',backend='mlx')==('en',)
     assert 'hi' in available_languages('catalog:base-multi-mlx',backend='mlx')
@@ -145,6 +147,8 @@ def test_catalog_language_selection_survives_config_save_and_restart(tmp_path,mo
     cfg.save()
     loaded=FixoflowConfig.load()
     assert loaded.language=='es' and loaded.model_name==cfg.model_name and loaded.deferred_language==''
+    from fixoflow.models import catalog
+    monkeypatch.setattr(catalog.platform, 'machine', lambda: 'arm64')
     cfg=FixoflowConfig(model_name='catalog:parakeet-v3-onnx',language=None,cache_dir=str(tmp_path/'audio'))
     cfg.save()
     assert FixoflowConfig.load().language is None

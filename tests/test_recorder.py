@@ -113,7 +113,14 @@ def test_start_failure_closes_stream_and_writer(recorder, monkeypatch):
     assert recorder._writer is None
 
 def test_failed_close_retains_ownership_for_retry(recorder, monkeypatch):
-    recorder.start()
+    from datetime import datetime
+    from fixoflow.storage import artifacts
+    class FixedClock(datetime):
+        @classmethod
+        def now(cls):
+            return cls(2026, 11, 4)
+    monkeypatch.setattr(artifacts, 'datetime', FixedClock)
+    original = recorder.start()
     stream = recorder._stream
     def failed_close(): raise OSError('close failed')
     monkeypatch.setattr(stream, 'close', failed_close)
@@ -123,7 +130,8 @@ def test_failed_close_retains_ownership_for_retry(recorder, monkeypatch):
     monkeypatch.setattr(stream, 'close', lambda: None)
     with pytest.raises(module.RecordingError, match='close failed'): recorder.stop()
     assert recorder._stream is None
-    recorder.start()
+    assert recorder.start() != original
+    assert original.is_file()
     recorder.stop()
 
 def test_stalled_writer_retains_resources_until_cleanup_retry(recorder, monkeypatch):
