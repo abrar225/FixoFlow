@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       build_run:
-        description: Successful full Desktop preview packages run ID
+        description: Completed Desktop preview packages run ID
         required: true
       build_sha:
         description: Full source commit used by that run and existing draft
@@ -12,7 +12,11 @@ on:
         description: Existing draft release version, without v
         required: true
       inspect_only:
-        description: Inspect all six installers and emit a reviewable manifest without attaching
+        description: Inspect the selected installers and save a manifest without attaching
+        type: boolean
+        default: true
+      include_rpm:
+        description: Include Fedora only when its installed desktop check passed
         type: boolean
         default: true
       expected_manifest_sha256:
@@ -33,8 +37,9 @@ jobs:
       VERSION: ${{ inputs.version }}
       EXPECTED_MANIFEST_HASH: ${{ inputs.expected_manifest_sha256 }}
       INSPECT_ONLY: ${{ inputs.inspect_only }}
+      INCLUDE_RPM: ${{ inputs.include_rpm }}
     steps:
-      - name: Require an exact successful full native build and matching unpublished draft
+      - name: Require successful selected native jobs and a matching unpublished draft
         shell: bash
         run: |
           set -euo pipefail
@@ -44,7 +49,11 @@ jobs:
           if [[ "$INSPECT_ONLY" != "true" ]]; then
             [[ "$EXPECTED_MANIFEST_HASH" =~ ^[a-f0-9]{64}$ ]]
           fi
-          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" --arg repo "$GH_REPO" '.conclusion == "success" and .head_sha == $sha and .repository.full_name == $repo and .head_repository.full_name == $repo and .path == ".github/workflows/desktop-preview.yml"'
+          [[ "$INCLUDE_RPM" == true || "$INCLUDE_RPM" == false ]]
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" > source-run.json
+          jq -e --arg sha "$BUILD_SHA" --arg repo "$GH_REPO" --arg include "$INCLUDE_RPM" '.status == "completed" and ($include == "false" or .conclusion == "success") and .head_sha == $sha and .repository.full_name == $repo and .head_repository.full_name == $repo and .path == ".github/workflows/desktop-preview.yml"' source-run.json
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/jobs?filter=latest&per_page=100" |
+            jq -e --arg include "$INCLUDE_RPM" '.jobs as $jobs | (["windows", "linux", "macos (macos-15, arm64, arm64)", "macos (macos-15-intel, x86_64, x64)"] + (if $include == "true" then ["fedora-rpm"] else [] end)) | all(. as $name | [$jobs[] | select(.name == $name and .status == "completed" and .conclusion == "success")] | length == 1)'
           gh api "repos/$GH_REPO/releases?per_page=100" | jq -e --arg tag "v$VERSION" --arg sha "$BUILD_SHA" '[.[] | select(.tag_name == $tag and .draft == true and .published_at == null and .target_commitish == $sha)] | if length == 1 then .[0] else error("Exactly one matching unpublished source-bound draft is required") end' > draft-release.json
       - uses: actions/download-artifact@v4
         with:
@@ -71,12 +80,13 @@ jobs:
           name: macos-x86_64-preview
           path: macos-x86_64
       - uses: actions/download-artifact@v4
+        if: inputs.include_rpm
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.build_run }}
           name: fedora-rpm-preview
           path: fedora
-      - name: Inspect all six formats and require installed native acceptance evidence
+      - name: Inspect selected formats and require installed native acceptance evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -85,6 +95,7 @@ jobs:
           from pathlib import Path
 
           version, commit = os.environ['VERSION'], os.environ['BUILD_SHA']
+          include_rpm = os.environ['INCLUDE_RPM'] == 'true'
           files, acceptance = [], {}
           def load(path):
               return json.loads(Path(path).read_text())
@@ -153,6 +164,8 @@ jobs:
               ('appimage', 'linux-x64.AppImage', 'linux/build/appimage-check.json'),
               ('rpm', 'linux-x64.rpm', 'fedora/build/rpm-check/installed-rpm-check.json'),
           ):
+              if kind == 'rpm' and not include_rpm:
+                  continue
               report = source_report(report_path)
               require(report.get('platform') == 'linux' and report.get('disposable_profile') is True and report.get('empty_working_directory') is True, f'Installed Linux evidence missing: {report_path}')
               if kind == 'appimage':
@@ -161,11 +174,12 @@ jobs:
               acceptance[f'linux-{kind}'] = report
               installer(directory, suffix, kind, [f'linux-{kind}'], f'{directory}/dist/Fixoflow-{version}-{suffix}.json')
 
-          require(len(files) == 6 and len({item['name'] for item in files}) == 6, 'All six distinct native installers are required')
+          count = 6 if include_rpm else 5
+          require(len(files) == count and len({item['name'] for item in files}) == count, 'All selected native installers are required')
           files.sort(key=lambda item: item['name'])
           result = {'schema_version': 1, 'build_run': os.environ['BUILD_RUN'], 'source_commit': commit,
                     'version': version, 'preview': True, 'signing': 'Preview only; no public signing/notarization qualification',
-                    'files': files, 'platform_acceptance': acceptance}
+                    'files': files, 'platform_acceptance': acceptance, 'excluded_formats': [] if include_rpm else ['rpm']}
           manifest = Path('native-preview-manifest.json')
           manifest.write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
           sums = ''.join(f"{item['sha256']}  {item['name']}\n" for item in files)
@@ -177,7 +191,7 @@ jobs:
           summary = os.environ.get('GITHUB_STEP_SUMMARY')
           if summary:
               with open(summary, 'a') as stream:
-                  stream.write(f'All six native installer formats passed artifact/report checks.\n\nManifest SHA256: `{manifest_hash}`\n\nSource: `{commit}`; native run: `{os.environ["BUILD_RUN"]}`.\n')
+                  stream.write(f'{count} selected native installers passed artifact/report checks.\n\nManifest SHA256: `{manifest_hash}`\n\nSource: `{commit}`. Native run: `{os.environ["BUILD_RUN"]}`.\n')
           PY
       - name: Save inspection manifest, digest and installer checksums
         uses: actions/upload-artifact@v4
@@ -199,7 +213,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" '.conclusion == "success" and .head_sha == $sha and .path == ".github/workflows/desktop-preview.yml"'
+          attempt=$(jq -r '.run_attempt' source-run.json)
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" --argjson attempt "$attempt" '.status == "completed" and .run_attempt == $attempt and .head_sha == $sha and .path == ".github/workflows/desktop-preview.yml"'
           release_id=$(jq -r '.id' draft-release.json)
           gh api "repos/$GH_REPO/releases/$release_id" > current-draft.json
           python3 - <<'PY'
@@ -209,7 +224,9 @@ jobs:
           if not (release['draft'] is True and release['published_at'] is None and release['target_commitish'] == os.environ['BUILD_SHA'] and release['tag_name'] == 'v' + os.environ['VERSION']):
               raise RuntimeError('Draft/source identity changed after inspection')
           manifest = json.loads(Path('native-preview-manifest.json').read_text())
-          if not (manifest['source_commit'] == os.environ['BUILD_SHA'] and manifest['version'] == os.environ['VERSION'] and manifest['build_run'] == os.environ['BUILD_RUN'] and len(manifest['files']) == 6):
+          include_rpm = os.environ['INCLUDE_RPM'] == 'true'
+          expected_exclusions = [] if include_rpm else ['rpm']
+          if not (manifest['source_commit'] == os.environ['BUILD_SHA'] and manifest['version'] == os.environ['VERSION'] and manifest['build_run'] == os.environ['BUILD_RUN'] and len(manifest['files']) == (6 if include_rpm else 5) and manifest['excluded_formats'] == expected_exclusions):
               raise RuntimeError('Inspected native manifest identity mismatch')
           for item in manifest['files']:
               path = Path(item['path'])
