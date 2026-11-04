@@ -197,7 +197,10 @@ jobs:
           chmod -R a+rX /opt/fixoflow
           mkdir -p build/rpm-check
           chmod 777 build/rpm-check
-          runuser -u preview -- xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-rpm.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/rpm-check/installed-rpm-check.json'
+          install -d -m 700 -o preview /tmp/fixoflow-rpm-runtime
+          # Xvfb has no GPU or desktop document portal. Keep WebKit's sandbox
+          # and use shared-memory rendering for this disposable X11 session.
+          runuser -u preview -- env XDG_RUNTIME_DIR=/tmp/fixoflow-rpm-runtime GDK_BACKEND=x11 GTK_USE_PORTAL=0 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-rpm.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/rpm-check/installed-rpm-check.json'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

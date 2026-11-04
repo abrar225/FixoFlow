@@ -101,7 +101,14 @@ def main():
                 if args.expected_commit:
                     assert provenance['git_commit'] == args.expected_commit, provenance['git_commit']
             temporary_report = directory / 'result.json'
-            result = run_check(executable, temporary_report, environment, directory)
+            try:
+                result = run_check(executable, temporary_report, environment, directory)
+            except (subprocess.SubprocessError, OSError, AssertionError):
+                log = home / '.fixoflow/logs/fixoflow.log'
+                if log.is_file():
+                    shutil.copy2(log, args.report.with_suffix('.startup.log'))
+                    print(log.read_text(errors='replace')[-12000:], flush=True)
+                raise
             if executable.suffix == '.AppImage':
                 result['source_commit'] = provenance['git_commit']
                 result['appimage_runtime'] = 'executed'
