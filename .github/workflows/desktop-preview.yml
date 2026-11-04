@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: registry.fedoraproject.org/fedora@sha256:1a1f5d76c6095ed6d6bf195b69138e38b8d8436a05138d09d5f19374e55cc608
-      options: --security-opt seccomp=unconfined
+      options: --security-opt seccomp=unconfined --shm-size=256m
     timeout-minutes: 45
     steps:
       - name: Install Fedora native build/runtime tools
@@ -192,15 +192,21 @@ jobs:
           dnf install -y ./dist/*.rpm
           rpm -V fixoflow
       - name: Test installed RPM as an unprivileged desktop user
+        shell: bash
         run: |
           useradd --create-home preview
           chmod -R a+rX /opt/fixoflow
           mkdir -p build/rpm-check
           chmod 777 build/rpm-check
           install -d -m 700 -o preview /tmp/fixoflow-rpm-runtime
-          # Xvfb has no GPU or desktop document portal. Keep WebKit's sandbox
-          # and use shared-memory rendering for this disposable X11 session.
-          runuser -u preview -- env XDG_RUNTIME_DIR=/tmp/fixoflow-rpm-runtime GDK_BACKEND=x11 GTK_USE_PORTAL=0 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-rpm.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/rpm-check/installed-rpm-check.json'
+          # Docker may deny the unprivileged namespaces WebKit uses for its
+          # subprocess sandbox. The exception is local to this smoke test.
+          sandbox_override=()
+          if ! runuser -u preview -- bwrap --unshare-all --ro-bind / / /usr/bin/true; then
+            echo 'Container denies nested namespaces. Running WebKit in the outer test container.'
+            sandbox_override=(WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1)
+          fi
+          runuser -u preview -- env "${sandbox_override[@]}" XDG_RUNTIME_DIR=/tmp/fixoflow-rpm-runtime GDK_BACKEND=x11 GTK_USE_PORTAL=0 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-rpm.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/rpm-check/installed-rpm-check.json'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
