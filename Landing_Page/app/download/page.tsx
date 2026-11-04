@@ -73,7 +73,7 @@ export default function DownloadPage() {
           <p>Update checks remain compatible with the website feed. Updates are downloaded manually from the public GitHub release page.</p>
           <p>Start quietly when you sign in, choose separate hold-to-talk and hands-free shortcuts, and let Settings save automatically after a short pause.</p>
           <p>Clear spoken sequences become numbered lists in Writing mode and Automatic messaging mode. Your personal dictionary guides name spellings and corrects exact recurring mistakes. Strict Verbatim preserves the recognizer's text.</p>
-          <p>This release focuses on English. Multilingual dictation is coming soon. No additional language models are bundled or downloaded for it.</p>
+          <p>The public {releases.version} preview supports English. Multilingual model selection is in development for a later release. <a href="/features/#desktop-preview">See the 0.5.0 desktop preview ↗</a>.</p>
         </div>
       </section>
       <section className="install-section shell" id="setup">
