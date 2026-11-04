@@ -163,14 +163,18 @@ jobs:
             build/pyinstaller/Fixoflow/warn-Fixoflow.txt
           if-no-files-found: error
   fedora-rpm:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     container:
       image: registry.fedoraproject.org/fedora@sha256:1a1f5d76c6095ed6d6bf195b69138e38b8d8436a05138d09d5f19374e55cc608
-      options: --security-opt seccomp=unconfined --security-opt apparmor=unconfined --shm-size=256m
+      options: --security-opt seccomp=unconfined --security-opt apparmor=unconfined --cap-add=NET_ADMIN --shm-size=256m
     timeout-minutes: 45
     steps:
       - name: Install Fedora native build/runtime tools
         run: dnf install -y git python3 python3-pip python3-devel python3-gobject gtk3 webkit2gtk4.1 libayatana-appindicator-gtk3 portaudio xclip libnotify rpm-build desktop-file-utils xorg-x11-server-Xvfb xorg-x11-xauth openbox dbus-x11 gcc findutils util-linux
+      - name: Verify nested WebKit sandbox on the isolated runner
+        run: |
+          useradd --create-home preview
+          runuser -u preview -- bwrap --unshare-all --ro-bind / / --dev /dev --proc /proc /usr/bin/true
       - uses: actions/checkout@v4
       - name: Install build dependencies
         run: |
@@ -193,13 +197,10 @@ jobs:
           rpm -V fixoflow
       - name: Test installed RPM as an unprivileged desktop user
         run: |
-          useradd --create-home preview
           chmod -R a+rX /opt/fixoflow
           mkdir -p build/rpm-check
           chmod 777 build/rpm-check
           install -d -m 700 -o preview /tmp/fixoflow-rpm-runtime
-          # Verify WebKit's nested sandbox can run before opening a window.
-          runuser -u preview -- bwrap --unshare-all --ro-bind / / --dev /dev --proc /proc /usr/bin/true
           runuser -u preview -- env XDG_RUNTIME_DIR=/tmp/fixoflow-rpm-runtime GDK_BACKEND=x11 GTK_USE_PORTAL=0 WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a dbus-run-session -- sh -c 'openbox > /tmp/openbox-rpm.log 2>&1 & .venv/bin/python scripts/check_native_preview.py --executable /opt/fixoflow/Fixoflow --report build/rpm-check/installed-rpm-check.json'
       - uses: actions/upload-artifact@v4
         if: always()
