@@ -63,6 +63,17 @@ class STTEngine:
         return str(model_path.resolve())
 
     def resolve_model_path(self) -> str:
+        if self.model_name.startswith('catalog:'):
+            from fixoflow.languages import validate_language_selection
+            try:validate_language_selection(self.language, self.model_name)
+            except ValueError as error:raise TranscriptionError(str(error)) from error
+        from fixoflow.models.manager import resolve_catalog_model
+        try:
+            catalog_path = resolve_catalog_model(self.model_name, 'mlx')
+        except (ValueError, OSError) as error:
+            raise TranscriptionError(str(error)) from error
+        if catalog_path is not None:
+            return self._validate_model_path(Path(catalog_path))
         # Explicit caller-selected folders always take precedence over defaults.
         if self.model_name == 'multilingual-base':
             from fixoflow.model_packs import pack_path, validate_pack
@@ -103,41 +114,41 @@ class STTEngine:
         """Process PCM recovery files using bounded windows, never a full WAV array."""
         from fixoflow.audio.filter import clean_audio_pipeline
         from fixoflow.audio.slicer import find_pause_split_point
-        model_path = self.resolve_model_path()
+        model_path=self.resolve_model_path()
 
         def chunks():
             with wave.open(str(path)) as capture:
-                if (capture.getframerate(), capture.getnchannels(), capture.getsampwidth()) != (self.sample_rate, 1, 2):
+                if (capture.getframerate(),capture.getnchannels(),capture.getsampwidth()) != (self.sample_rate,1,2):
                     raise TranscriptionError('Recovery audio must be 16 kHz mono PCM16.')
-                maximum = int(self.config.max_continuous_segment_sec*self.sample_rate)
-                while capture.tell() < capture.getnframes():
+                maximum=int(self.config.max_continuous_segment_sec*self.sample_rate)
+                while capture.tell()<capture.getnframes():
                     if cancelled and cancelled():
                         raise TranscriptionError('Transcription cancelled')
-                    start = capture.tell()
-                    expected = min(maximum, capture.getnframes()-start)
-                    data = capture.readframes(expected)
-                    if len(data) != expected*2:
+                    start=capture.tell()
+                    expected=min(maximum,capture.getnframes()-start)
+                    data=capture.readframes(expected)
+                    if len(data)!=expected*2:
                         raise TranscriptionError('Recording is truncated; audio is incomplete.')
-                    audio = np.frombuffer(data, dtype='<i2').astype(np.float32)/32767.0
-                    if len(audio) == maximum and capture.tell() < capture.getnframes():
+                    audio=np.frombuffer(data,dtype='<i2').astype(np.float32)/32767.0
+                    if len(audio)==maximum and capture.tell()<capture.getnframes():
                         split = find_pause_split_point(audio, self.sample_rate, min(
                             16, self.config.max_continuous_segment_sec), self.config.max_continuous_segment_sec)
-                        split = max(1, min(split, len(audio)))
+                        split=max(1,min(split,len(audio)))
                         capture.setpos(start+split)
                         audio = audio[:split]
-                    yield clean_audio_pipeline(audio, self.sample_rate)
-        return self._transcribe_chunks(chunks(), model_path, initial_prompt, cancelled)
+                    yield clean_audio_pipeline(audio,self.sample_rate)
+        return self._transcribe_chunks(chunks(),model_path,initial_prompt,cancelled)
 
-    def _transcribe_chunks(self, chunks, model_path, initial_prompt, cancelled):
+    def _transcribe_chunks(self,chunks,model_path,initial_prompt,cancelled):
         transcriptions: list[str] = []
         from fixoflow.languages import language_prompt
         base_prompt = ' '.join(p for p in (language_prompt(self.language, self.config.english_variant),
                                self.config.initial_prompt if initial_prompt is None else initial_prompt) if p)
         prompt = base_prompt
-        iterator = iter(chunks)
-        index = -1
+        iterator=iter(chunks)
+        index=-1
         while True:
-            index += 1
+            index+=1
             try:
                 chunk = next(iterator)
             except StopIteration:
@@ -177,14 +188,48 @@ class STTEngine:
             options['language'] = self.language
         if prompt:
             options['initial_prompt'] = prompt
-        return mlx_whisper.transcribe(chunk, path_or_hf_repo=model_path,
-                                      condition_on_previous_text=False, **options)['text']
+        return mlx_whisper.transcribe(chunk,path_or_hf_repo=model_path,
+            condition_on_previous_text=False,**options)['text']
+
+    @property
+    def capabilities(self):
+        from fixoflow.stt.contracts import RecognitionCapabilities
+        return RecognitionCapabilities(backend='mlx')
+
+    def warm_up(self):
+        """Load verified local weights into the same holder used by decode.
+
+        No synthetic speech is decoded, no transcript is created and no model
+        repository identifier is passed to the native loader.
+        """
+        path = self.resolve_model_path()
+        if sys.platform != 'darwin':
+            raise TranscriptionError('The MLX speech backend requires macOS Apple Silicon.')
+        import importlib
+        import mlx.core as mx
+        holder = importlib.import_module('mlx_whisper.transcribe').ModelHolder
+        # Drop old weights before loading a different model, avoiding double
+        # model residency during an explicit warm-up switch.
+        if holder.model_path != path:
+            holder.model = None
+            holder.model_path = None
+        holder.get_model(path, mx.float16)
+        return path
 
 
 def create_stt_engine(config):
-    if sys.platform == 'darwin':
+    if config.model_name.startswith('catalog:'):
+        from fixoflow.models.catalog import CATALOG, compatible_backend
+        spec = CATALOG.get(config.model_name.removeprefix('catalog:'))
+        if spec is None or not compatible_backend(spec):
+            raise TranscriptionError('Selected model is incompatible with this computer/backend.')
+        if spec.backend == 'onnx':
+            from fixoflow.stt.parakeet import ParakeetEngine
+            return ParakeetEngine(config)
+    from fixoflow.models.catalog import runtime_backend
+    if sys.platform == 'darwin' and runtime_backend() == 'mlx':
         return STTEngine(config)
-    if sys.platform == 'win32' or sys.platform.startswith('linux'):
+    if sys.platform in {'darwin','win32'} or sys.platform.startswith('linux'):
         from fixoflow.stt.cpu import CPUWhisperEngine
         return CPUWhisperEngine(config)
     raise RuntimeError('Unsupported desktop platform.')

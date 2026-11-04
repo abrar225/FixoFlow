@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fixo Flow</title>
+  <link rel="stylesheet" href="assets/bootstrap-select.css">
   <link rel="stylesheet" href="hub.css">
 </head>
 <body>
@@ -20,9 +21,10 @@
   <main class="content-area">
     <header class="topbar">
       <div><div class="status" role="status"><span id="runtimeDot" class="status-dot" aria-hidden="true"></span><span id="runtimeStatus">Connecting to Fixo Flow…</span></div><div id="runtimeShortcut" class="shortcut-label">Checking keyboard shortcut…</div></div>
-      <button class="action-btn" onclick="post('showOverlay')">Show floating bar</button>
+      <div class="button-row"><button class="action-btn" onclick="openOnboarding()">Guided setup</button><button class="action-btn" onclick="post('showOverlay')">Show floating bar</button></div>
     </header>
     <div id="updateBanner" class="update-banner hidden" role="status"><span id="updateBannerText"></span><button class="action-btn" onclick="post('openRelease')">View update</button></div>
+    <div id="clipboardConfirmation" class="update-banner hidden" role="alertdialog" aria-labelledby="clipboardConfirmationTitle"><div><strong id="clipboardConfirmationTitle">Have your words appeared in the target app?</strong><p>Confirm paste before restoring the previous clipboard. Newer copied content will be preserved.</p></div><div class="button-row"><button id="confirmClipboardYes" class="primary-btn" onclick="post('restorePreviousClipboard',{confirmed:true});document.getElementById('clipboardConfirmation').classList.add('hidden')">Yes, restore previous clipboard</button><button class="action-btn" onclick="document.getElementById('clipboardConfirmation').classList.add('hidden')">Keep dictated text</button></div></div>
     <section id="viewDashboard" class="view-panel" aria-labelledby="dashboardTitle">
       <h1 id="dashboardTitle" class="view-title">Make room for your voice.</h1>
       <p class="subtitle">Your thoughts have places to be. Let’s get them there.</p>
@@ -88,9 +90,27 @@
     </section>
     <section id="viewHistory" class="view-panel hidden" aria-labelledby="historyTitle">
       <div class="heading-row"><h1 id="historyTitle" class="view-title">Your words, kept here.</h1><button class="action-btn delete" onclick="clearHistory()">Clear history</button></div>
-      <p class="subtitle">Find, copy, and manage your recent transcripts.</p>
+      <p class="subtitle">Find, copy, and manage your recent transcripts. Edit a transcript to propose a correction, then approve it below. Approved corrections match the exact sentence in the same app, language and mode; Raw and Verbatim stay unchanged.</p>
+      <div id="correctionEditor" class="card-section hidden">
+        <label for="correctedTranscript">Correct this dictation</label>
+        <textarea id="correctedTranscript" rows="5" maxlength="20000" style="width:100%;box-sizing:border-box"></textarea>
+        <p id="correctionOriginal" style="white-space:pre-wrap"></p>
+        <div id="contextualSuggestions" aria-live="polite"></div>
+        <button class="primary-btn" onclick="proposeCorrection()">Propose correction</button>
+        <button class="action-btn" onclick="closeCorrectionEditor()">Cancel</button>
+      </div>
+      <details class="card-section"><summary>Correction memory — approval required</summary>
+        <p>Nothing is learned from other apps automatically. Approve only corrections you want reused. Forget removes the rule; deleting its source transcript removes its memory too.</p>
+        <div id="correctionMemory"></div>
+      </details>
+      <details class="card-section"><summary>Recent session status</summary>
+        <p>Paste sent means a keystroke was dispatched, not verified insertion. Unfinished sessions may belong to another running instance.</p>
+        <div id="sessionJournal"></div>
+      </details>
+      <details class="card-section" ontoggle="if(this.open) post('getRecovery')"><summary>Recovery inbox</summary><p>Retry an owned recording with the currently selected model, language and style. A new result is saved to History without pasting; the original recording is preserved. Active or uncertain recordings cannot be retried or deleted.</p><div id="recoveryInbox"></div></details>
       <div class="search-bar"><input type="search" id="historySearch" placeholder="Search transcripts" aria-label="Search transcripts" oninput="filterHistory()"></div>
       <p id="historyResult" role="status"></p><div id="historyList" class="item-list"><div class="empty-state">Loading history…</div></div><button id="historyMore" class="action-btn" hidden onclick="post('getHistory',{offset:historyOffset,search:document.getElementById('historySearch').value})">Load more transcripts</button>
+      <div id="historyPlayback" class="card-section hidden"><p id="playbackStatus" role="status"></p><audio id="historyAudio" controls preload="none" style="max-width:100%"></audio><button class="action-btn" onclick="stopHistoryAudio()">Close playback</button></div>
     </section>
     <section id="viewDictionary" class="view-panel hidden" aria-labelledby="dictionaryTitle">
       <div class="heading-row"><h1 id="dictionaryTitle" class="view-title">Make it your language.</h1><button class="primary-btn" onclick="toggleAddWordModal()">Add word</button></div>
@@ -98,8 +118,33 @@
       <div id="addWordForm" class="card-section hidden"><div class="section-header">Add a dictionary entry</div><div class="word-fields"><label>Spoken phrase<input type="text" id="newPhrase" placeholder="maya desai" autocomplete="off"></label><label>Replace with<input type="text" id="newReplacement" placeholder="Maya Desai" autocomplete="off"></label><label>Category<select id="newCategory"><option value="ai">AI agent</option><option value="code">Code / tool</option><option value="acronym">Acronym</option><option value="general">General</option></select></label><div class="word-form-actions"><button class="action-btn" onclick="toggleAddWordModal()">Cancel</button><button class="primary-btn" onclick="saveNewWord()">Add entry</button></div></div><p id="dictionaryResult" role="status"></p></div>
       <div class="search-bar"><input id="dictionarySearch" type="search" aria-label="Search dictionary" placeholder="Search all words" oninput="post('getDictionary',{search:this.value})"></div><div id="dictionaryList" class="item-list"><div class="empty-state">Loading dictionary…</div></div><button id="dictionaryMore" class="action-btn" hidden onclick="post('getDictionary',{offset:dictionaryOffset,search:document.getElementById('dictionarySearch').value})">Load more words</button>
     </section>
-    <section id="viewSettings" class="view-panel hidden" aria-labelledby="settingsTitle">
+    <section id="viewSettings" class="view-panel flow-components hidden" aria-labelledby="settingsTitle">
       <h1 id="settingsTitle" class="view-title">Settings</h1><p class="subtitle">A comfortable way to dictate, wherever you work.</p>
+      <div class="card-section settings-card"><fieldset class="preset-picker" id="cfgRole"><legend>Starting preset <span>Optional</span></legend><div class="preset-grid">
+          <label class="preset-option"><input type="radio" name="cfgRole" value="everyday" checked><span><strong>Everyday</strong><small>Messages and quick notes</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="developer"><span><strong>Developer</strong><small>Literal identifiers and code</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="writer"><span><strong>Writer</strong><small>Drafts and longer prose</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="business"><span><strong>Business</strong><small>Professional emails and documents</small></span></label>
+          <label class="preset-option"><input type="radio" name="cfgRole" value="accessibility"><span><strong>Hands-free access</strong><small>Visible controls and recording sounds</small></span></label>
+        </div><div class="preset-footer"><p class="setting-desc">Applying a preset changes writing or coding mode, sets a style, and turns off spoken commands. You can edit these settings later.</p><button class="action-btn" type="button" onclick="applyRolePreset('cfgRole')">Apply preset</button></div></fieldset></div>
+      <div class="card-section settings-card control-card"><div><label class="setting-title" for="cfgTheme">Appearance</label><p class="setting-desc">Choose a theme or follow your system.</p></div><select class="form-select" id="cfgTheme"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></div>
+      <div class="card-section settings-card"><label class="setting-title" for="cfgInputDevice">Microphone</label>
+        <p class="setting-desc">Choose the system default or a specific microphone. A missing saved microphone stops recording rather than switching devices. Devices must support 16 kHz mono capture.</p>
+        <div class="device-controls"><select class="form-select" id="cfgInputDevice"><option value="">System default at recording start</option></select>
+        <button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button></div><p id="inputDeviceStatus" role="status"></p>
+      </div>
+      <details id="setupServices" class="card-section settings-card service-card" ontoggle="if(this.open) post('getServices')"><summary><span>Microphone check and local models</span><span class="service-chevron" aria-hidden="true">⌄</span></summary><div class="service-content">
+        <p>Run a five-second signal check before dictating. It checks levels and clipping, not recognition accuracy. No checkup audio is saved.</p>
+        <div class="button-row"><button class="action-btn" onclick="post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop check</button></div>
+        <meter id="micCheckLevel" min="0" max="1" value="0" aria-label="Microphone signal level"></meter><p id="micCheckStatus" role="status"></p>
+        <h2>Local speech models</h2><p>Downloads are explicit and verified. Select an installed model and a compatible language, wait for Saved, then warm it before dictating. Language support describes model capability; quality varies by speech and hardware.</p>
+        <div class="button-row"><button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel model operation</button></div><div id="catalogModels"></div>
+      </div></details>
+      <div class="card-section"><div class="section-header">Clipboard and tray</div>
+        <div class="setting-row"><div class="setting-copy"><label for="cfgRestoreClipboard" class="setting-title">Preserve my previous clipboard</label><span class="setting-desc">Keep a supported clipboard snapshot in memory during dictation. After confirming your words were pasted, choose Restore previous clipboard. Newer clipboard content is never replaced.</span></div><input id="cfgRestoreClipboard" type="checkbox"></div>
+        <p id="clipboardStatus" role="status"></p><button id="restoreClipboardButton" class="action-btn" disabled onclick="confirmClipboardRestore()">Restore previous clipboard after paste</button>
+        <div class="setting-row"><div class="setting-copy"><label for="cfgCloseToTray" class="setting-title">Keep running when I close the window</label><span class="setting-desc">On Windows and supported Linux desktops, close to the tray when its menu is available. Use Quit in the tray to exit. The Mac menu bar remains available when its window closes.</span></div><input id="cfgCloseToTray" type="checkbox"></div><p id="trayStatus" role="status"></p>
+      </div>
       <div class="card-section"><div class="section-header">Startup</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgStartAtLogin">Start Fixo Flow when I sign in</label><span class="setting-desc">Start quietly with dictation controls available. The main window stays closed or minimized.</span><span id="startupStatus" class="setting-desc" role="status">Checking startup registration…</span><button id="manageStartup" class="action-btn" hidden onclick="post('openStartupSettings')">Manage in system settings</button></div><label class="switch"><input id="cfgStartAtLogin" type="checkbox" checked disabled><span aria-hidden="true"></span></label></div></div>
       <div class="card-section"><div class="section-header">Controls</div><div class="setting-group">
         <div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgAlwaysShow">Show the floating pill at all times</label><span class="setting-desc">Keep the compact dictation pill visible, even when you are not recording.</span></div><label class="switch"><input id="cfgAlwaysShow" type="checkbox" checked><span aria-hidden="true"></span></label></div>
@@ -117,7 +162,7 @@
         <button id="modeWriting" class="mode-option" aria-pressed="false" onclick="selectMode('writing')"><span class="mode-name">Writing</span><span class="mode-desc">Apply local punctuation and cleanup rules for messages and documents.</span></button>
         <button id="modeRaw" class="mode-option" aria-pressed="false" onclick="selectMode('raw')"><span class="mode-name">Raw transcript</span><span class="mode-desc">Use the speech engine’s transcript without additional polishing.</span></button>
       </div></div>
-      <div class="card-section"><div class="section-header">Language &amp; recognition</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgLanguage">Dictation language</label><span class="setting-desc">English is available now.</span></div><select id="cfgLanguage" disabled><option value="en">English</option></select></div><div class="setting-row"><label for="cfgEnglishVariant">English variety / shared recognizer</label><select id="cfgEnglishVariant"><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="en-IN">English (India)</option></select></div><p class="setting-desc">US, UK and India English share the English recognizer. Regional spelling is not forced.</p><p id="languageAvailability" role="status">Multilingual dictation: Coming soon. Other languages and Roman Hinglish are in accuracy research.</p><p class="setting-desc">Clear sequences such as &ldquo;Firstly, ... Second, ... Third, ...&rdquo; become numbered lists in Writing mode and Automatic messaging mode. Verbatim keeps the recognizer's wording.</p><div class="setting-row"><div class="setting-copy"><label for="cfgSpokenCommands">Spoken formatting commands</label><span class="setting-desc">Optional punctuation words such as period, colon and new line. Off by default; numbered sequences do not need this switch.</span></div><input id="cfgSpokenCommands" type="checkbox"></div></div><div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local Whisper model</label><span class="setting-desc">Base English is bundled. Other models must already be available locally.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
+      <div class="card-section"><div class="section-header">Language &amp; recognition</div><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgLanguage">Dictation language</label><span class="setting-desc">Languages depend on the selected model.</span></div><select id="cfgLanguage"><option value="en">English</option></select></div><div class="setting-row"><label for="cfgEnglishVariant">English variety / shared recognizer</label><select id="cfgEnglishVariant"><option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="en-IN">English (India)</option></select></div><p class="setting-desc">US, UK and India English share the English recognizer. Regional spelling is not forced.</p><p id="languageAvailability" role="status">Choose a compatible multilingual model to transcribe other languages. Recognition quality and mixed-language spelling vary.</p><p class="setting-desc">Clear sequences such as &ldquo;Firstly, ... Second, ... Third, ...&rdquo; become numbered lists in Writing mode and Automatic messaging mode. Verbatim keeps the recognizer's wording.</p><div class="setting-row"><div class="setting-copy"><label for="cfgSpokenCommands">Spoken formatting commands</label><span class="setting-desc">Optional punctuation words such as period, colon and new line. Off by default; numbered sequences do not need this switch.</span></div><input id="cfgSpokenCommands" type="checkbox"></div></div><div class="card-section"><div class="section-header">Speech model</div><div id="cpuBudget" class="setting-row hidden"><div class="setting-copy"><label for="cfgCpuThreads" class="setting-title">CPU threads</label><span class="setting-desc">Fewer threads leave more CPU for other apps. Transcription may take longer; the speech model stays the same.</span></div><select id="cfgCpuThreads"><option value="1">1 · lowest CPU load</option><option value="2">2 · balanced</option><option value="4">4 · faster processing</option></select></div><div class="setting-group"><div class="setting-row"><div class="setting-copy"><label class="setting-title" for="cfgModel">Local speech model</label><span class="setting-desc">Base English is bundled. Download additional verified models using the catalog above.</span></div><select id="cfgModel"><option value="mlx-community/whisper-base.en-mlx">Base English · bundled</option><option value="mlx-community/whisper-tiny">Tiny · local model required</option><option value="mlx-community/whisper-small.en-mlx">Small English · local model required</option></select></div></div></div>
       <div class="card-section"><div class="section-header">A little introduction to your Mac</div><p id="permissionStatus" role="status">Checking permissions…</p>
         <div class="permission-cards">
           <div class="permission-card"><strong>Microphone</strong><span id="permissionMicrophone" class="permission-state">Checking…</span><p>Hear your voice when you start a dictation.</p><button class="action-btn" onclick="post('openPermissionSettings', {section:'microphone'})">Open settings</button></div>
@@ -134,6 +179,27 @@
       <div class="save-row"><p id="settingsResult" data-settings-result role="status" aria-live="polite">Changes save automatically after a short pause.</p><button class="action-btn" data-settings-retry hidden onclick="retryPreferences()">Retry saving</button></div>
     </section>
   </main>
+  <div id="onboardingBackdrop" class="onboarding-backdrop hidden">
+    <section id="onboardingDialog" class="onboarding-dialog flow-components" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" tabindex="-1">
+      <div class="heading-row setup-header"><div><div class="setup-brand"><svg viewBox="0 0 36 20" aria-hidden="true"><path d="M2 10h4l3-5 4 11 5-14 5 15 4-10 3 3h4"/></svg> Guided setup</div><h1 id="onboardingTitle">Make Fixo Flow yours.</h1></div><button class="action-btn" onclick="closeOnboarding()" aria-label="Close guided setup and resume later">Resume later</button></div>
+      <ol id="setupRail" aria-label="Setup steps"></ol>
+      <p id="onboardingProgress" class="setup-counter"></p>
+      <div class="onboarding-page" data-setup-step="0"><h2 tabindex="-1">A few choices, then your first words.</h2><p>Speech processing stays on this computer. Model downloads are optional and explicit. You can skip any step and return here from the window or tray.</p><fieldset class="preset-picker" id="setupRole"><legend>Starting preset <span>Optional</span></legend><div class="preset-grid">
+          <label class="preset-option"><input type="radio" name="setupRole" value="everyday" checked><span><strong>Everyday</strong><small>Messages and quick notes</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="developer"><span><strong>Developer</strong><small>Literal identifiers and code</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="writer"><span><strong>Writer</strong><small>Drafts and longer prose</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="business"><span><strong>Business</strong><small>Professional emails and documents</small></span></label>
+          <label class="preset-option"><input type="radio" name="setupRole" value="accessibility"><span><strong>Hands-free access</strong><small>Visible controls and recording sounds</small></span></label>
+        </div><div class="preset-footer"><p class="setting-desc">Applying a preset changes writing or coding mode, sets a style, and turns off spoken commands. You can edit these settings later.</p><button class="action-btn" type="button" onclick="applyRolePreset('setupRole')">Apply preset</button></div></fieldset></div>
+      <div class="onboarding-page hidden" data-setup-step="1"><h2 tabindex="-1">Allow only what you need.</h2><p id="setupPermissions" role="status">Checking permissions…</p><p>Microphone access lets Fixo hear you. On Mac, Accessibility permits paste and Input Monitoring enables shortcuts. On Windows, desktop microphone access is controlled in Settings. Linux shortcut and paste support depends on your desktop session.</p><div class="button-row"><button class="primary-btn" onclick="post('requestPermissions')">Request permissions</button><button class="action-btn" onclick="post('getPermissions')">Refresh status</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'microphone'})">Microphone settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'accessibility'})">Paste settings</button><button class="action-btn" onclick="post('openPermissionSettings',{section:'input'})">Shortcut settings</button></div></div>
+      <div class="onboarding-page hidden" data-setup-step="2"><h2 tabindex="-1">Check your microphone.</h2><label for="setupMicrophone">Input device</label><select class="form-select" id="setupMicrophone" onchange="document.getElementById('cfgInputDevice').value=this.value;markUnsaved()"><option value="">System default at recording start</option></select><div class="button-row"><button class="action-btn" onclick="post('getInputDevices')">Refresh microphones</button><button class="primary-btn" onclick="flushPreferences();post('startMicCheck')">Check saved microphone</button><button class="action-btn" onclick="post('cancelMicCheck')">Stop check</button></div><meter id="setupMicLevel" min="0" max="1" value="0" aria-label="Setup microphone signal"></meter><p id="setupMicStatus" role="status"></p><p class="setting-desc">Five-second level/clipping check; no test audio is saved. Wait for preferences to save before checking a changed microphone.</p></div>
+      <div class="onboarding-page hidden" data-setup-step="3"><h2 tabindex="-1">Choose a model and language.</h2><p>Base English is bundled. Other models require an explicit download. Larger models need more storage and memory; the catalog shows the download size.</p><label for="setupModel">Selected model</label><select class="form-select" id="setupModel" onchange="chooseModel(this.value)"></select><label for="setupLanguage">Language supported by this model</label><select class="form-select" id="setupLanguage" onchange="document.getElementById('cfgLanguage').value=this.value;markUnsaved()"></select><p id="setupLanguageNote" class="setting-desc"></p><div class="button-row"><button class="action-btn" onclick="post('warmSelectedModel')">Warm selected catalog model</button><button class="action-btn" onclick="post('cancelCatalogModel')">Cancel download / warm-up</button></div><p class="setting-desc">The bundled model loads when you start the practice test. Catalog models show their explicit warm-up state below.</p><div id="setupCatalog"></div></div>
+      <div class="onboarding-page hidden" data-setup-step="4"><h2 tabindex="-1">Try a safe dictation.</h2><p>Click Start test, say a sentence, then click Stop test. The result appears here and is saved to local History. It is never pasted into another application.</p><p class="practice-example">“Let’s make room for one good idea today.”</p><p id="setupShortcuts" class="setting-desc"></p><div class="button-row"><button id="practiceButton" class="primary-btn" onclick="post('practiceDictation')">Start test</button><button class="action-btn" onclick="post('cancelPractice')">Cancel test</button><button class="action-btn" onclick="post('enableShortcut')">Enable / retry shortcuts</button></div><label for="practiceTranscript">Your practice transcript</label><textarea id="practiceTranscript" rows="4" readonly></textarea><p id="practiceStatus" role="status"></p></div>
+      <div class="onboarding-page hidden" data-setup-step="5"><h2 tabindex="-1">Your controls are within reach.</h2><p>For everyday dictation, focus a text field, hold your hold-to-talk shortcut and release to write. Hands-free starts and stops with a tap. The tray/menu bar has quick access to models, language, microphone and recovery.</p><p>Check important text before sending. If paste fails, open History or Recovery. A setup completion marker means your choices are saved; it does not grant missing system permissions.</p><button class="action-btn" onclick="post('showOverlay')">Show floating controls</button></div>
+      <p id="onboardingError" class="warning" role="status" aria-live="polite"></p><p data-settings-result role="status"></p>
+      <div class="onboarding-footer"><button id="setupBack" class="action-btn" onclick="advanceOnboarding(-1)">Back</button><button id="setupNext" class="primary-btn" onclick="advanceOnboarding(1)">Continue</button></div>
+    </section>
+  </div>
   <script>
     let activeTab = 'dashboard';
     let lastRuntimeState = null;
@@ -145,6 +211,112 @@
     let settingsSequence = 0;
     let settingsTimer = null;
     let settingsFailed = false;
+    let modelLanguagePending = false;
+    let onboardingState = null;
+    let onboardingDismissed = false;
+    let onboardingForce = false;
+    let onboardingFinishing = false;
+    let onboardingFocus = null;
+    function openOnboarding() {
+      onboardingForce=true;onboardingDismissed=false;
+      post('getOnboarding');post('getInputDevices');post('getServices');post('getPermissions');
+    }
+    function closeOnboarding() {
+      onboardingDismissed=true;onboardingForce=false;
+      document.getElementById('onboardingBackdrop').classList.add('hidden');
+      document.querySelector('aside').inert=false;document.querySelector('main').inert=false;
+      post('cancelPractice');post('cancelMicCheck');
+      if(onboardingFocus?.isConnected) onboardingFocus.focus();
+    }
+    function onOnboardingData(data) {
+      const stepChanged=onboardingState?.step!==data.step;
+      onboardingState=data;
+      if(onboardingFinishing && data.completed){onboardingFinishing=false;closeOnboarding();return;}
+      const backdrop=document.getElementById('onboardingBackdrop');
+      const opening=backdrop.classList.contains('hidden');
+      if(opening) {
+        if(!onboardingForce && (data.completed || onboardingDismissed)) return;
+        onboardingFocus=document.activeElement;backdrop.classList.remove('hidden');
+        document.querySelector('aside').inert=true;document.querySelector('main').inert=true;
+        document.getElementById('onboardingDialog').focus();
+      }
+      document.getElementById('onboardingProgress').textContent='Step '+(data.step+1)+' of '+data.steps.length+' · '+data.steps[data.step];
+      const rail=document.getElementById('setupRail');
+      if(!rail.children.length) {
+        data.steps.forEach((label,index)=>{
+          const item=document.createElement('li');
+          const number=document.createElement('span');
+          number.setAttribute('aria-hidden','true');
+          number.textContent=String(index+1).padStart(2,'0');
+          item.append(number,document.createTextNode(label));
+          rail.append(item);
+        });
+      }
+      [...rail.children].forEach((item,index)=>{
+        item.classList.toggle('setup-past',index<data.step);
+        if(index===data.step) item.setAttribute('aria-current','step');
+        else item.removeAttribute('aria-current');
+      });
+      document.querySelectorAll('[data-setup-step]').forEach(page=>{
+        const active=Number(page.dataset.setupStep)===data.step;
+        page.classList.toggle('hidden',!active);
+        if(active && (opening || stepChanged)) {
+          document.getElementById('onboardingDialog').scrollTop=0;
+          if(stepChanged && !opening) page.querySelector('h2').focus({preventScroll:true});
+        }
+      });
+      document.getElementById('setupBack').disabled=data.step===0;
+      document.getElementById('setupNext').textContent=data.step===data.steps.length-1?'Finish setup':'Continue / skip';
+      document.getElementById('onboardingError').textContent='';syncSetupChoices();
+    }
+    function onOnboardingError(message){onboardingFinishing=false;document.getElementById('onboardingError').textContent=message;}
+    function advanceOnboarding(delta) {
+      if(!onboardingState)return;
+      flushPreferences();
+      if(settingsRequest || Object.keys(pendingSettings).length || modelLanguagePending){onOnboardingError('Wait for your changes to finish saving, then continue.');return;}
+      onboardingFinishing=delta>0 && onboardingState.step===5;
+      post('saveOnboarding',{step:Math.max(0,Math.min(5,onboardingState.step+delta)),complete:onboardingFinishing});
+    }
+    function syncSetupChoices() {
+      for(const [source,target] of [['cfgModel','setupModel'],['cfgLanguage','setupLanguage'],['cfgInputDevice','setupMicrophone']]) {
+        const original=document.getElementById(source),copy=document.getElementById(target);
+        if(original.innerHTML!==copy.innerHTML) copy.replaceChildren(...[...original.options].map(option=>option.cloneNode(true)));
+        copy.value=original.value;copy.disabled=original.disabled;
+      }
+      document.getElementById('setupLanguageNote').textContent=document.getElementById('languageAvailability').textContent;
+      document.getElementById('setupShortcuts').textContent='Hold to talk: '+(currentConfig.hold_shortcut?.label || 'not set')+' · Hands-free: '+(currentConfig.hands_free_shortcut?.label || 'not set')+'. Change bindings in Settings.';
+    }
+    function onPracticeResult(data) {
+      document.getElementById('practiceTranscript').value=data.text || '';
+      document.getElementById('practiceStatus').textContent=data.error || (data.text?'Test completed locally. Nothing was pasted.':'No speech was recognized. Check your microphone and try again.');
+    }
+    function onClipboardStatus(data) {
+      document.getElementById('clipboardStatus').textContent=data.message;
+      document.getElementById('restoreClipboardButton').disabled=!data.pending;
+    }
+    function confirmClipboardRestore() {
+      document.getElementById('clipboardConfirmation').classList.remove('hidden');
+      document.querySelector('.content-area').scrollTop=0;
+      document.getElementById('confirmClipboardYes').focus();
+    }
+    function onTrayStatus(data){document.getElementById('trayStatus').textContent=data.message;}
+    function chooseModel(value) {
+      const model=document.getElementById('cfgModel');
+      if(![...model.options].some(option=>option.value===value))return;
+      model.value=value;modelLanguagePending=true;
+      post('getLanguageOptions',{model_name:value});
+    }
+    document.addEventListener('keydown',event=>{
+      const dialog=document.getElementById('onboardingDialog');
+      if(document.getElementById('onboardingBackdrop').classList.contains('hidden'))return;
+      if(event.key==='Escape'){event.preventDefault();closeOnboarding();}
+      if(event.key==='Tab'){
+        const focusable=[...dialog.querySelectorAll('button:not(:disabled),select:not(:disabled),input[type=radio]:checked,textarea,[tabindex="0"]')].filter(node=>node.getClientRects().length);
+        if(!focusable.length)return;
+        if(event.shiftKey && (document.activeElement===focusable[0] || document.activeElement===dialog)){event.preventDefault();focusable[focusable.length-1].focus();}
+        else if(!event.shiftKey && document.activeElement===focusable[focusable.length-1]){event.preventDefault();focusable[0].focus();}
+      }
+    });
     function post(action, payload = {}) {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fixoflow) {
         window.webkit.messageHandlers.fixoflow.postMessage({ action, ...payload });
@@ -156,6 +328,7 @@
     function switchTab(tab) {
       const names = {dashboard:'Dashboard',insights:'Insights',style:'Style',history:'History',dictionary:'Dictionary',settings:'Settings'};
       if (!names[tab]) return;
+      if (tab !== 'history') stopHistoryAudio();
       if (shortcutRecording) stopShortcutRecording();
       activeTab = tab;
       for (const [key, suffix] of Object.entries(names)) {
@@ -174,7 +347,7 @@
       if (tab === 'dashboard') post('getDashboard');
       else if (tab === 'insights') post('getInsights');
       else if (tab === 'style') { if (!configLoaded) post('getConfig'); else renderStyleOptions(); }
-      else if (tab === 'history') filterHistory();
+      else if (tab === 'history') { filterHistory(); post('getCorrections'); post('getSessionJournal'); post('getRecovery'); }
       else if (tab === 'dictionary') post('getDictionary');
       else if (!configLoaded) post('getConfig');
       post('getControlStatus');
@@ -214,6 +387,14 @@
         copy.onclick = () => copyText(item.final_text);
         actions.append(copy);
         if (allowDelete) {
+          if (item.audio_path) {
+            const play = element('button','action-btn','Play recording');
+            play.onclick = () => loadHistoryAudio(item.id);
+            actions.append(play);
+          }
+          const correct = element('button', 'action-btn', 'Correct / remember');
+          correct.onclick = () => openCorrectionEditor(item);
+          actions.append(correct);
           const remove = element('button', 'action-btn delete', 'Delete');
           remove.onclick = () => deleteHistoryItem(item.id);
           actions.append(remove);
@@ -226,6 +407,162 @@
       if (!list.childElementCount) empty(list, emptyMessage);
     }
     let historyItems=[],historyOffset=0,dictionaryOffset=0;
+    let correctionSessionId = null;
+    let playbackSessionId = null;
+    function stopHistoryAudio() {
+      playbackSessionId = null;
+      const player = document.getElementById('historyAudio');
+      player.pause(); player.removeAttribute('src'); player.load();
+      document.getElementById('historyPlayback').classList.add('hidden');
+    }
+    function loadHistoryAudio(id) {
+      stopHistoryAudio(); playbackSessionId = id;
+      document.getElementById('historyPlayback').classList.remove('hidden');
+      document.getElementById('playbackStatus').textContent = 'Loading owned recording…';
+      post('getHistoryAudio',{id});
+    }
+    function onHistoryAudioData(id,uri,error) {
+      if (id !== playbackSessionId) return;
+      document.getElementById('playbackStatus').textContent = error || 'Recording ready. Press Play to listen; seeking and playback speed depend on your system player.';
+      if (uri) document.getElementById('historyAudio').src = uri;
+    }
+    function onInputDeviceData(items,error,selected) {
+      const select = document.getElementById('cfgInputDevice');
+      const wanted = selected === undefined ? select.value : selected;
+      select.replaceChildren(element('option','','System default at recording start'));
+      select.firstChild.value = '';
+      for (const item of items) {
+        const option = element('option','',item.name); option.value = item.id; select.append(option);
+      }
+      if (wanted && ![...select.options].some(o=>o.value===wanted)) {
+        const option = element('option','','Saved microphone · refresh to check availability');
+        option.value = wanted; select.append(option);
+      }
+      select.value = wanted || '';
+      document.getElementById('inputDeviceStatus').textContent = error || '';
+      syncSetupChoices();
+    }
+    function applyTheme(theme) { document.documentElement.dataset.theme=theme || 'light'; }
+    function syncRolePreset() {
+      const value=currentConfig.role_preset || 'everyday';
+      for(const id of ['cfgRole','setupRole']) {
+        const picker=document.getElementById(id);
+        if(picker.dataset.applied===value) continue;
+        picker.dataset.applied=value;
+        const option=[...picker.querySelectorAll('input')].find(input=>input.value===value);
+        if(option) option.checked=true;
+      }
+    }
+    function applyRolePreset(id) {
+      currentConfig.role_preset=document.querySelector('#'+id+' input:checked').value;
+      syncRolePreset();
+      selectMode(currentConfig.role_preset==='developer'?'coding':'writing',false);
+      currentConfig.output_style=currentConfig.role_preset==='business'?'professional':'natural';
+      styleSelection=currentConfig.output_style;renderStyleOptions();
+      document.getElementById('cfgSpokenCommands').checked=false;
+      if (currentConfig.role_preset==='accessibility') {
+        document.getElementById('cfgAlwaysShow').checked=true;document.getElementById('cfgSounds').checked=true;
+      }
+      markUnsaved();
+    }
+    function onServiceData(data) {
+      const mic=data.microphone;
+      document.getElementById('micCheckLevel').value=mic.level || 0;
+      document.getElementById('micCheckStatus').textContent=mic.state + ' · ' + mic.message + (mic.clipping?' · Clipping detected':'') + (mic.no_signal===true?' · No signal detected':'');
+      document.getElementById('setupMicLevel').value=mic.level || 0;
+      document.getElementById('setupMicStatus').textContent=document.getElementById('micCheckStatus').textContent;
+      for(const container of [document.getElementById('catalogModels'),document.getElementById('setupCatalog')]) {
+      container.replaceChildren();
+      for (const item of data.models.filter(x=>x.compatible)) {
+        const row=element('div','list-item');
+        row.append(element('strong','',item.name),element('p','',Math.ceil(item.download_bytes/1000000)+' MB · '+item.purpose),element('p','',item.state+' · '+item.message));
+        const action=element('button','action-btn',item.installed?'Select installed model':'Download model');
+        action.disabled=data.busy;
+        action.onclick=()=>{
+          if (!item.installed) { post('installCatalogModel',{id:item.id});return; }
+          const select=document.getElementById('cfgModel');
+          if (![...select.options].some(o=>o.value===item.model_name)) { const option=element('option','',item.name);option.value=item.model_name;select.append(option); }
+          chooseModel(item.model_name);
+        };
+        row.append(action);container.append(row);
+      }
+      }
+      syncSetupChoices();
+    }
+    setInterval(()=>{if(!document.hidden && ((activeTab==='settings' && document.getElementById('setupServices').open) || !document.getElementById('onboardingBackdrop').classList.contains('hidden'))) {post('getServices');post('getControlStatus');}},500);
+    function openCorrectionEditor(item) {
+      correctionSessionId = item.id;
+      document.getElementById('correctedTranscript').value = item.final_text;
+      document.getElementById('correctionOriginal').textContent = 'Recognizer output: ' + item.asr_text;
+      document.getElementById('correctionEditor').classList.remove('hidden');
+      document.getElementById('correctedTranscript').focus();
+      document.getElementById('contextualSuggestions').replaceChildren();
+      post('getContextualSuggestions',{id:item.id});
+    }
+    function onContextualSuggestions(id,items) {
+      if (id!==correctionSessionId) return;
+      const container=document.getElementById('contextualSuggestions');container.replaceChildren();
+      for (const item of items) {
+        const row=element('div','list-item');
+        const text=element('p','',item.text);text.style.whiteSpace='pre-wrap';
+        const use=element('button','action-btn','Review this suggestion');
+        use.onclick=()=>{document.getElementById('correctedTranscript').value=item.text;document.getElementById('correctedTranscript').focus();};
+        row.append(text,element('p','',item.explanation),use);container.append(row);
+      }
+    }
+    function closeCorrectionEditor() {
+      correctionSessionId = null;
+      document.getElementById('correctionEditor').classList.add('hidden');
+      document.getElementById('correctedTranscript').value = '';
+      document.getElementById('correctionOriginal').textContent = '';
+    }
+    function proposeCorrection() {
+      if (!correctionSessionId) return;
+      post('proposeCorrection', {session_id:correctionSessionId,text:document.getElementById('correctedTranscript').value});
+    }
+    function onCorrectionData(items) {
+      const container = document.getElementById('correctionMemory');
+      container.replaceChildren();
+      for (const item of items) {
+        const row = element('div','list-item');
+        const source = element('p', '', item.original_text);
+        const target = element('p', '', 'Correction: ' + item.corrected_text);
+        source.style.whiteSpace = target.style.whiteSpace = 'pre-wrap';
+        row.append(source,target,element('p','',item.state + ' · ' + item.language + ' · ' + item.mode + ' · same original app'));
+        if (item.state === 'proposed') {
+          const approve = element('button','action-btn','Approve exact-sentence correction');
+          approve.onclick = () => post('approveCorrection',{id:item.id});
+          row.append(approve);
+        } else {
+          const undo=element('button','action-btn','Undo approval');
+          undo.onclick=()=>post('undoCorrectionApproval',{id:item.id});row.append(undo);
+        }
+        const forget = element('button','action-btn delete','Forget');
+        forget.onclick = () => post('forgetCorrection',{id:item.id});
+        row.append(forget); container.append(row);
+      }
+      if (!items.length) empty(container,'No corrections saved. Propose a correction from a new dictation to begin.');
+    }
+    function onSessionJournalData(items) {
+      const container = document.getElementById('sessionJournal');
+      container.replaceChildren();
+      for (const item of items) {
+        container.append(element('p','',new Date(item.started_at).toLocaleString() + ' · ' + item.app_name + ' · ' + item.status + ' · ' + item.delivery_status));
+      }
+      if (!items.length) empty(container,'New recording sessions will appear here.');
+    }
+    function onRecoveryData(items) {
+      const container=document.getElementById('recoveryInbox');container.replaceChildren();
+      for (const item of items) {
+        const row=element('div','list-item');row.append(element('p','',item.app_name+' · '+item.status+' · '+new Date(item.started_at).toLocaleString()));
+        const retry=element('button','action-btn','Retry into History');retry.onclick=()=>post('retryRecovery',{id:item.id});
+        retry.hidden=item.status==='recovered';
+        const reveal=element('button','action-btn','Show recording folder');reveal.onclick=()=>post('revealRecovery',{id:item.id});
+        const remove=element('button','action-btn delete','Delete recovery recording');remove.onclick=()=>{if(confirm('Delete this session and its owned recording?')){stopHistoryAudio();post('deleteRecovery',{id:item.id});}};
+        row.append(retry,reveal,remove);container.append(row);
+      }
+      if (!items.length) empty(container,'No sessions need recovery.');
+    }
     function onHistoryData(items, page={offset:0,has_more:false}) {
       historyOffset=page.offset+items.length;
       historyItems=page.offset ? [...historyItems,...items] : items;
@@ -270,12 +607,13 @@
       } else {
       document.getElementById('permissionStatus').textContent = Object.values(values).every(value => value === 'Allowed') ? 'All set. Your Mac is ready for your voice.' : 'Each permission has a purpose. You control them in System Settings.';
       }
+      document.getElementById('setupPermissions').textContent=document.getElementById('permissionStatus').textContent+' Microphone: '+mic+'.';
     }
     function onControlStatus(data) {
       const state = data.state || 'IDLE';
       if (state === 'IDLE' && ['RECORDING','PROCESSING'].includes(lastRuntimeState)) {
         if (activeTab === 'dashboard') post('getDashboard');
-        else if (activeTab === 'history') filterHistory();
+        else if (activeTab === 'history') { filterHistory();post('getRecovery');post('getSessionJournal'); }
         else if (activeTab === 'insights') post('getInsights');
       }
       lastRuntimeState = state;
@@ -285,6 +623,9 @@
       document.getElementById('runtimeDot').className = 'status-dot ' + (state === 'RECORDING' ? 'recording' : state === 'PROCESSING' ? 'processing' : ready ? 'ready' : '');
       document.getElementById('runtimeShortcut').textContent = 'Hold: ' + (data.shortcut || '—') + ' · Hands-free: ' + (data.hands_free_shortcut || '—') + (ready ? '' : ' · unavailable');
       document.getElementById('runtimeDetail').textContent = data.detail || (ready ? 'Your keyboard shortcut and floating bar are ready.' : 'Use the floating bar, or check permissions in Settings to enable your shortcut.');
+      document.getElementById('practiceButton').textContent=state==='RECORDING'?'Stop test':state==='PROCESSING'?'Transcribing…':'Start test';
+      document.getElementById('practiceButton').disabled=state==='PROCESSING';
+      if(state==='IDLE')post('getClipboardStatus');
     }
     function onConfigData(cfg) {
       // Native refreshes (for example dragging the pill) never replace a draft.
@@ -292,6 +633,9 @@
       savedConfig = {...cfg};
       cfg = {...cfg, ...protectedDraft};
       currentConfig = {...cfg};
+      applyTheme(cfg.theme || 'light');document.getElementById('cfgTheme').value=cfg.theme || 'light';
+      syncRolePreset();
+      onInputDeviceData([], '', cfg.input_device || '');
       configLoaded = true;
       renderShortcutRecorder();
       const model = document.getElementById('cfgModel');
@@ -306,9 +650,11 @@
       document.getElementById('cfgSpokenCommands').checked = cfg.spoken_commands === true;
       document.getElementById('cfgLanguage').value=cfg.language || 'auto';
       document.getElementById('cfgEnglishVariant').value=cfg.english_variant || 'en-US';
-      post('getLanguageOptions');
+      post('getLanguageOptions',{model_name:modelName});
       document.getElementById('cfgStartAtLogin').checked = cfg.start_at_login !== false;
       document.getElementById('cfgSounds').checked = cfg.sound_enabled !== false;
+      document.getElementById('cfgRestoreClipboard').checked = cfg.restore_clipboard === true;
+      document.getElementById('cfgCloseToTray').checked = cfg.close_to_tray !== false;
       document.getElementById('cfgCheckUpdates').checked = cfg.check_updates_on_launch === true;
       document.getElementById('cfgAutoInstall').checked = cfg.auto_install_updates === true;
       document.getElementById('cfgCpuThreads').value=String(cfg.cpu_threads || 2);
@@ -319,9 +665,13 @@
       currentConfig.output_style = styleSelection;
       renderStyleOptions();
       selectMode(cfg.mode || 'auto', false);
+      post('getOnboarding');post('getClipboardStatus');post('getTrayStatus');syncSetupChoices();
     }
     function preferenceValues() {
       return {mode:currentConfig.mode, hold_shortcut:currentConfig.hold_shortcut,
+        theme:document.getElementById('cfgTheme').value,
+        role_preset:currentConfig.role_preset || 'everyday',
+        input_device:document.getElementById('cfgInputDevice').value,
         hands_free_shortcut:currentConfig.hands_free_shortcut,output_style:currentConfig.output_style,
         overlay_position:currentConfig.overlay_position,
         language:document.getElementById('cfgLanguage').value==='auto'?null:(document.getElementById('cfgLanguage').value || currentConfig.language),
@@ -331,6 +681,8 @@
         model_name:document.getElementById('cfgModel').value,
         always_show_overlay:document.getElementById('cfgAlwaysShow').checked,
         sound_enabled:document.getElementById('cfgSounds').checked,
+        restore_clipboard:document.getElementById('cfgRestoreClipboard').checked,
+        close_to_tray:document.getElementById('cfgCloseToTray').checked,
         start_at_login:document.getElementById('cfgStartAtLogin').checked,
         check_updates_on_launch:document.getElementById('cfgCheckUpdates').checked,
         auto_install_updates:document.getElementById('cfgAutoInstall').checked};
@@ -338,6 +690,7 @@
     const sameSetting = (a,b) => JSON.stringify(a) === JSON.stringify(b);
     function markUnsaved() {
       if (!configLoaded) return;
+      applyTheme(document.getElementById('cfgTheme').value);
       const values = preferenceValues();
       for (const [key,value] of Object.entries(values)) {
         const baseline = settingsRequest && key in settingsRequest.config ? settingsRequest.config[key] : savedConfig[key];
@@ -358,7 +711,7 @@
     }
     function flushPreferences() {
       clearTimeout(settingsTimer);
-      if (settingsRequest || !configLoaded || settingsFailed) return;
+      if (settingsRequest || !configLoaded || settingsFailed || modelLanguagePending) return;
       if (!Object.keys(pendingSettings).length) {
         post('preferencesPending',{pending:false});
         onSettingsResult(true,'All changes saved.');
@@ -638,9 +991,9 @@
     }
     function deleteWord(phrase) { post('deleteWord', { phrase }); }
     function filterHistory() { post('getHistory', {search:document.getElementById('historySearch').value}); }
-    function deleteHistoryItem(id) { if (confirm('Delete this transcript and its linked recording from this device?')) post('deleteHistory', { id }); }
+    function deleteHistoryItem(id) { if (confirm('Delete this transcript and its linked recording from this device?')) { stopHistoryAudio(); closeCorrectionEditor(); post('deleteHistory', { id }); } }
     function onHistoryResult(message) { document.getElementById('historyResult').textContent=message; }
-    function clearHistory() { if (confirm('Delete all History transcripts and their linked audio from this device?')) post('clearHistory'); }
+    function clearHistory() { if (confirm('Delete all History transcripts and their linked audio from this device?')) { stopHistoryAudio(); closeCorrectionEditor(); post('clearHistory'); } }
     function copyText(text) { post('copyText', {text}); }
     document.addEventListener('keydown', event => {
       const radio = event.target.closest('[role="radio"]');
@@ -656,14 +1009,19 @@
     });
     function onLanguageData(data) {
       const language=document.getElementById('cfgLanguage');
+      if(data.model_name && data.model_name!==document.getElementById('cfgModel').value)return;
+      const previous=language.value || currentConfig.language || 'auto';
       language.replaceChildren();
       for (const item of data.languages) {
         const option=element('option','',item.label);option.value=item.value;language.append(option);
       }
-      language.value='en';
-      language.disabled=true;
+      const values=data.languages.map(item=>item.value);
+      language.value=values.includes(previous)?previous:values.includes('en')?'en':values[0];
+      language.disabled=values.length===1;
       document.getElementById('languageAvailability').textContent=data.message +
-        (data.deferred_language ? ' Your previous language choice is saved for future support.' : '');
+        (data.deferred_language ? ' A legacy language preference remains saved; select your preferred language explicitly.' : '');
+      if(modelLanguagePending){modelLanguagePending=false;markUnsaved();}
+      syncSetupChoices();
     }
     function onDesktopPlatform(name) {
       document.getElementById('cpuBudget').classList.remove('hidden');
@@ -682,7 +1040,7 @@
     }
     window.addEventListener('pywebviewready', () => { post('getConfig');post('getUpdateStatus');switchTab('dashboard'); });
     window.onload = () => {
-      document.querySelectorAll('#viewSettings input,#viewSettings select').forEach(input => input.addEventListener('change', markUnsaved));
+      document.querySelectorAll('#viewSettings input:not([name=cfgRole]),#viewSettings select').forEach(input => input.addEventListener('change',()=>input.id==='cfgModel'?chooseModel(input.value):markUnsaved()));
       post('getConfig');
       post('getUpdateStatus');
       switchTab('dashboard');

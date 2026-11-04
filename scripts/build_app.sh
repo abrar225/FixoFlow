@@ -3,11 +3,19 @@ set -euo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 PYTHON_EXEC="${FIXOFLOW_BUILD_PYTHON:-$PROJECT_DIR/.venv/bin/python}"
-[[ "$(uname -s)" == Darwin && "$(uname -m)" == arm64 ]] || { echo "Build requires Apple Silicon macOS." >&2; exit 1; }
+[[ "$(uname -s)" == Darwin ]] || { echo "Build requires native macOS." >&2; exit 1; }
+export FIXOFLOW_BUILD_ARCH="${FIXOFLOW_BUILD_ARCH:-$(uname -m)}"
+"$PYTHON_EXEC" -c 'import os,platform; assert platform.machine() in ("arm64","x86_64") and platform.machine()==os.environ["FIXOFLOW_BUILD_ARCH"], "Use native Python matching FIXOFLOW_BUILD_ARCH"'
 "$PYTHON_EXEC" -c 'import PyInstaller' || { echo 'Install the packaging extra in the build venv first (see docs/packaging.md).' >&2; exit 1; }
 # No runtime or build-time downloads. A complete revision-pinned model must already be cached.
-export FIXOFLOW_BUILD_MODEL_DIR="$PROJECT_DIR/build/bundled-model"
-"$PYTHON_EXEC" "$SCRIPT_DIR/prepare_model.py"
+export FIXOFLOW_BUILD_MODEL_DIR="${FIXOFLOW_BUILD_MODEL_DIR:-$PROJECT_DIR/build/bundled-model-$FIXOFLOW_BUILD_ARCH}"
+if [[ "$FIXOFLOW_BUILD_ARCH" == arm64 ]]; then
+    "$PYTHON_EXEC" "$SCRIPT_DIR/prepare_model.py"
+else
+    # Stage explicitly before building: prepare_cpu_model.py --output <path>.
+    "$PYTHON_EXEC" "$SCRIPT_DIR/prepare_cpu_model.py" --output "$FIXOFLOW_BUILD_MODEL_DIR" --offline
+fi
+"$PYTHON_EXEC" "$SCRIPT_DIR/write_source_manifest.py"
 mkdir -p "$PROJECT_DIR/dist"
 BUILD_OUTPUT="$(mktemp -d "$PROJECT_DIR/build/app-stage.XXXXXX")"
 trap 'rm -rf "$BUILD_OUTPUT"' EXIT
@@ -39,4 +47,4 @@ if [[ -e "$PROJECT_DIR/dist/Fixoflow.app" ]]; then
     mv "$PROJECT_DIR/dist/Fixoflow.app" "$PROJECT_DIR/dist/.previous-builds/Fixoflow-$(date +%Y%m%d-%H%M%S).app.backup"
 fi
 mv "$CANDIDATE" "$PROJECT_DIR/dist/Fixoflow.app"
-echo "Built self-contained local app: $PROJECT_DIR/dist/Fixoflow.app ($SIGN_MODE; not notarized)"
+echo "Built self-contained $FIXOFLOW_BUILD_ARCH preview: $PROJECT_DIR/dist/Fixoflow.app ($SIGN_MODE; not notarized)"

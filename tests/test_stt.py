@@ -113,62 +113,82 @@ def test_incomplete_cached_model_fails_before_decode(engine, tmp_path, monkeypat
         engine.transcribe(np.ones(10))
 
 
-def write_capture(path, frames):
+def write_capture(path,frames):
     import wave
-    with wave.open(str(path), 'wb') as output:
+    with wave.open(str(path),'wb') as output:
         output.setnchannels(1)
         output.setsampwidth(2)
         output.setframerate(16000)
-        output.writeframes(np.full(frames, 1000, dtype='<i2').tobytes())
+        output.writeframes(np.full(frames,1000,dtype='<i2').tobytes())
 
 
-def test_file_decode_is_bounded_and_keeps_final_samples(engine, tmp_path, monkeypatch):
-    engine.config.max_continuous_segment_sec = 2
+def test_file_decode_is_bounded_and_keeps_final_samples(engine,tmp_path,monkeypatch):
+    engine.config.max_continuous_segment_sec=2
     path = tmp_path/'capture.wav'
     write_capture(path, 16000*7+31)
-    sizes = []
+    sizes=[]
     def decode(audio, model, prompt):
         sizes.append(len(audio))
         return 'words'
-    monkeypatch.setattr(engine, '_decode', decode)
+    monkeypatch.setattr(engine,'_decode',decode)
     assert engine.transcribe_file(path)
-    assert max(sizes) <= 32000 and sum(sizes) == 16000*7+31
+    assert max(sizes)<=32000 and sum(sizes)==16000*7+31
 
 
-def test_truncated_file_fails_once_and_retains_decoded_prefix(engine, tmp_path, monkeypatch):
-    engine.config.max_continuous_segment_sec = 2
+def test_truncated_file_fails_once_and_retains_decoded_prefix(engine,tmp_path,monkeypatch):
+    engine.config.max_continuous_segment_sec=2
     path = tmp_path/'truncated.wav'
     write_capture(path, 16000*5)
     with path.open('r+b') as output:
         output.truncate(44+32000*2+20)
-    calls = []
-    monkeypatch.setattr(engine, '_decode', lambda *args: calls.append(True) or 'first words')
+    calls=[]
+    monkeypatch.setattr(engine,'_decode',lambda *args:calls.append(True) or 'first words')
     with pytest.raises(module.TranscriptionError, match='truncated') as caught:
         engine.transcribe_file(path)
-    assert calls == [True] and caught.value.partial_text == 'first words'
+    assert calls==[True] and caught.value.partial_text=='first words'
 
 
-def test_exact_silence_does_not_call_recognizer(engine, monkeypatch):
-    decode = Mock()
-    monkeypatch.setattr(engine, '_decode', decode)
-    assert engine.transcribe(np.zeros(16000, np.float32)) == ''
+def test_exact_silence_does_not_call_recognizer(engine,monkeypatch):
+    decode=Mock()
+    monkeypatch.setattr(engine,'_decode',decode)
+    assert engine.transcribe(np.zeros(16000,np.float32))==''
     decode.assert_not_called()
 
 
 def test_custom_english_only_model_is_rejected_for_non_english(engine):
-    engine.language = 'hi'
+    engine.language='hi'
     with pytest.raises(module.TranscriptionError, match='not compatible'):
         engine.resolve_model_path()
 
 
-@pytest.mark.parametrize('region', ['en-US', 'en-GB', 'en-IN'])
-def test_english_decode_request_never_contains_locale_instructions(engine, monkeypatch, region):
-    engine.config.english_variant = region
-    requests = []
+@pytest.mark.parametrize('region',['en-US','en-GB','en-IN'])
+def test_english_decode_request_never_contains_locale_instructions(engine,monkeypatch,region):
+    engine.config.english_variant=region
+    requests=[]
 
-    def decode(audio, **options):
+    def decode(audio,**options):
         requests.append(options)
-        return {'text': 'Recognized speech.'}
-    monkeypatch.setattr(module.mlx_whisper, 'transcribe', decode)
-    assert engine.transcribe(np.ones(16000, np.float32)) == 'Recognized speech.'
+        return {'text':'Recognized speech.'}
+    monkeypatch.setattr(module.mlx_whisper,'transcribe',decode)
+    assert engine.transcribe(np.ones(16000,np.float32))=='Recognized speech.'
     assert 'initial_prompt' not in requests[0]
+
+
+def test_intel_macos_uses_cpu_engine_without_loading_mlx(monkeypatch):
+    from fixoflow.models import catalog
+    from fixoflow.stt.cpu import CPUWhisperEngine
+    monkeypatch.setattr(module.sys,'platform','darwin')
+    monkeypatch.setattr(catalog.platform,'machine',lambda:'x86_64')
+    assert isinstance(module.create_stt_engine(FixoflowConfig(model_name='bundled-base.en')),CPUWhisperEngine)
+
+
+def test_missing_catalog_model_never_fetches_from_hub(engine,monkeypatch,tmp_path):
+    from fixoflow.models import catalog, manager
+    # The fixture constructs the MLX engine directly, including on CPU CI.
+    monkeypatch.setattr(catalog,'runtime_backend',lambda:'mlx')
+    monkeypatch.setattr(manager,'model_root',lambda:tmp_path/'absent')
+    download=Mock(side_effect=AssertionError('inference must never download'))
+    monkeypatch.setattr(module,'snapshot_download',download)
+    engine.model_name='catalog:tiny-en-mlx'
+    with pytest.raises(module.TranscriptionError,match='not installed'):engine.resolve_model_path()
+    download.assert_not_called()

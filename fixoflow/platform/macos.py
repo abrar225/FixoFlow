@@ -141,6 +141,11 @@ def frontmost_bundle_id() -> str:
     return get_frontmost_app_info()[1]
 
 
+def get_stable_app_identity(target):
+    from fixoflow.app_identity import app_scope
+    return app_scope(target)
+
+
 def activate_application(bundle_id: str, timeout_sec: float = 0.8) -> bool:
     """Best-effort return of focus to the application that owns the cursor.
 
@@ -182,7 +187,7 @@ def copy_to_clipboard(text: str) -> bool:
         return False
 
 
-def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=None, cancelled=None) -> InsertionOutcome:
+def _insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=None, cancelled=None, _copy=None) -> InsertionOutcome:
     """Copy text and post Cmd+V into the frontmost application.
 
     The clipboard write always happens first: even if Accessibility is not
@@ -190,7 +195,7 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=No
     System prompts are never raised here; the hub raises them only when the
     user explicitly asks.
     """
-    if not copy_to_clipboard(text):
+    if not (_copy or copy_to_clipboard)(text):
         return InsertionOutcome(False, False, "clipboard-failed")
     if cancelled and cancelled():
         return InsertionOutcome(False, True, 'cancelled')
@@ -232,6 +237,34 @@ def insert_text_at_cursor(text: str, delay_sec: float = 0.05, expected_target=No
     except Exception as error:
         logger.error("Failed to post paste keystroke: %s", error)
         return InsertionOutcome(False, True, "event-failed")
+
+
+from fixoflow.clipboard import (ClipboardRestoration, MacClipboardAdapter,
+                                insert_with_restoration, restore_status, copy_with_restoration)
+
+_clipboard_restoration = ClipboardRestoration()
+
+
+def insert_text_at_cursor(text, delay_sec=0.05, expected_target=None, cancelled=None, restore_clipboard=False):
+    return insert_with_restoration(_insert_text_at_cursor,copy_to_clipboard,_clipboard_restoration,
+        lambda:MacClipboardAdapter(AppKit),text,delay_sec,expected_target,cancelled,restore_clipboard)
+
+
+def clipboard_restore_status():
+    return _clipboard_restoration.status()
+
+
+def copy_to_clipboard_preserving(text):
+    return copy_with_restoration(copy_to_clipboard,_clipboard_restoration,
+        lambda:MacClipboardAdapter(AppKit),text).copied
+
+
+def restore_previous_clipboard(insertion_confirmed=False):
+    return restore_status(_clipboard_restoration,insertion_confirmed)
+
+
+def discard_previous_clipboard():
+    _clipboard_restoration.discard()
 
 
 def request_notification_authorization() -> None:
@@ -285,7 +318,7 @@ def play_sound(sound_name: str = "Tink") -> None:
 
 def open_permission_settings(section):
     from Foundation import NSURL
-    names = {'microphone': 'Privacy_Microphone', 'accessibility': 'Privacy_Accessibility', 'input': 'Privacy_ListenEvent'}
+    names = {'microphone':'Privacy_Microphone','accessibility':'Privacy_Accessibility','input':'Privacy_ListenEvent'}
     if section in names:
         AppKit.NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_(
             'x-apple.systempreferences:com.apple.preference.security?'+names[section]))

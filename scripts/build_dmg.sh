@@ -8,6 +8,8 @@ DMG_PATH="$DIST_DIR/Fixoflow.dmg"
 [[ -d "$APP_DIR" ]] || bash "$SCRIPT_DIR/build_app.sh"
 # Refuse to ship the old project-bound shell launcher.
 /usr/bin/file "$APP_DIR/Contents/MacOS/Fixoflow" | /usr/bin/grep -q 'Mach-O' || { echo 'Build a self-contained app first.' >&2; exit 1; }
+EXPECTED_ARCH="${FIXOFLOW_BUILD_ARCH:-$(uname -m)}"
+[[ "$(/usr/bin/lipo -archs "$APP_DIR/Contents/MacOS/Fixoflow")" == "$EXPECTED_ARCH" ]] || { echo "App architecture does not match $EXPECTED_ARCH; rebuild the native app first." >&2; exit 1; }
 /usr/bin/codesign --verify --deep --strict "$APP_DIR"
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 # Remove stale staging leftovers: each dmg-stage copy is a full bundle with the
@@ -28,5 +30,5 @@ if [[ -e "$DMG_PATH" ]]; then
 fi
 hdiutil create -volname Fixoflow -srcfolder "$STAGE_DIR" -format ULMO "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
-python3 "$SCRIPT_DIR/write_mac_artifact_manifest.py"
+"${FIXOFLOW_BUILD_PYTHON:-$PROJECT_DIR/.venv/bin/python}" "$SCRIPT_DIR/write_mac_artifact_manifest.py"
 echo "Built: $DMG_PATH (local build; not notarized)"

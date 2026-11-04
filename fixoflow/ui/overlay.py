@@ -401,6 +401,7 @@ class OverlayManager:
 
     def configure(self, config, on_toggle=None, on_cancel=None, on_open_hub=None, on_position_change=None):
         self._always_show = config.always_show_overlay
+        self._theme = config.theme
         self._explicit_reveal = False
         self._shortcut = shortcut_label(config.hold_shortcut)
         if on_toggle is not None:
@@ -459,6 +460,7 @@ class OverlayManager:
         self._animate_alpha(self._idle_alpha())
         if self._ready:
             snapshot = {'state': self._state, 'message': self._message, 'shortcut': self._shortcut,
+                        'theme':getattr(self,'_theme','light'),
                         'elapsed': time.monotonic() - self._started_at if self._started_at else 0}
             self._webview.evaluateJavaScript_completionHandler_(f'updateControl({json.dumps(snapshot)});', None)
 

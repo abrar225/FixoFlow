@@ -51,7 +51,9 @@ _VALIDATED = {}
 _VALIDATION_LOCK = threading.Lock()
 
 
-def backend(): return 'mlx' if sys.platform == 'darwin' else 'cpu'
+def backend():
+    from fixoflow.models.catalog import runtime_backend
+    return runtime_backend()
 
 
 def pack_path(kind=None):
@@ -168,9 +170,9 @@ class ModelPackManager:
 
     def cancel(self): self._cancel.set()
 
-    def close(self, timeout=2):
+    def close(self, timeout=2, *, terminal=True):
         with self._lock:
-            self._closing = True
+            self._closing = terminal
             self.cancel()
             worker = self._worker
         if worker and worker.is_alive():

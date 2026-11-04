@@ -105,7 +105,14 @@ for (const route of routes) {
 }
 const downloadHtml = fs.readFileSync(path.join(root, "out/download/index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "");
 assert.ok(downloadHtml.includes(`Fixo Flow ${release.version}`), "Download version missing");
-assert.ok(downloadHtml.includes("Multilingual dictation is coming soon"), "Language availability missing");
+assert.ok(downloadHtml.includes(`The public ${release.version} preview supports English`), "Public language availability missing");
+assert.ok(downloadHtml.includes('href="/features/#desktop-preview"'), "Development preview link missing");
+const featuresHtml = fs.readFileSync(path.join(root, "out/features/index.html"), "utf8");
+assert.ok(featuresHtml.includes("In development · 0.5.0 preview"), "Development preview label missing");
+for (const screenshot of ["onboarding", "settings"]) {
+  const asset = `/images/app-preview/ui-preview-${screenshot}.png`;
+  assert.ok(featuresHtml.includes(asset) && fs.existsSync(path.join(root, "out", asset)), `Missing preview image ${asset}`);
+}
 assert.ok(downloadHtml.includes('id="release-notes"'), "Release notes missing");
 assert.ok(!/Fixoflow-0\.[23]\.[02]-/.test(downloadHtml), "Superseded installer advertised");
 const updateFeed = JSON.parse(fs.readFileSync(path.join(root, "out/releases/latest.json"), "utf8"));

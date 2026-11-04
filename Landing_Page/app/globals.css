@@ -3156,3 +3156,41 @@ button {
 @media(max-width:760px){.platform-choices{grid-template-columns:1fr}.platform-choice{padding:22px}.platform-choice.selected{padding:21px}.platform-detail{align-items:flex-start;flex-direction:column;padding:22px}.platform-downloads{padding-block:48px}}
 
 .platform-install-guide{margin-top:36px}.platform-install-guide h3{font-size:26px;letter-spacing:-.03em;margin-bottom:22px}.platform-install-guide ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:34px;padding-left:22px}.platform-install-guide li{padding-left:4px}.platform-install-guide strong{font-weight:550}.platform-install-guide p{font-size:14px;line-height:1.7;margin-top:10px;max-width:740px}.platform-install-guide a{text-decoration:underline;text-underline-offset:3px}@media(max-width:760px){.platform-install-guide ol{grid-template-columns:1fr;gap:22px}}
+
+.desktop-preview {
+  padding-block: clamp(3rem, 7vw, 6rem);
+}
+
+.desktop-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.desktop-preview-grid figure {
+  margin: 0;
+}
+
+.desktop-preview-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  border: 1px solid currentColor;
+}
+
+.desktop-preview-grid figcaption,
+.desktop-preview-note {
+  margin-top: 0.8rem;
+}
+
+.desktop-preview-note a {
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+@media (max-width: 760px) {
+  .desktop-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}

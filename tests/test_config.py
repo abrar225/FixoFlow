@@ -88,27 +88,27 @@ def test_output_style_defaults_to_natural_and_rejects_unknown_styles():
         FixoflowConfig(output_style='shakespearean').validate()
 
 
-def test_old_multilingual_preference_is_deferred_without_deleting_or_rewriting(tmp_path, monkeypatch):
+def test_multilingual_preference_survives_load_and_save_without_rewriting_original(tmp_path, monkeypatch):
     path = tmp_path/'config.json'
     original = {'language': 'hi', 'model_name': 'multilingual-base'}
     path.write_text(json.dumps(original))
     monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
     cfg = FixoflowConfig.load()
-    assert cfg.language == 'en' and cfg.deferred_language == 'hi'
-    assert cfg.model_name == FixoflowConfig().model_name
+    assert cfg.language == 'hi' and cfg.deferred_language == ''
+    assert cfg.model_name == 'multilingual-base'
     assert json.loads(path.read_text()) == original
     cfg.cache_dir = str(tmp_path/'audio')
     cfg.save()
     assert json.loads(path.with_suffix('.json.bak').read_text()) == original
-    assert FixoflowConfig.load().deferred_language == 'hi'
+    assert FixoflowConfig.load().language == 'hi'
 
 
-def test_old_auto_language_is_deferred_but_malformed_language_is_not_hidden(tmp_path, monkeypatch):
+def test_multilingual_auto_persists_but_malformed_language_is_not_hidden(tmp_path, monkeypatch):
     path = tmp_path/'config.json'
     monkeypatch.setattr(FixoflowConfig, 'get_config_path', classmethod(lambda cls: path))
     path.write_text(json.dumps({'language': None, 'model_name': 'multilingual-base'}))
     cfg = FixoflowConfig.load()
-    assert cfg.language == 'en' and cfg.deferred_language == 'auto'
+    assert cfg.language is None and cfg.deferred_language == ''
     path.write_text(json.dumps({'language': 'bogus'}))
     with pytest.raises(ValueError):
         FixoflowConfig.load()

@@ -105,6 +105,7 @@ export default function HomePage() {
             Illustrative examples. This website does not record your microphone.
             Transcription results vary.
           </p>
+          <a className="text-link" href="/features/#desktop-preview">See the redesigned desktop app <ArrowDown size={16} /></a>
         </div>
       </section>
       <FeatureStories />
