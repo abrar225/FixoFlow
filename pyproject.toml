@@ -20,12 +20,14 @@ dependencies = [
   "faster-whisper>=1.1,<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "pynput>=1.7.6",
   "onnx-asr[cpu]==0.12.0; sys_platform != 'darwin' or platform_machine == 'arm64'",
-  "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
-  "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
-  "pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'",
-  "pyobjc-framework-AVFoundation>=10.0; sys_platform == 'darwin'",
-  "pyobjc-framework-UserNotifications>=10.0; sys_platform == 'darwin'",
-  "pyobjc-framework-ServiceManagement>=10.0; sys_platform == 'darwin'"
+  # PyObjC 13's CoreMedia wheel cannot load libswiftCoreMedia on the macOS 15 Intel runner.
+  "pyobjc-core==12.2.2; sys_platform == 'darwin'",
+  "pyobjc-framework-Cocoa==12.2.2; sys_platform == 'darwin'",
+  "pyobjc-framework-ApplicationServices==12.2.2; sys_platform == 'darwin'",
+  "pyobjc-framework-WebKit==12.2.2; sys_platform == 'darwin'",
+  "pyobjc-framework-AVFoundation==12.2.2; sys_platform == 'darwin'",
+  "pyobjc-framework-UserNotifications==12.2.2; sys_platform == 'darwin'",
+  "pyobjc-framework-ServiceManagement==12.2.2; sys_platform == 'darwin'"
 ]
 
 [project.urls]

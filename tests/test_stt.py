@@ -183,7 +183,9 @@ def test_intel_macos_uses_cpu_engine_without_loading_mlx(monkeypatch):
 
 
 def test_missing_catalog_model_never_fetches_from_hub(engine,monkeypatch,tmp_path):
-    from fixoflow.models import manager
+    from fixoflow.models import catalog, manager
+    # The fixture constructs the MLX engine directly, including on CPU CI.
+    monkeypatch.setattr(catalog,'runtime_backend',lambda:'mlx')
     monkeypatch.setattr(manager,'model_root',lambda:tmp_path/'absent')
     download=Mock(side_effect=AssertionError('inference must never download'))
     monkeypatch.setattr(module,'snapshot_download',download)

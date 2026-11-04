@@ -135,7 +135,8 @@ def test_linux_staging_preserves_symlinks_and_relocatable_apprun(tmp_path):
     script = (appdir / 'AppRun').read_text()
     assert 'exec "$APPDIR/usr/lib/fixoflow/Fixoflow" "$@"' in script
     assert str(ROOT) not in script
-    assert (appdir / 'AppRun').stat().st_mode & 0o111
+    if sys.platform != 'win32':
+        assert (appdir / 'AppRun').stat().st_mode & 0o111
     assert 'Exec=Fixoflow' in (appdir / 'fixoflow.desktop').read_text()
 
 

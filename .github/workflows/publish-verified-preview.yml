@@ -3,53 +3,49 @@ on:
   workflow_dispatch:
     inputs:
       build_run:
-        description: Successful Desktop preview packages run ID
+        description: Successful full Desktop preview packages run ID
         required: true
       build_sha:
-        description: Full source commit used by that run
+        description: Full source commit used by that run and existing draft
         required: true
       version:
         description: Existing draft release version, without v
         required: true
-      windows_sha256:
-        description: Verified Windows installer SHA-256
-        required: false
-      linux_sha256:
-        description: Verified Linux installer SHA-256
-        required: false
       inspect_only:
-        description: Inspect saved artifacts and emit hashes without attaching files
+        description: Inspect all six installers and emit a reviewable manifest without attaching
         type: boolean
-        default: false
+        default: true
+      expected_manifest_sha256:
+        description: SHA256 of native-preview-manifest.json from the inspect-only run (required to attach)
+        required: false
 permissions:
   actions: read
   contents: write
 jobs:
   attach:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       BUILD_RUN: ${{ inputs.build_run }}
       BUILD_SHA: ${{ inputs.build_sha }}
       VERSION: ${{ inputs.version }}
-      WINDOWS_HASH: ${{ inputs.windows_sha256 }}
-      LINUX_HASH: ${{ inputs.linux_sha256 }}
+      EXPECTED_MANIFEST_HASH: ${{ inputs.expected_manifest_sha256 }}
       INSPECT_ONLY: ${{ inputs.inspect_only }}
     steps:
-      - name: Require a successful exact-source native build and matching draft
+      - name: Require an exact successful full native build and matching unpublished draft
         shell: bash
         run: |
+          set -euo pipefail
           [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
           [[ "$BUILD_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           if [[ "$INSPECT_ONLY" != "true" ]]; then
-            [[ "$WINDOWS_HASH" =~ ^[a-f0-9]{64}$ ]]
-            [[ "$LINUX_HASH" =~ ^[a-f0-9]{64}$ ]]
+            [[ "$EXPECTED_MANIFEST_HASH" =~ ^[a-f0-9]{64}$ ]]
           fi
-          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" '.conclusion == "success" and .head_sha == $sha and .path == ".github/workflows/desktop-preview.yml"'
-          gh api "repos/$GH_REPO/releases?per_page=100" | jq -e --arg tag "v$VERSION" --arg sha "$BUILD_SHA" 'any(.[]; .tag_name == $tag and .draft == true and .target_commitish == $sha)'
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" --arg repo "$GH_REPO" '.conclusion == "success" and .head_sha == $sha and .repository.full_name == $repo and .head_repository.full_name == $repo and .path == ".github/workflows/desktop-preview.yml"'
+          gh api "repos/$GH_REPO/releases?per_page=100" | jq -e --arg tag "v$VERSION" --arg sha "$BUILD_SHA" '[.[] | select(.tag_name == $tag and .draft == true and .published_at == null and .target_commitish == $sha)] | if length == 1 then .[0] else error("Exactly one matching unpublished source-bound draft is required") end' > draft-release.json
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
@@ -62,40 +58,174 @@ jobs:
           run-id: ${{ inputs.build_run }}
           name: linux-preview
           path: linux
-      - name: Inspect installer formats and native UI/inference reports
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run }}
+          name: macos-arm64-preview
+          path: macos-arm64
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run }}
+          name: macos-x86_64-preview
+          path: macos-x86_64
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run }}
+          name: fedora-rpm-preview
+          path: fedora
+      - name: Inspect all six formats and require installed native acceptance evidence
         shell: bash
         run: |
-          jq -e --arg version "$VERSION" '.version == $version and .platform == "win32" and .ui == "ok" and .local_inference == "executed"' windows/build/self-check.json
-          jq -e --arg version "$VERSION" '.version == $version and .platform == "linux" and .ui == "ok" and .local_inference == "executed"' linux/build/self-check.json
+          set -euo pipefail
           python3 - <<'PY'
           import hashlib, json, os
           from pathlib import Path
-          version = os.environ['VERSION']
-          result = {'build_run': os.environ['BUILD_RUN'], 'source_commit': os.environ['BUILD_SHA'], 'version': version, 'files': []}
-          for platform, suffix, magic in [('windows', 'windows-x64-setup.exe', b'MZ'), ('linux', 'linux-x64.deb', b'!<arch>\n')]:
-              path = Path(platform) / 'dist' / f'Fixoflow-{version}-{suffix}'
-              digest = hashlib.sha256()
+
+          version, commit = os.environ['VERSION'], os.environ['BUILD_SHA']
+          files, acceptance = [], {}
+          def load(path):
+              return json.loads(Path(path).read_text())
+          def require(condition, message):
+              if not condition:
+                  raise RuntimeError(message)
+          def source_report(path, *, inference='local_inference', tray=True):
+              value = load(path)
+              require(value.get('version') == version and value.get('source_commit') == commit, f'Installed version/source mismatch: {path}')
+              require(value.get('ui') == 'ok' and value.get(inference) == 'executed', f'Installed UI/inference failure: {path}')
+              if tray:
+                  require(value.get('tray_backend') == 'ready', f'Native tray backend was not checked: {path}')
+              return value
+          def digest(path):
+              value = hashlib.sha256()
               with path.open('rb') as stream:
-                  assert stream.read(len(magic)) == magic, f'Unexpected installer format: {path}'
-                  stream.seek(0)
-                  while chunk := stream.read(1024 * 1024):
-                      digest.update(chunk)
-              result['files'].append({'name': path.name, 'bytes': path.stat().st_size, 'sha256': digest.hexdigest(), 'platform': platform, 'report': json.loads((Path(platform) / 'build/self-check.json').read_text())})
-          Path('native-preview-manifest.json').write_text(json.dumps(result, indent=2) + '\n')
-          print(json.dumps(result, indent=2))
+                  while block := stream.read(1024 * 1024):
+                      value.update(block)
+              return value.hexdigest()
+          def installer(directory, suffix, kind, reports, sidecar=None, architecture='x86_64'):
+              path = Path(directory) / 'dist' / f'Fixoflow-{version}-{suffix}'
+              require(path.is_file() and not path.is_symlink(), f'Missing native installer: {path}')
+              with path.open('rb') as stream:
+                  header = stream.read(20)
+                  if kind == 'dmg':
+                      stream.seek(-512, 2)
+                      require(stream.read(4) == b'koly', f'Invalid UDIF DMG: {path}')
+                  else:
+                      magic = {'exe': b'MZ', 'deb': b'!<arch>\n', 'rpm': b'\xed\xab\xee\xdb', 'appimage': b'\x7fELF'}[kind]
+                      require(header.startswith(magic), f'Unexpected installer format: {path}')
+                      if kind == 'appimage':
+                          require(header[8:11] == b'AI\x02' and header[18:20] == b'\x3e\x00', f'Not an x86_64 type2 AppImage: {path}')
+              item = {'name': path.name, 'path': str(path), 'bytes': path.stat().st_size,
+                      'sha256': digest(path), 'format': kind, 'architecture': architecture,
+                      'acceptance_reports': reports}
+              if sidecar:
+                  metadata = load(sidecar)
+                  require(metadata.get('version') == version and metadata.get('source_commit') == commit, f'Artifact source/version mismatch: {sidecar}')
+                  require(metadata.get('sha256') == item['sha256'] and metadata.get('bytes') == item['bytes'], f'Artifact digest/size mismatch: {sidecar}')
+                  if kind != 'dmg':
+                      require(metadata.get('filename') == path.name and metadata.get('architecture') == architecture, f'Artifact name/architecture mismatch: {sidecar}')
+                  item['artifact_metadata'] = metadata
+              files.append(item)
+
+          windows = source_report('windows/build/installed-windows-check.json', inference='bundled_inference')
+          require(windows.get('installed_package') == 'ok' and windows.get('empty_working_directory') is True, 'Windows installer completion evidence missing')
+          frozen = load('windows/build/self-check.json')
+          require(frozen.get('version') == version and frozen.get('platform') == 'win32' and frozen.get('ui') == 'ok' and frozen.get('local_inference') == 'executed' and frozen.get('tray_backend') == 'ready', 'Windows frozen native completion evidence missing')
+          acceptance['windows-x64'] = {'installed': windows, 'frozen': frozen}
+          installer('windows', 'windows-x64-setup.exe', 'exe', ['windows-x64'])
+
+          for architecture in ('arm64', 'x86_64'):
+              directory = f'macos-{architecture}'
+              report = source_report(f'{directory}/build/installed-mac-check.json', tray=False)
+              require(report.get('architecture') == architecture and report.get('installed_from_dmg') is True and report.get('disposable_profile') is True and report.get('empty_working_directory') is True, f'Mac installed DMG/architecture evidence missing: {directory}')
+              embedded_source = load(f'{directory}/build/source-manifest.json')
+              require(embedded_source.get('git_commit') == commit, f'Mac embedded source commit mismatch: {directory}')
+              metadata_path = f'{directory}/dist/macos-artifact.json'
+              metadata = load(metadata_path)
+              require(metadata.get('source_manifest_sha256') == digest(Path(directory) / 'build/source-manifest.json'), f'Mac frozen source-manifest digest mismatch: {directory}')
+              acceptance[directory] = report
+              installer(directory, f'macos-{architecture}-preview.dmg', 'dmg', [directory], metadata_path, architecture)
+
+          for kind, suffix, report_path in (
+              ('deb', 'linux-x64.deb', 'linux/build/installed-deb-check.json'),
+              ('appimage', 'linux-x64.AppImage', 'linux/build/appimage-check.json'),
+              ('rpm', 'linux-x64.rpm', 'fedora/build/rpm-check/installed-rpm-check.json'),
+          ):
+              report = source_report(report_path)
+              require(report.get('platform') == 'linux' and report.get('disposable_profile') is True and report.get('empty_working_directory') is True, f'Installed Linux evidence missing: {report_path}')
+              if kind == 'appimage':
+                  require(report.get('appimage_runtime') == 'executed', 'AppImage runtime execution evidence missing')
+              directory = 'fedora' if kind == 'rpm' else 'linux'
+              acceptance[f'linux-{kind}'] = report
+              installer(directory, suffix, kind, [f'linux-{kind}'], f'{directory}/dist/Fixoflow-{version}-{suffix}.json')
+
+          require(len(files) == 6 and len({item['name'] for item in files}) == 6, 'All six distinct native installers are required')
+          files.sort(key=lambda item: item['name'])
+          result = {'schema_version': 1, 'build_run': os.environ['BUILD_RUN'], 'source_commit': commit,
+                    'version': version, 'preview': True, 'signing': 'Preview only; no public signing/notarization qualification',
+                    'files': files, 'platform_acceptance': acceptance}
+          manifest = Path('native-preview-manifest.json')
+          manifest.write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
+          sums = ''.join(f"{item['sha256']}  {item['name']}\n" for item in files)
+          Path('SHA256SUMS').write_text(sums)
+          manifest_hash = digest(manifest)
+          Path('native-preview-manifest.sha256').write_text(f'{manifest_hash}  {manifest.name}\n')
+          print(manifest.read_text())
+          print(f'EXPECTED_MANIFEST_SHA256={manifest_hash}')
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary:
+              with open(summary, 'a') as stream:
+                  stream.write(f'All six native installer formats passed artifact/report checks.\n\nManifest SHA256: `{manifest_hash}`\n\nSource: `{commit}`; native run: `{os.environ["BUILD_RUN"]}`.\n')
           PY
-      - uses: actions/upload-artifact@v4
-        if: inputs.inspect_only
+      - name: Save inspection manifest, digest and installer checksums
+        uses: actions/upload-artifact@v4
         with:
           name: native-preview-inspection
-          path: native-preview-manifest.json
+          path: |
+            native-preview-manifest.json
+            native-preview-manifest.sha256
+            SHA256SUMS
           if-no-files-found: error
-      - name: Verify previously inspected installer hashes
+      - name: Verify the exact previously inspected source-run manifest
         if: ${{ !inputs.inspect_only }}
         shell: bash
         run: |
-          echo "$WINDOWS_HASH  windows/dist/Fixoflow-$VERSION-windows-x64-setup.exe" | sha256sum -c -
-          echo "$LINUX_HASH  linux/dist/Fixoflow-$VERSION-linux-x64.deb" | sha256sum -c -
-      - name: Attach exact files without overwriting existing assets
+          set -euo pipefail
+          echo "$EXPECTED_MANIFEST_HASH  native-preview-manifest.json" | sha256sum -c -
+      - name: Recheck unpublished draft and attach exact files without overwriting
         if: ${{ !inputs.inspect_only }}
-        run: gh release upload "v$VERSION" "windows/dist/Fixoflow-$VERSION-windows-x64-setup.exe" "linux/dist/Fixoflow-$VERSION-linux-x64.deb"
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" | jq -e --arg sha "$BUILD_SHA" '.conclusion == "success" and .head_sha == $sha and .path == ".github/workflows/desktop-preview.yml"'
+          release_id=$(jq -r '.id' draft-release.json)
+          gh api "repos/$GH_REPO/releases/$release_id" > current-draft.json
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          release = json.loads(Path('current-draft.json').read_text())
+          if not (release['draft'] is True and release['published_at'] is None and release['target_commitish'] == os.environ['BUILD_SHA'] and release['tag_name'] == 'v' + os.environ['VERSION']):
+              raise RuntimeError('Draft/source identity changed after inspection')
+          manifest = json.loads(Path('native-preview-manifest.json').read_text())
+          if not (manifest['source_commit'] == os.environ['BUILD_SHA'] and manifest['version'] == os.environ['VERSION'] and manifest['build_run'] == os.environ['BUILD_RUN'] and len(manifest['files']) == 6):
+              raise RuntimeError('Inspected native manifest identity mismatch')
+          for item in manifest['files']:
+              path = Path(item['path'])
+              digest = hashlib.sha256()
+              with path.open('rb') as stream:
+                  while block := stream.read(1024 * 1024):
+                      digest.update(block)
+              if path.stat().st_size != item['bytes'] or digest.hexdigest() != item['sha256']:
+                  raise RuntimeError(f'Installer changed after inspection: {path}')
+          sources = [item['path'] for item in manifest['files']] + ['native-preview-manifest.json', 'SHA256SUMS']
+          names = {Path(path).name for path in sources}
+          # Query all assets; a release's embedded asset list can be truncated.
+          assets = json.loads(subprocess.check_output(['gh', 'api', '--paginate', '--slurp', f'repos/{os.environ["GH_REPO"]}/releases/{release["id"]}/assets?per_page=100'], text=True))
+          existing = {asset['name'] for page in assets for asset in page}
+          collisions = sorted(names & existing)
+          if collisions:
+              raise RuntimeError(f'Refusing to overwrite existing draft assets: {collisions}')
+          subprocess.run(['gh', 'release', 'upload', 'v' + os.environ['VERSION'], *sources], check=True)
+          PY
